@@ -1,0 +1,8 @@
+setuptools
+Django>=1.11.29
+django-cors-headers
+django-webpack-loader
+djangorestframework
+factory_boy==2.5.2
+mysqlclient>=1.3.7
+virtualenv

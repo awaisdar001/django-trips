@@ -1,0 +1,29 @@
+version: "3.4"
+
+services:
+  mysql:
+    container_name: trips.mysql
+    image: mysql:5.6
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_general_ci
+    environment:
+      MYSQL_DATABASE: "db"
+      MYSQL_ROOT_PASSWORD: "db"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - 3606:3306
+  trips:
+    container_name: trips.app
+    image: djangoreactreduxfrontend
+    command: bash -c 'while true; do python manage.py runserver 0.0.0.0:9990; sleep 2; done'
+    volumes:
+      - .:/trips/app/djreact
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - mysql
+    ports:
+      - 9990:9990
+      - 3002:3000
+    stdin_open: true
+    tty: true

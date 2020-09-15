@@ -38,7 +38,7 @@ with open("README.md") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="awaisdar001",  # Replace with your own username
+    name="django-trips",  # Replace with your own username
     version="0.0.1",
     author="Awais Jibran",
     author_email="awaisdar001@gmail.com",

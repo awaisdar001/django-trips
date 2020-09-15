@@ -9,6 +9,9 @@ requirements: ## install development environment requirements
 update_db: ## Install migrations
 	python manage.py migrate
 
+new_trips: ## Adds random trips
+	python manage.py  generate_trips --batch_size=100
+
 static: ## Gather all static assets for production
 	npm install
 	python manage.py collectstatic -v 0 --noinput
@@ -23,14 +26,13 @@ test: ## Run unit tests for Trips app
 import: ## Import the mysql data into database
 	mysql -uroot -p -h localhost djreact < ../data/djreact_2019-04-17.sql
 
-build: _build dev.provision
+build: _build
 	find . -type p -delete
 	docker-compose build
 _build: 
 	find . -type p -delete
 	docker-compose build
-dev.provision:
-	DOCKER_COMPOSE_FILES="-f docker-compose.yml" bash ./scripts/provision.sh
+
 stop:  ## Stop all services
 	docker-compose stop
 run:

@@ -10,30 +10,16 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 
-WORKDIR /app/trips
-ADD . /app/trips
+WORKDIR /app/django-trips
+ADD . /app/django-trips
 
 RUN apt-get update && \
-    apt-get upgrade -y && \
     apt-get install -y git default-libmysqlclient-dev python3-pip
 
+RUN pip install --upgrade pip
 # Install pip requirements
 ADD requirements.txt .
 RUN python -m pip install -r requirements.txt
-
-
-# Install Node.js
-RUN apt-get install curl -y
-# get install script and pass it to execute:
-RUN curl -sL https://deb.nodesource.com/setup_12.x | bash
-# and install node
-RUN apt-get install nodejs -y
-# confirm that it was successful
-RUN node -v
-# npm installs automatically
-RUN npm -v
-# Install npm packages
-RUN npm install
 
 
 # Switching to a non-root user, please refer to https://aka.ms/vscode-docker-python-user-rights

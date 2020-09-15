@@ -13,17 +13,16 @@ services:
       - 3606:3306
   trips:
     container_name: trips.app
-    image: djangoreactreduxfrontend
-    command: bash -c 'while true; do python manage.py runserver 0.0.0.0:9990; sleep 2; done'
+    image: djangotrips
+    command: bash -c 'while true; do python manage.py runserver 0.0.0.0:8000; sleep 2; done'
     volumes:
-      - .:/trips/app/djreact
+      - .:/app/django-trips
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
       - mysql
     ports:
-      - 9990:9990
-      - 3002:3000
+      - 8000:8000
     stdin_open: true
     tty: true

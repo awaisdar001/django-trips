@@ -1,5 +1,6 @@
 import setuptools
 
+
 def load_requirements(*requirements_paths):
     """
     Load all requirements from the specified requirements files.
@@ -24,27 +25,27 @@ def is_requirement(line):
 
     # Skip blank lines, comments, and editable installs
     return not (
-        line == '' or
-        line.startswith('-r') or
-        line.startswith('#') or
-        line.startswith('-e') or
-        line.startswith('git+') or
-        line.startswith('-c')
+            line == '' or
+            line.startswith('-r') or
+            line.startswith('#') or
+            line.startswith('-e') or
+            line.startswith('git+') or
+            line.startswith('-c')
     )
 
 
-with open("README.md", "r") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="django-trips", # Replace with your own username
+    name="awaisdar001",  # Replace with your own username
     version="0.0.1",
-    author="awaisdar001",
+    author="Awais Jibran",
     author_email="awaisdar001@gmail.com",
     description="An Django Rest API for fetching and creating trips and their schedules.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/awaisdar001/django-trips",
     license='AGPL',
     packages=setuptools.find_packages(),
     classifiers=[

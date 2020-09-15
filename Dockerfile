@@ -10,13 +10,12 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 
-WORKDIR /trips/app/djreact
-ADD . /trips/app/djreact
+WORKDIR /app/trips
+ADD . /app/trips
 
-RUN apt-get update
-RUN apt-get -y install python3-pip
-RUN apt-get -y install default-libmysqlclient-dev
-RUN apt-get -y install git
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git default-libmysqlclient-dev python3-pip
 
 # Install pip requirements
 ADD requirements.txt .
@@ -38,8 +37,8 @@ RUN npm install
 
 
 # Switching to a non-root user, please refer to https://aka.ms/vscode-docker-python-user-rights
-RUN useradd appuser && chown -R appuser /trips
-USER appuser
+#RUN useradd appuser && chown -R appuser /trips
+#USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
 # File wsgi.py was not found in subfolder:Django-React-Redux-Frontend. Please enter the Python path to wsgi file.

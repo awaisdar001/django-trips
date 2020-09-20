@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from trips.models import (Activity, Facility, Host, Location, Trip, TripItinerary,
+from trips.models import ( Facility, Host, Location, Trip, TripItinerary,
                           TripSchedule)
 
 
@@ -24,21 +24,9 @@ class TripAdmin(admin.ModelAdmin):
     """Trip modal admin configuration"""
     inlines = [TripItineraryAdminInline, TripScheduleAdminInline]
     prepopulated_fields = {'slug': ('name',)}
-    list_display = (
-        'name', 'slug', 'price'
-    )
-    list_filter = ('starting_location',)
+    list_display = ('name', 'slug',)
+    list_filter = ('destination',)
     search_fields = ['name', 'description', 'locations_included']
-
-
-@admin.register(Activity)
-class ActivityAdmin(admin.ModelAdmin):
-    """Activity modal admin configuration"""
-    prepopulated_fields = {'slug': ('name',)}
-    list_display = (
-        'name', 'slug',
-    )
-
 
 @admin.register(Facility)
 class FacilityAdmin(admin.ModelAdmin):

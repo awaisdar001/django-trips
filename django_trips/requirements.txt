@@ -1,7 +1,7 @@
 setuptools
-Django>=1.11.29
+Django<2.3
 django-cors-headers
+django-config-models
 djangorestframework
-factory_boy==2.5.2
-mysqlclient>=1.3.7
-virtualenv
+mysqlclient
+factory_boy

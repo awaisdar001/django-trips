@@ -1,8 +1,10 @@
 import json
+from datetime import timezone, datetime
 
 from django.db import models
 from django.urls import reverse
-from trips.managers import ActiveTripManager, AvailableTripScheduleManager
+import trips.managers as managers
+from config_models.models import ConfigurationModel
 
 
 class Host(models.Model):
@@ -15,7 +17,7 @@ class Host(models.Model):
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=70, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    cancelation_policy = models.TextField(null=True, blank=True)
+    cancellation_policy = models.TextField(null=True, blank=True)
     verified = models.BooleanField(default=False)
 
     class Meta:
@@ -33,9 +35,16 @@ class Location(models.Model):
     This model contains information about trip location with respect to
     coordinates. We will use coordinates to draw google map.
     """
+    objects = models.Manager()
+    destinations = managers.TripDestinationManager()
+    departures = managers.TripDepartureManager()
+
     name = models.CharField(max_length=30)
-    slug = models.SlugField(max_length=50, null=True, blank=True)
-    coordinates = models.CharField(max_length=40, null=True, blank=True)
+    slug = models.SlugField(null=True, blank=True)
+    coordinates = models.CharField(max_length=50, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_destination = models.BooleanField(default=False)
+    is_departure = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['name']
@@ -44,23 +53,10 @@ class Location(models.Model):
         """String representation of model instance"""
         return "{0}".format(self.name)
 
-
-class Activity(models.Model):
-    """
-    Trip activity model
-
-    This model contains what kind of activities a trip will offer.
-    """
-    name = models.CharField(max_length=30)
-    slug = models.SlugField(max_length=50, null=True, blank=True)
-
-    class Meta:
-        ordering = ['name']
-        verbose_name_plural = 'Activities'
-
-    def __str__(self):
-        """String representation of model instance"""
-        return "{0}".format(self.name)
+    @property
+    def get_coordinates(self):
+        """Returns lat/lng in list."""
+        return self.coordinates.split(',')
 
 
 class Facility(models.Model):
@@ -72,6 +68,7 @@ class Facility(models.Model):
     """
     name = models.CharField(max_length=70)
     slug = models.SlugField(max_length=85, null=True, blank=True)
+    deleted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['name']
@@ -82,6 +79,13 @@ class Facility(models.Model):
         return "{0}".format(self.name)
 
 
+class Category(models.Model):
+    """Trip Category model"""
+    name = models.CharField(max_length=70)
+    slug = models.SlugField(max_length=85, null=True, blank=True)
+    deleted = models.BooleanField(default=False)
+
+
 class Trip(models.Model):
     """
     Trip model
@@ -90,7 +94,7 @@ class Trip(models.Model):
     end users.
     """
     objects = models.Manager()
-    active = ActiveTripManager()
+    active = managers.ActiveTripManager()
 
     name = models.CharField("Title", max_length=500, null=True, blank=True)
     slug = models.SlugField(max_length=100, null=True, blank=True)
@@ -99,21 +103,16 @@ class Trip(models.Model):
     _metadata = models.TextField(default='{}', null=True, blank=True)
 
     duration = models.SmallIntegerField(default=0, null=True, blank=True)
-    price = models.SmallIntegerField(default=0, null=True, blank=True)
-    starting_location = models.ForeignKey(
-        Location, related_name="trip_starting_location", on_delete=models.CASCADE)
+    age_limit = models.SmallIntegerField(default=0, null=True, blank=True)
 
-    locations_included = models.ManyToManyField(
-        Location, related_name="trip_locations")
-    activities = models.ManyToManyField(Activity)
-    facilities = models.ManyToManyField(Facility)
+    destination = models.ForeignKey(Location, null=True, blank=True, on_delete=models.CASCADE)
+    locations = models.ManyToManyField(Location, related_name="trip_locations")
 
-    _cancelation_policy = models.TextField(
-        "Cancelation Policy Override", null=True, blank=True)
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.CASCADE)
+    facilities = models.ManyToManyField(Facility, related_name="trip_facilities")
     gear = models.TextField("Recommended Gear", null=True, blank=True)
 
     deleted = models.BooleanField(default=False)
-
     created_by = models.ForeignKey(
         'auth.User', related_name="created_by_trips", on_delete=models.CASCADE)
     host = models.ForeignKey(Host, related_name="host_trips", on_delete=models.CASCADE)
@@ -123,15 +122,13 @@ class Trip(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return u"{0} - {1}".format(self.name, self.host)
+        return "{0} - {1}".format(self.name, self.host)
 
     class Meta:
         ordering = ['-created_at', '-id']
 
-    
     def get_absolute_url(self):
         return reverse('view_trip', {'slug': self.slug})
-        
 
     @property
     def metadata(self):
@@ -139,12 +136,12 @@ class Trip(models.Model):
         return json.loads(self._metadata)
 
     @property
-    def cancelation_policy(self):
+    def cancellation_policy(self):
         """
-        Trip's cancelation policy should be given preference over the
-        generic host cancelation (all-host-trips) policy.
+        Trip's cancellation policy should be given preference over the
+        generic host cancellation (all-host-trips) policy.
         """
-        return self._cancelation_policy or self.host.cancelation_policy
+        return self.host.cancellation_policy or CancellationPolicy.current().description
 
 
 class TripItinerary(models.Model):
@@ -155,15 +152,17 @@ class TripItinerary(models.Model):
     """
     trip = models.ForeignKey(Trip, related_name="trip_itinerary", on_delete=models.CASCADE)
     day = models.SmallIntegerField(default=0)
+    heading = models.CharField(max_length=150, null=True, blank=True)
     description = models.TextField(default='')
 
     def __str__(self):
         """String representation of model instance"""
-        return u"{0}-{1}".format(self.day, self.trip.name)
+        return "Day:{0}-{1}".format(self.day, self.trip.name)
 
     class Meta:
         ordering = ['trip', 'day']
         verbose_name_plural = 'Trip Itineraries'
+        unique_together = ('trip', 'day',)
 
 
 class TripSchedule(models.Model):
@@ -173,12 +172,71 @@ class TripSchedule(models.Model):
     This model contains information of upcoming trips
     """
     objects = models.Manager()
-    available = AvailableTripScheduleManager()
+    available = managers.AvailableTripScheduleManager()
 
     trip = models.ForeignKey(Trip, related_name="trip_schedule", on_delete=models.CASCADE)
+    price = models.SmallIntegerField(default=0)
     date_from = models.DateTimeField()
-    price_override = models.SmallIntegerField(default=0, null=True, blank=True)
 
     def __str__(self):
         """String representation of model instance"""
-        return u"{0} - {1}".format(self.trip, self.date_from)
+        return "{0} - {1}".format(self.trip, self.date_from)
+
+    @property
+    def is_active(self):
+        return self.date_from <= datetime.now()
+
+
+class TripReview(models.Model):
+    """Trip Review Model"""
+    trip = models.ForeignKey(Trip, related_name="trip_reviews", on_delete=models.CASCADE)
+    meals = models.SmallIntegerField(default=0)
+    accommodation = models.SmallIntegerField(default=0)
+    transport = models.SmallIntegerField(default=0)
+    value_for_money = models.SmallIntegerField(default=0)
+    overall = models.SmallIntegerField(default=0)
+    comment = models.TextField()
+    #     User details
+    name = models.CharField(max_length=50)
+    email = models.EmailField()
+    is_verified = models.BooleanField(default=False)
+    #     timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class TripReviewSummary(models.Model):
+    """Trip Review Summary Model"""
+    trip = models.ForeignKey(Trip, related_name="trip_review_summary", on_delete=models.CASCADE)
+    meals = models.FloatField(default=0)
+    accommodation = models.FloatField(default=0)
+    transport = models.FloatField(default=0)
+    value_for_money = models.FloatField(default=0)
+    overall = models.FloatField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class CancellationPolicy(ConfigurationModel):
+    """CancellationPolicyModel model"""
+    description = models.TextField()
+
+    def __str__(self):
+        return self.description
+
+
+class TripBooking(models.Model):
+    """Trip booking"""
+    schedule = models.ForeignKey(TripSchedule, related_name="trip_bookings", on_delete=models.CASCADE)
+    name = models.CharField(max_length=60)
+    phone_number = models.CharField(max_length=30)
+    cnic_number = models.CharField(max_length=30)
+    email = models.EmailField()
+    message = models.TextField()
+
+
+class TripPickupLocation(models.Model):
+    """Trip pickup locations"""
+    trip = models.ForeignKey(TripSchedule, related_name="trip_pickup_locations", on_delete=models.CASCADE)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE)
+    additional_price = models.SmallIntegerField(default=0)

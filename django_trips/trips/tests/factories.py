@@ -6,7 +6,7 @@ from factory.django import DjangoModelFactory
 from pytz import UTC
 
 from trips.models import (
-    Activity, Facility, Host, Location, Trip, TripItinerary, TripSchedule
+    Category, Facility, Host, Location, Trip, TripItinerary, TripSchedule
 )
 
 
@@ -17,7 +17,7 @@ class GroupFactory(DjangoModelFactory):
         model = Group
         django_get_or_create = ('name',)
 
-    name = factory.Sequence(u'group{0}'.format)
+    name = factory.Sequence('group{0}'.format)
 
 
 class UserFactory(DjangoModelFactory):
@@ -27,13 +27,14 @@ class UserFactory(DjangoModelFactory):
         model = User
 
 
-class ActivityFactory(DjangoModelFactory):
-    """Activity factory"""
+class CategoryFactory(DjangoModelFactory):
+    """Category factory"""
 
     class Meta(object):
-        model = Activity
+        model = Category
 
-    name = factory.Sequence(u'Activity - {0}'.format)
+    name = factory.Sequence('Category - {0}'.format)
+    slug = factory.Sequence('category-{0}'.format)
 
 
 class HostFactory(DjangoModelFactory):
@@ -42,8 +43,8 @@ class HostFactory(DjangoModelFactory):
     class Meta(object):
         model = Host
 
-    name = factory.Sequence(u'Host - {0}'.format)
-    cancelation_policy = factory.Sequence(u'Cancelation Policy - {0}'.format)
+    name = factory.Sequence('Host - {0}'.format)
+    cancellation_policy = factory.Sequence('cancellation Policy - {0}'.format)
 
 
 class FacilityFactory(DjangoModelFactory):
@@ -52,7 +53,7 @@ class FacilityFactory(DjangoModelFactory):
     class Meta(object):
         model = Facility
 
-    name = factory.Sequence(u'Facility - {0}'.format)
+    name = factory.Sequence('Facility - {0}'.format)
 
 
 class LocationFactory(DjangoModelFactory):
@@ -61,7 +62,8 @@ class LocationFactory(DjangoModelFactory):
     class Meta(object):
         model = Location
 
-    name = factory.Sequence(u'Location - {0}'.format)
+    name = factory.Sequence('Location - {0}'.format)
+    # is_destination = factory
 
 
 class TripScheduleFactory(DjangoModelFactory):
@@ -85,16 +87,16 @@ class TripFactory(DjangoModelFactory):
         model = Trip
         django_get_or_create = ('slug',)
 
-    name = factory.Sequence(u'My awsome trip - {0}'.format)
-    slug = factory.Sequence(u'my-awsome-trip-{0}'.format)
-    description = factory.Sequence(u'awsome trip description- {}'.format)
+    name = factory.Sequence('My awsome trip - {0}'.format)
+    slug = factory.Sequence('my-awsome-trip-{0}'.format)
+    description = factory.Sequence('awsome trip description- {}'.format)
 
-    locations_included = factory.SubFactory(LocationFactory)
-    starting_location = factory.SubFactory(LocationFactory)
-    activities = factory.SubFactory(ActivityFactory)
+    destination = factory.SubFactory(LocationFactory)
+    locations = factory.SubFactory(LocationFactory)
+    category = factory.SubFactory(CategoryFactory)
     facilities = factory.SubFactory(FacilityFactory)
 
-    gear = factory.Sequence(u'Trip gear - {0}'.format)
+    gear = factory.Sequence('Trip gear - {0}'.format)
 
     created_by = factory.SubFactory(UserFactory)
     host = factory.SubFactory(HostFactory)
@@ -103,28 +105,16 @@ class TripFactory(DjangoModelFactory):
     updated_at = datetime(2011, 1, 1, tzinfo=UTC)
 
     @factory.post_generation
-    def locations_included(self, create, extracted, **kwargs):
+    def locations(self, create, extracted, **kwargs):
         """The post_generation decorator performs actions once the model object has been generated."""
         if extracted is None:
             return
 
-        if isinstance(extracted, basestring):
+        if isinstance(extracted, str):
             extracted = [extracted]
 
         for group_name in extracted:
-            self.locations_included.add(LocationFactory.simple_generate(create, name=group_name))
-
-    @factory.post_generation
-    def activities(self, create, extracted, **kwargs):
-        """The post_generation decorator performs actions once the model object has been generated."""
-        if extracted is None:
-            return
-
-        if isinstance(extracted, basestring):
-            extracted = [extracted]
-
-        for group_name in extracted:
-            self.activities.add(ActivityFactory.simple_generate(create, name=group_name))
+            self.locations.add(LocationFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
     def facilities(self, create, extracted, **kwargs):
@@ -132,7 +122,7 @@ class TripFactory(DjangoModelFactory):
         if extracted is None:
             return
 
-        if isinstance(extracted, basestring):
+        if isinstance(extracted, str):
             extracted = [extracted]
 
         for group_name in extracted:

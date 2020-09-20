@@ -28,7 +28,7 @@ class ActiveTripManager(models.Manager):
 
     Usage:
         >>> Trip.active.all()
-        >>> Trip.trip_schedule(manager='available').all()
+        >>> Trip.trip_schedule(manager='active').all()
     """
 
     def get_queryset(self):
@@ -38,4 +38,42 @@ class ActiveTripManager(models.Manager):
         """
         return super(ActiveTripManager, self).get_queryset().filter(
             deleted=False
+        )
+
+
+class TripDestinationManager(models.Manager):
+    """
+    Trip schedule safe queryset manager.
+
+    Usage:
+        >>> Location.destinations.all()
+        >>> Trip.locations(manager='destinations').all()
+    """
+
+    def get_queryset(self):
+        """
+        This method will only return the objects which have date_from defined
+        in the future
+        """
+        return super(TripDestinationManager, self).get_queryset().filter(
+            is_destination=True
+        )
+
+
+class TripDepartureManager(models.Manager):
+    """
+    Trip schedule safe queryset manager.
+
+    Usage:
+        >>> Location.departures.all()
+        >>> Trip.locations(manager='departures').all()
+    """
+
+    def get_queryset(self):
+        """
+        This method will only return the objects which have date_from defined
+        in the future
+        """
+        return super(TripDepartureManager, self).get_queryset().filter(
+            is_departure=False
         )

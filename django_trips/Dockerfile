@@ -1,7 +1,7 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
 FROM python:3.7-slim
 
-EXPOSE 9990
+EXPOSE 8888
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -10,21 +10,27 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 
-WORKDIR /app/django-trips
-ADD . /app/django-trips
+WORKDIR /app/djangotrips
+ADD . /app/djangotrips
 
-RUN apt-get update && \
-    apt-get install -y git default-libmysqlclient-dev python3-pip
+WORKDIR /app/djangotrips
 
-RUN pip install --upgrade pip
+RUN apt-get update && apt-get install -y python3-setuptools \
+    python3-pip \
+    default-libmysqlclient-dev \
+    git \
+    nano \
+    && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+
+RUN pip3 install --upgrade pip
 # Install pip requirements
 ADD requirements.txt .
 RUN python -m pip install -r requirements.txt
 
 
-# Switching to a non-root user, please refer to https://aka.ms/vscode-docker-python-user-rights
-#RUN useradd appuser && chown -R appuser /trips
-#USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
 # File wsgi.py was not found in subfolder:Django-React-Redux-Frontend. Please enter the Python path to wsgi file.

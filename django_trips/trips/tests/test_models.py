@@ -5,10 +5,10 @@ from django.test import TestCase
 from pytz import UTC
 
 from trips.models import (
-    Activity, Facility, Host, Location, Trip, TripSchedule
+    Facility, Host, Location, Trip, TripSchedule, CancellationPolicy
 )
 from trips.tests.factories import (
-    ActivityFactory, FacilityFactory, HostFactory, LocationFactory,
+    FacilityFactory, HostFactory, LocationFactory,
     TripFactory, TripItineraryFactory, TripScheduleFactory
 )
 
@@ -95,39 +95,6 @@ class TestLocation(TestCase):
             Location.objects.get(name=location_name)
 
 
-class TestActivity(TestCase):
-    """
-    To test CRUD operations on Activity model.
-    """
-
-    def setUp(self):
-        self.activity = ActivityFactory()
-
-    def test_create_activity(self):
-        """
-        Test activity is created successfully after save operation.
-        """
-        self.assertIsNotNone(self.activity.id)
-
-    def test_update_activity(self):
-        """
-        Test activity object updates are persisted successfully after save.
-        """
-        id = self.activity.id
-        self.activity.name = "Pokemon Fight"
-        self.activity.save()
-        updated_activity = Activity.objects.filter(id=id)[0]
-        self.assertEqual("Pokemon Fight", updated_activity.name)
-
-    def test_delete_activity(self):
-        """
-        Test the activity object is not longer persisted after delete.
-        """
-        self.assertEqual(1, len(Activity.objects.all()))
-        self.activity.delete()
-        self.assertEqual(0, len(Activity.objects.all()))
-
-
 class TestFacility(TestCase):
     """
     Verify CRUD operations for Facility model.
@@ -166,7 +133,7 @@ class TestTrip(TestCase):
 
     def setUp(self):
         """Setup objects for testing"""
-        self.trip = TripFactory.create(locations_included=['Lahore', 'Gilgit'])
+        self.trip = TripFactory.create(locations=['Lahore', 'Gilgit'])
 
     def _update_trip_field(self, field, value):
         """Updates a field in trip object"""
@@ -216,24 +183,29 @@ class TestTrip(TestCase):
     def test_trip_availability(self):
         """Test available manager of trip schedule"""
         future_trip_date = datetime.now(UTC) + timedelta(days=7)
-        past_trip = TripScheduleFactory(trip=self.trip)
+        __ = TripScheduleFactory(trip=self.trip)
         self.assertEqual(TripSchedule.available.all().count(), 0)
-        future_trip = TripScheduleFactory(trip=self.trip, date_from=future_trip_date)
+        __ = TripScheduleFactory(trip=self.trip, date_from=future_trip_date)
         self.assertEqual(TripSchedule.available.all().count(), 1)
         self.assertEqual(TripSchedule.objects.all().count(), 2)
 
-    def test_cancelation_policy(self):
+    def test_cancellation_policy(self):
         """
-        Tests cancelation policy override.
+        Tests cancellation policy override.
 
-        When trip object has cancelation policy, it should be given perfernce
-        over host cancelation policy.
+        When trip object has cancellation policy, it should be given perfernce
+        over host cancellation policy.
         """
-        new_cancelation_policy = u'new cancelation policy'
-        host_cancelation_policy = self.trip.host.cancelation_policy
+        self.trip.host.cancellation_policy = None
+        self.trip.host.save()
 
-        self.assertEqual(self.trip.cancelation_policy, host_cancelation_policy)
-        self.assertNotEqual(host_cancelation_policy, new_cancelation_policy)
+        common_policy = 'Common trip CancellationPolicy'
+        CancellationPolicy(description=common_policy).save()
+        new_cancellation_policy = 'new cancellation policy'
 
-        self._update_trip_field('_cancelation_policy', new_cancelation_policy)
-        self.assertEqual(self.trip.cancelation_policy, new_cancelation_policy)
+        self.assertEqual(self.trip.cancellation_policy, CancellationPolicy.current().description)
+
+        # Update host policy.
+        self.trip.host.cancellation_policy = new_cancellation_policy
+        self.trip.host.save()
+        self.assertEqual(self.trip.cancellation_policy, new_cancellation_policy)

@@ -1,8 +1,9 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from trips.models import (Activity, Facility, Host, Location, Trip,
-                                     TripItinerary, TripSchedule)
+from trips.models import (
+    Facility, Host, Location, Trip, TripItinerary, TripSchedule,
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -27,15 +28,6 @@ class FacilitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Facility
         fields = '__all__'
-
-
-class ActivitySerializer(serializers.ModelSerializer):
-    """Activity Modal Serializer"""
-
-    class Meta:
-        model = Activity
-        fields = '__all__'
-
 
 class HostSerializer(serializers.ModelSerializer):
     """Host Modal Serializer"""
@@ -71,12 +63,11 @@ class TripDetailSerializer(serializers.ModelSerializer):
     trip_schedule = serializers.SerializerMethodField()
     trip_itinerary = TripItinerarySerializer(many=True)
 
-    activities = ActivitySerializer(many=True)
-    cancelation_policy = serializers.CharField(read_only=True)
+    cancellation_policy = serializers.CharField(read_only=True)
     metadata = serializers.JSONField()
     facilities = FacilitySerializer(many=True)
     starting_location = LocationSerializer()
-    locations_included = LocationSerializer(many=True)
+    locations = LocationSerializer(many=True)
     host = HostSerializer()
     created_by = UserSerializer()
 
@@ -86,7 +77,7 @@ class TripDetailSerializer(serializers.ModelSerializer):
         return serializer.data
 
     class Meta:
-        exclude = ('_cancelation_policy',)
+        exclude = ('_cancellation_policy',)
         model = Trip
 
 
@@ -99,11 +90,11 @@ class TripListSerializer(serializers.ModelSerializer):
     """
 
     trip_schedule = serializers.SerializerMethodField()
-    activities = ActivitySerializer(many=True)
+
     facilities = FacilitySerializer(many=True)
     starting_location = LocationSerializer()
     metadata = serializers.JSONField()
-    locations_included = LocationSerializer(many=True)
+    locations = LocationSerializer(many=True)
 
     def get_trip_schedule(self, trip):
         qs = TripSchedule.available.filter(trip=trip)
@@ -112,7 +103,7 @@ class TripListSerializer(serializers.ModelSerializer):
 
     class Meta:
         exclude = (
-            '_cancelation_policy', 'host', 'created_by', 'created_at', 'updated_at',
+            '_cancellation_policy', 'host', 'created_by', 'created_at', 'updated_at',
             'deleted', 'gear'
         )
         model = Trip

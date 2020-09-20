@@ -7,7 +7,7 @@ from django.utils.timezone import make_aware
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
 
-from trips.models import (Activity, Facility, Host, Location, Trip, TripItinerary,
+from trips.models import (Facility, Host, Location, Trip, TripItinerary,
                           TripSchedule)
 
 
@@ -68,41 +68,28 @@ class Command(BaseCommand):
             'Karachi', 'Kashmir', 'Murree', 'Kaghan', 'Swat', 'Skardu'
         ]
 
-        if locations_count == 0:
-            location, __ = Location.objects.get_or_create(
-                name=random.choice(locations_names_list)
-            )
-            return location
-        elif locations_count == 1:
-            location_objects_list = []
-            for location_name in random.sample(locations_names_list, random.choice(range(2, 7))):
-                location, __ = Location.objects.get_or_create(
-                    name=location_name
-                )
-                location_objects_list.append(location)
-            return location_objects_list
+        def get_location_instance(name=None):
+            location_data = {
+                'name': name or random.choice(locations_names_list),
+                'is_destination': random.choice([True, False]),
+                'price': random.choice([1000, 5000, 6000, 9000])
+            }
+            location_data['is_departure'] = not location_data['is_destination']
+            return location_data
 
-    @staticmethod
-    def get_random_activities():
-        """
-        get random number of activities from some pre-defined activities
-        """
-        activities_names_list = [
-            'Hiking', 'Snow Fight', 'Camping', 'SightSeeing', 'Trekking',
-            'Skiing', 'Paragliding', 'Cliff Diving', 'Beaches'
+        if locations_count == 0:
+            location, __ = Location.objects.get_or_create(**get_location_instance())
+            return location
+
+        return [
+            Location.objects.get_or_create(**get_location_instance(location_name))
+            for location_name in random.sample(locations_names_list, random.choice(range(2, 7)))
         ]
-        activities_objects_list = []
-        for activity_name in random.sample(activities_names_list, random.choice(range(2, 5))):
-            activity, __ = Activity.objects.get_or_create(
-                name=activity_name
-            )
-            activities_objects_list.append(activity)
-        return activities_objects_list
 
     @staticmethod
     def get_random_facilities():
         """
-        get random number of facilities from some pre-defined facilities
+        Get random number of facilities from some pre-defined facilities.
         """
         facilities_names_list = [
             'Transport', 'Meals', 'Guide', 'Photography', 'Accommodation',
@@ -132,12 +119,10 @@ class Command(BaseCommand):
         """
         generate random itineraries for a trip with a defined format
         """
-        itineraries_list = []
-        for day_number in range(1, random.choice(range(4, 7))):
-            day = day_number
-            description = "Itinerary for Day: {}".format(day)
-            itineraries_list.append((day, description))
-        return itineraries_list
+        return [
+            (day, "Itinerary for Day: {}".format(day))
+            for day in range(1, random.choice(range(4, 7)))
+        ]
 
     @staticmethod
     def get_random_gear():
@@ -168,8 +153,9 @@ class Command(BaseCommand):
 
         for count in range(0, batch_size):
             trip = Trip(name="Trip : {}".format(count))
+            trip.destination = self.get_random_locations()
             trip.duration = random.choice(range(3, 8))
-            trip.price = random.choice([1000, 5000, 6000, 9000])
+            trip.age_limit = random.choice(range(20, 40))
             trip.starting_location = self.get_random_locations(0)
             trip.host = self.get_random_host()
             trip.gear = self.get_random_gear()
@@ -184,8 +170,7 @@ class Command(BaseCommand):
                     'Error Saving Trip {}\n{}'.format(trip.id, e)))
 
             # Adding M2M fields for the trip
-            trip.locations_included.set(self.get_random_locations(1))
-            trip.activities.set(self.get_random_activities())
+            trip.locations.set(self.get_random_locations(4))
             trip.facilities.set(self.get_random_facilities())
             trip.save()
 
@@ -203,4 +188,5 @@ class Command(BaseCommand):
                 )
                 trip_itinerary.save()
 
-            self.stdout.write(self.style.SUCCESS('Trip ID Created: %s') % trip.id)
+            trip.name = "{} days trip to {}".format(len(trip_itineraries), trip.locations.first().name)
+            self.stdout.write(self.style.SUCCESS('Trip ID Created: %s') % trip.name)

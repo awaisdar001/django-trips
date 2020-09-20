@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   mysql:
-    container_name: trips.mysql
+    container_name: djangotrips.mysql
     image: mysql:5.6
     command: mysqld --character-set-server=utf8 --collation-server=utf8_general_ci
     environment:
@@ -12,16 +12,14 @@ services:
     ports:
       - 3606:3306
   trips:
-    container_name: trips.app
+    container_name: djangotrips.django
     image: djangotrips
     command: bash -c 'while true; do python manage.py runserver 0.0.0.0:8000; sleep 2; done'
     volumes:
-      - .:/app/django-trips
+      - .:/app/djangotrips
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      - mysql
     ports:
       - 8000:8000
     stdin_open: true

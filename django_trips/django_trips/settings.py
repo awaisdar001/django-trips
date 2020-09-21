@@ -81,7 +81,7 @@ DATABASES = {
         'NAME': 'db',
         'USER': 'root',
         'PASSWORD': 'db',
-        'HOST': 'mysql',  # Or an IP Address that your DB is hosted on
+        'HOST': 'tripsdb',  # Or an IP Address that your DB is hosted on
         'PORT': '3306',
     }
 }

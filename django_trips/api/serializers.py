@@ -29,6 +29,7 @@ class FacilitySerializer(serializers.ModelSerializer):
         model = Facility
         fields = '__all__'
 
+
 class HostSerializer(serializers.ModelSerializer):
     """Host Modal Serializer"""
 
@@ -50,7 +51,7 @@ class TripScheduleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TripSchedule
-        fields = '__all__'
+        exclude = ('trip',)
 
 
 class TripDetailSerializer(serializers.ModelSerializer):
@@ -66,7 +67,7 @@ class TripDetailSerializer(serializers.ModelSerializer):
     cancellation_policy = serializers.CharField(read_only=True)
     metadata = serializers.JSONField()
     facilities = FacilitySerializer(many=True)
-    starting_location = LocationSerializer()
+    destination = LocationSerializer()
     locations = LocationSerializer(many=True)
     host = HostSerializer()
     created_by = UserSerializer()
@@ -77,7 +78,6 @@ class TripDetailSerializer(serializers.ModelSerializer):
         return serializer.data
 
     class Meta:
-        exclude = ('_cancellation_policy',)
         model = Trip
 
 
@@ -92,7 +92,7 @@ class TripListSerializer(serializers.ModelSerializer):
     trip_schedule = serializers.SerializerMethodField()
 
     facilities = FacilitySerializer(many=True)
-    starting_location = LocationSerializer()
+    destination = LocationSerializer()
     metadata = serializers.JSONField()
     locations = LocationSerializer(many=True)
 
@@ -103,7 +103,6 @@ class TripListSerializer(serializers.ModelSerializer):
 
     class Meta:
         exclude = (
-            '_cancellation_policy', 'host', 'created_by', 'created_at', 'updated_at',
-            'deleted', 'gear'
+            'host', 'created_by', 'created_at', 'updated_at', 'deleted', 'gear'
         )
         model = Trip

@@ -16,12 +16,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include
-import trips
-from api import urls as api_urls
-from trips import urls as trip_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
+    path('trips/api/', include('api.urls')),
     path('', include('trips.urls')),
 ]

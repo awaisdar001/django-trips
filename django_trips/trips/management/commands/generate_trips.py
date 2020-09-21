@@ -3,12 +3,14 @@
 import random
 from datetime import datetime, timedelta
 
+from django.utils.text import slugify
 from django.utils.timezone import make_aware
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
 
-from trips.models import (Facility, Host, Location, Trip, TripItinerary,
-                          TripSchedule)
+from trips.models import (
+    Facility, Host, Location, Trip, TripItinerary, Category, TripSchedule
+)
 
 
 class Command(BaseCommand):
@@ -69,10 +71,11 @@ class Command(BaseCommand):
         ]
 
         def get_location_instance(name=None):
+            name = name or random.choice(locations_names_list)
             location_data = {
-                'name': name or random.choice(locations_names_list),
+                'name': name,
+                'slug': slugify(name),
                 'is_destination': random.choice([True, False]),
-                'price': random.choice([1000, 5000, 6000, 9000])
             }
             location_data['is_departure'] = not location_data['is_destination']
             return location_data
@@ -82,7 +85,7 @@ class Command(BaseCommand):
             return location
 
         return [
-            Location.objects.get_or_create(**get_location_instance(location_name))
+            Location.objects.get_or_create(**get_location_instance(location_name))[0]
             for location_name in random.sample(locations_names_list, random.choice(range(2, 7)))
         ]
 
@@ -98,10 +101,23 @@ class Command(BaseCommand):
         facilities_objects_list = []
         for facility_name in random.sample(facilities_names_list, random.choice(range(2, 5))):
             facility, __ = Facility.objects.get_or_create(
-                name=facility_name
+                name=facility_name,
+                slug=slugify(facility_name)
             )
             facilities_objects_list.append(facility)
         return facilities_objects_list
+
+    @staticmethod
+    def get_random_category():
+        """
+        Get random number of facilities from some pre-defined facilities.
+        """
+        category_names_list = [
+            'Long Drive', 'Honeymoon', 'Rode Trip', 'Bone fire', 'Hiking',
+        ]
+        name = random.choice(category_names_list)
+        category, __ = Category.objects.get_or_create(name=name, slug=slugify(name))
+        return category
 
     @staticmethod
     def get_random_schedules(trip_duration):
@@ -156,10 +172,10 @@ class Command(BaseCommand):
             trip.destination = self.get_random_locations()
             trip.duration = random.choice(range(3, 8))
             trip.age_limit = random.choice(range(20, 40))
-            trip.starting_location = self.get_random_locations(0)
             trip.host = self.get_random_host()
             trip.gear = self.get_random_gear()
-            trip.description = "This is the description for trip: {}".format(count + 1)
+            trip.category = self.get_random_category()
+            trip.description = "This is the description for trip: {}".format(count)
             trip.created_by = user
 
             # Initial Save
@@ -178,7 +194,8 @@ class Command(BaseCommand):
             trip_schedules = self.get_random_schedules(trip.duration)
             for schedule in trip_schedules:
                 schedule = make_aware(schedule)
-                trip_schedule = TripSchedule(trip=trip, date_from=schedule)
+                price = random.choice([1000, 5000, 6000, 9000])
+                trip_schedule = TripSchedule(trip=trip, date_from=schedule, price=price)
                 trip_schedule.save()
 
             trip_itineraries = self.get_random_itineraries()

@@ -1,3 +1,4 @@
+"""Setup file for django-trips"""
 import setuptools
 
 
@@ -39,7 +40,7 @@ with open("README.md") as fh:
 
 setuptools.setup(
     name="django-trips",  # Replace with your own username
-    version="0.0.1",
+    version="0.2",
     author="Awais Jibran",
     author_email="awaisdar001@gmail.com",
     description="An Django Rest API for fetching and creating trips and their schedules.",
@@ -54,5 +55,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.5',
-    install_requires=load_requirements('requirements.txt'),
+    install_requires=load_requirements('django_trips/requirements.txt'),
 )

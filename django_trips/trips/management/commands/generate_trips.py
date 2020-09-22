@@ -81,7 +81,8 @@ class Command(BaseCommand):
             return location_data
 
         if locations_count == 0:
-            location, __ = Location.objects.get_or_create(**get_location_instance())
+            location_data = get_location_instance()
+            location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
             return location
 
         return [
@@ -206,4 +207,6 @@ class Command(BaseCommand):
                 trip_itinerary.save()
 
             trip.name = "{} days trip to {}".format(len(trip_itineraries), trip.locations.first().name)
-            self.stdout.write(self.style.SUCCESS('Trip ID Created: %s') % trip.name)
+            trip.slug = slugify(trip.name)
+            trip.save()
+            self.stdout.write(self.style.SUCCESS('Trip Created: %s') % trip.name)

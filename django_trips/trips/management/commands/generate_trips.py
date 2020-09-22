@@ -88,10 +88,12 @@ class Command(BaseCommand):
             )
             return location
 
-        return [
-            Location.objects.get_or_create(**get_location_instance(location_name))[0]
-            for location_name in random.sample(locations_names_list, random.choice(range(2, 7)))
-        ]
+        trip_random_locations = []
+        for location_name in random.sample(locations_names_list, random.choice(range(2, 7))):
+            location_data = get_location_instance(location_name)
+            location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
+            trip_random_locations.append(location)
+        return trip_random_locations
 
     @staticmethod
     def get_random_facilities():
@@ -106,7 +108,7 @@ class Command(BaseCommand):
         for facility_name in random.sample(facilities_names_list, random.choice(range(2, 5))):
             facility, __ = Facility.objects.get_or_create(
                 name=facility_name,
-                slug=slugify(facility_name)
+                defaults={'slug': slugify(facility_name)}
             )
             facilities_objects_list.append(facility)
         return facilities_objects_list
@@ -120,7 +122,10 @@ class Command(BaseCommand):
             'Long Drive', 'Honeymoon', 'Rode Trip', 'Bone fire', 'Hiking',
         ]
         name = random.choice(category_names_list)
-        category, __ = Category.objects.get_or_create(name=name, slug=slugify(name))
+        category, __ = Category.objects.get_or_create(
+            name=name,
+            defaults={'slug': slugify(name)}
+        )
         return category
 
     @staticmethod
@@ -205,7 +210,7 @@ class Command(BaseCommand):
             trip_itineraries = self.get_random_itineraries()
             for itinerary in trip_itineraries:
                 trip_itinerary = TripItinerary(
-                    trip=trip, day=itinerary[0], description=itinerary[1]
+                    trip=trip, day=itinerary[0], heading="Day {}".format(itinerary[0]), description=itinerary[1]
                 )
                 trip_itinerary.save()
 

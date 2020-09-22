@@ -122,7 +122,7 @@ class Trip(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return "{0} - {1}".format(self.name, self.host)
+        return self.name
 
     class Meta:
         ordering = ['-created_at', '-id']
@@ -180,7 +180,7 @@ class TripSchedule(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return "{0} - {1}".format(self.trip, self.date_from)
+        return self.trip.name
 
     @property
     def is_active(self):
@@ -207,7 +207,9 @@ class TripReview(models.Model):
 
 class TripReviewSummary(models.Model):
     """Trip Review Summary Model"""
-    trip = models.ForeignKey(Trip, related_name="trip_review_summary", on_delete=models.CASCADE)
+    trip = models.OneToOneField(
+        Trip, related_name="trip_review_summary", on_delete=models.CASCADE, null=True, blank=True
+    )
     meals = models.FloatField(default=0)
     accommodation = models.FloatField(default=0)
     transport = models.FloatField(default=0)
@@ -215,6 +217,9 @@ class TripReviewSummary(models.Model):
     overall = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Trip review summaries"
 
 
 class CancellationPolicy(ConfigurationModel):

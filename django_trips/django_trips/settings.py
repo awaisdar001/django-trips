@@ -38,7 +38,9 @@ INSTALLED_APPS = [
     'trips',
     'api',
     'rest_framework',
+    'rest_framework.authtoken',
     'config_models',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [

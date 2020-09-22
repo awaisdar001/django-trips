@@ -82,7 +82,10 @@ class Command(BaseCommand):
 
         if locations_count == 0:
             location_data = get_location_instance()
-            location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
+            location, __ = Location.objects.get_or_create(
+                slug=location_data['slug'],
+                defaults=location_data
+            )
             return location
 
         return [

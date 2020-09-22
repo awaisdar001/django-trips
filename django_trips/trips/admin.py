@@ -118,4 +118,4 @@ class TripPickupLocationAdmin(admin.ModelAdmin):
 class TripBookingSummaryAdmin(admin.ModelAdmin):
     list_display = ('name', 'schedule', 'phone_number', 'message')
     search_fields = ['schedule__trip__name', 'name']
-    list_filter = ('schedule__trip__name','schedule__date_from')
+    list_filter = ('schedule__trip__name', 'schedule__date_from')

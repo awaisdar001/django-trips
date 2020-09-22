@@ -207,8 +207,9 @@ class TripReview(models.Model):
 
 class TripReviewSummary(models.Model):
     """Trip Review Summary Model"""
-    trip = models.OneToOneField(Trip, related_name="trip_review_summary", on_delete=models.CASCADE, null=True,
-                                blank=True)
+    trip = models.OneToOneField(
+        Trip, related_name="trip_review_summary", on_delete=models.CASCADE, null=True, blank=True
+    )
     meals = models.FloatField(default=0)
     accommodation = models.FloatField(default=0)
     transport = models.FloatField(default=0)

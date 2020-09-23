@@ -27,8 +27,8 @@ RUN apt-get update && apt-get install -y python3-setuptools \
 
 RUN pip3 install --upgrade pip
 # Install pip requirements
-ADD requirements.txt .
-RUN python -m pip install -r requirements.txt
+#ADD requirements.txt .
+RUN python -m pip install -r django_trips/requirements.txt
 
 
 

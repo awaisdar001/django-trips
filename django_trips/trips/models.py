@@ -6,8 +6,10 @@ from django.urls import reverse
 import trips.managers as managers
 from config_models.models import ConfigurationModel
 
+from trips.mixins import SlugMixin
 
-class Host(models.Model):
+
+class Host(SlugMixin, models.Model):
     """
     Trip host model.
 
@@ -25,10 +27,10 @@ class Host(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return "{0}".format(self.name)
+        return self.name
 
 
-class Location(models.Model):
+class Location(SlugMixin, models.Model):
     """
     Trip location model
 
@@ -59,7 +61,7 @@ class Location(models.Model):
         return self.coordinates.split(',')
 
 
-class Facility(models.Model):
+class Facility(SlugMixin, models.Model):
     """
     Trip Facility model
 
@@ -76,17 +78,20 @@ class Facility(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return "{0}".format(self.name)
+        return self.name
 
 
-class Category(models.Model):
+class Category(SlugMixin, models.Model):
     """Trip Category model"""
     name = models.CharField(max_length=70)
     slug = models.SlugField(max_length=85, null=True, blank=True)
     deleted = models.BooleanField(default=False)
 
+    def __str__(self):
+        return self.name
 
-class Trip(models.Model):
+
+class Trip(SlugMixin, models.Model):
     """
     Trip model
 
@@ -96,16 +101,16 @@ class Trip(models.Model):
     objects = models.Manager()
     active = managers.ActiveTripManager()
 
-    name = models.CharField("Title", max_length=500, null=True, blank=True)
+    name = models.CharField("Title", max_length=500)
     slug = models.SlugField(max_length=100, null=True, blank=True)
-    description = models.TextField("Description", null=True, blank=True)
+    description = models.TextField()
     # meta includes tinyurl, poster
     _metadata = models.TextField(default='{}', null=True, blank=True)
 
     duration = models.SmallIntegerField(default=0, null=True, blank=True)
     age_limit = models.SmallIntegerField(default=0, null=True, blank=True)
 
-    destination = models.ForeignKey(Location, null=True, blank=True, on_delete=models.CASCADE)
+    destination = models.ForeignKey(Location, on_delete=models.CASCADE)
     locations = models.ManyToManyField(Location, related_name="trip_locations")
 
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.CASCADE)
@@ -114,7 +119,8 @@ class Trip(models.Model):
 
     deleted = models.BooleanField(default=False)
     created_by = models.ForeignKey(
-        'auth.User', related_name="created_by_trips", on_delete=models.CASCADE)
+        'auth.User', related_name="created_by_trips", on_delete=models.CASCADE
+    )
     host = models.ForeignKey(Host, related_name="host_trips", on_delete=models.CASCADE)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -204,6 +210,9 @@ class TripReview(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return "{}-{}".format(self.name, self.overall)
+
 
 class TripReviewSummary(models.Model):
     """Trip Review Summary Model"""
@@ -239,9 +248,15 @@ class TripBooking(models.Model):
     email = models.EmailField()
     message = models.TextField()
 
+    def __str__(self):
+        return self.name
+
 
 class TripPickupLocation(models.Model):
     """Trip pickup locations"""
     trip = models.ForeignKey(TripSchedule, related_name="trip_pickup_locations", on_delete=models.CASCADE)
     location = models.ForeignKey(Location, on_delete=models.CASCADE)
     additional_price = models.SmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.location

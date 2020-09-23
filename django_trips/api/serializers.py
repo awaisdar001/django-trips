@@ -55,9 +55,20 @@ class TripScheduleSerializer(serializers.ModelSerializer):
         exclude = ('trip',)
 
 
+class TripSerializerWithIDs(serializers.ModelSerializer):
+    # metadata = serializers.JSONField(source="_metadata", initial="{}")
+
+    class Meta:
+        model = Trip
+        exclude = ('_metadata',)
+
+    def create(self, validated_data):
+        return super(TripSerializerWithIDs, self).create(validated_data)
+
+
 class TripBaseSerializer(serializers.ModelSerializer):
     trip_url = serializers.SerializerMethodField()
-    metadata = serializers.JSONField()
+    metadata = serializers.JSONField(source="_metadata", initial="{}")
     destination = LocationSerializer()
     created_by = UserSerializer(read_only=True)
     trip_schedule = serializers.SerializerMethodField()
@@ -69,12 +80,12 @@ class TripBaseSerializer(serializers.ModelSerializer):
         fields = (
             'name', 'slug', 'description', 'duration', 'age_limit', 'destination',
             'metadata', 'category', 'gear', 'created_by', 'trip_schedule',
-            'trip_itinerary', 'locations', 'facilities'
+            'trip_itinerary', 'locations', 'facilities', 'trip_url'
         )
         model = Trip
 
     def get_trip_url(self, trip):
-        return reverse('trips-detail', kwargs={'pk': trip.id})
+        return reverse('trip-item', kwargs={'pk': trip.id})
 
     def get_trip_schedule(self, trip):
         qs = TripSchedule.available.filter(trip=trip)
@@ -98,13 +109,3 @@ class TripDetailSerializer(TripBaseSerializer):
     class Meta:
         model = Trip
         fields = TripBaseSerializer.Meta.fields + ('cancellation_policy', 'host')
-
-
-class TripListSerializer(TripBaseSerializer):
-    """
-    Trip List Modal Serializer
-
-    This Serializer is used for the trips listing as it requires
-    minimal information
-    """
-    pass

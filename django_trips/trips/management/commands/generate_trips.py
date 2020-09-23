@@ -178,7 +178,12 @@ class Command(BaseCommand):
 
         for count in range(0, batch_size):
             trip = Trip(name="Trip : {}".format(count))
+            trip_itineraries = self.get_random_itineraries()
+            trip_locations = self.get_random_locations(4)
             trip.destination = self.get_random_locations()
+
+            trip.name = "{} days trip to {}".format(len(trip_itineraries), trip.destination.name)
+
             trip.duration = random.choice(range(3, 8))
             trip.age_limit = random.choice(range(20, 40))
             trip.host = self.get_random_host()
@@ -195,7 +200,7 @@ class Command(BaseCommand):
                     'Error Saving Trip {}\n{}'.format(trip.id, e)))
 
             # Adding M2M fields for the trip
-            trip.locations.set(self.get_random_locations(4))
+            trip.locations.set(trip_locations)
             trip.facilities.set(self.get_random_facilities())
             trip.save()
 
@@ -207,14 +212,10 @@ class Command(BaseCommand):
                 trip_schedule = TripSchedule(trip=trip, date_from=schedule, price=price)
                 trip_schedule.save()
 
-            trip_itineraries = self.get_random_itineraries()
             for itinerary in trip_itineraries:
                 trip_itinerary = TripItinerary(
                     trip=trip, day=itinerary[0], heading="Day {}".format(itinerary[0]), description=itinerary[1]
                 )
                 trip_itinerary.save()
 
-            trip.name = "{} days trip to {}".format(len(trip_itineraries), trip.locations.first().name)
-            trip.slug = slugify(trip.name)
-            trip.save()
             self.stdout.write(self.style.SUCCESS('Trip Created: %s') % trip.name)

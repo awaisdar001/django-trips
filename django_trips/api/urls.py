@@ -1,8 +1,10 @@
 """Url definitions for api"""
-from rest_framework import routers
+from django.urls import path
 
-from api.views import TripViewSet
+from api import views
 
-router = routers.DefaultRouter()
-router.register('trips', TripViewSet, basename='trips')
-urlpatterns = router.urls
+urlpatterns = [
+    path('trips/', views.TripListCreateAPIView.as_view(), name="trips"),
+    path('trip/<int:pk>/', views.TripRetrieveUpdateDestroyAPIView.as_view(), name="trip-item"),
+
+]

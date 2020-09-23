@@ -1,29 +1,37 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from api import serializers
-from api.paginators import CustomResponsePagination
-from rest_framework import viewsets, mixins
+from rest_framework import generics
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
+
+from api import serializers
+from api.paginators import CustomResponsePagination
 from trips.models import Trip
 
 
-class TripViewSet(viewsets.ReadOnlyModelViewSet):
-    """Trip Viewset"""
-    pagination_class = CustomResponsePagination
-    queryset = Trip.active.all()
+class TripListCreateAPIView(generics.ListCreateAPIView):
+    """Create Trip view."""
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
-    serializers_mapping = {
-        'list': serializers.TripListSerializer,
-        'retrieve': serializers.TripDetailSerializer
-    }
+    queryset = Trip.active.all()
 
     def get_serializer_class(self):
-        """
-        Overridden method which the serializer.
+        if self.request.method == 'POST':
+            return serializers.TripSerializerWithIDs
+        return serializers.TripDetailSerializer
 
-        Use different serializer for list and retrieve requests.
-        """
-        return self.serializers_mapping.get(self.action, serializers.TripListSerializer)
+
+class TripRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """Create Trip view."""
+    pagination_class = CustomResponsePagination
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = Trip.active.all()
+
+    lookup_field = 'pk'
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return serializers.TripDetailSerializer
+        return serializers.TripSerializerWithIDs

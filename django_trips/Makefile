@@ -9,7 +9,7 @@ requirements: ## install development environment requirements
 update_db: ## Install migrations
 	python manage.py migrate
 
-new_trips: ## Adds random trips
+random_trips: ## Adds random trips
 	python manage.py  generate_trips --batch_size=100
 
 static: ## Gather all static assets for production

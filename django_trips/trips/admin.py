@@ -82,6 +82,7 @@ class HostAdmin(admin.ModelAdmin):
     )
     list_filter = ('verified',)
     search_fields = ['name', 'description']
+    prepopulated_fields = {'slug': ('name',)}
 
 
 @admin.register(TripReview)

@@ -40,7 +40,7 @@ with open("README.md") as fh:
 
 setuptools.setup(
     name="django-trips",
-    version="0.2.2",
+    version="0.2.3",
     author="Awais Jibran",
     author_email="awaisdar001@gmail.com",
     description="An Django Rest API for fetching and creating trips and their schedules.",

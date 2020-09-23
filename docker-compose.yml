@@ -14,7 +14,7 @@ services:
   trips:
     container_name: djangotrips.django
     image: djangotrips
-    command: bash -c 'while true; do python manage.py runserver 0.0.0.0:8000; sleep 2; done'
+    command: bash -c 'while true; do python django_trips/manage.py runserver 0.0.0.0:8000; sleep 2; done'
     volumes:
       - .:/app/djangotrips
     build:

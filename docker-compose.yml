@@ -19,12 +19,12 @@ services:
     container_name: djangotrips.django
     depends_on:
       - tripsdb
-    # image: awaisdar001/djangotrips
+     image: awaisdar001/djangotrips:v1.1
     volumes:
       - .:/app/djangotrips
-    build:
-      context: .
-      dockerfile: Dockerfile
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
     ports:
       - 8000:8000
     stdin_open: true

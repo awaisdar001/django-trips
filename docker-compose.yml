@@ -4,7 +4,6 @@ services:
   tripsdb:
     command: mysqld --character-set-server=utf8 --collation-server=utf8_general_ci
     container_name: djangotrips.mysql
-#    hostname: mysql.devstack.edx
     image: mysql:5.6
     environment:
       MYSQL_DATABASE: "db"
@@ -12,21 +11,20 @@ services:
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
     ports:
       - 3606:3306
-#    volumes:
-#      - mysql_data:/var/lib/mysql
+  #    volumes:
+  #      - mysql_data:/var/lib/mysql
 
   trips:
     command: bash -c 'while true; do python django_trips/manage.py runserver 0.0.0.0:8000; sleep 2; done'
     container_name: djangotrips.django
-#    hostname: lms.devstack.edx
     depends_on:
       - tripsdb
     image: awaisdar001/djangotrips
-#    volumes:
-#      - .:/app/djangotrips
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
+    volumes:
+      - .:/app/djangotrips
+    #    build:
+    #      context: .
+    #      dockerfile: Dockerfile
     ports:
       - 8000:8000
     stdin_open: true

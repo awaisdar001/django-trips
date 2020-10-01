@@ -7,3 +7,4 @@ django_extensions
 djangorestframework
 mysqlclient
 factory_boy
+pytest

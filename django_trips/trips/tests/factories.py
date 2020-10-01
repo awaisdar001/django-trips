@@ -6,7 +6,13 @@ from factory.django import DjangoModelFactory
 from pytz import UTC
 
 from trips.models import (
-    Category, Facility, Host, Location, Trip, TripItinerary, TripSchedule
+    Category,
+    Facility,
+    Host,
+    Location,
+    Trip,
+    TripItinerary,
+    TripSchedule,
 )
 
 
@@ -15,13 +21,15 @@ class GroupFactory(DjangoModelFactory):
 
     class Meta(object):
         model = Group
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
-    name = factory.Sequence('group{0}'.format)
+    name = factory.Sequence("group{0}".format)
 
 
 class UserFactory(DjangoModelFactory):
     """User factory"""
+
+    username = factory.Sequence(u'User - {0}'.format)
 
     class Meta:
         model = User
@@ -33,8 +41,8 @@ class CategoryFactory(DjangoModelFactory):
     class Meta(object):
         model = Category
 
-    name = factory.Sequence('Category - {0}'.format)
-    slug = factory.Sequence('category-{0}'.format)
+    name = factory.Sequence("Category - {0}".format)
+    slug = factory.Sequence("category-{0}".format)
 
 
 class HostFactory(DjangoModelFactory):
@@ -43,8 +51,8 @@ class HostFactory(DjangoModelFactory):
     class Meta(object):
         model = Host
 
-    name = factory.Sequence('Host - {0}'.format)
-    cancellation_policy = factory.Sequence('cancellation Policy - {0}'.format)
+    name = factory.Sequence("Host - {0}".format)
+    cancellation_policy = factory.Sequence("cancellation Policy - {0}".format)
 
 
 class FacilityFactory(DjangoModelFactory):
@@ -53,7 +61,7 @@ class FacilityFactory(DjangoModelFactory):
     class Meta(object):
         model = Facility
 
-    name = factory.Sequence('Facility - {0}'.format)
+    name = factory.Sequence("Facility - {0}".format)
 
 
 class LocationFactory(DjangoModelFactory):
@@ -62,7 +70,7 @@ class LocationFactory(DjangoModelFactory):
     class Meta(object):
         model = Location
 
-    name = factory.Sequence('Location - {0}'.format)
+    name = factory.Sequence("Location - {0}".format)
     # is_destination = factory
 
 
@@ -85,24 +93,25 @@ class TripFactory(DjangoModelFactory):
 
     class Meta(object):
         model = Trip
-        django_get_or_create = ('slug',)
+        django_get_or_create = ("slug",)
 
-    name = factory.Sequence('My awsome trip - {0}'.format)
-    slug = factory.Sequence('my-awsome-trip-{0}'.format)
-    description = factory.Sequence('awsome trip description- {}'.format)
+    name = factory.Sequence("My awsome trip - {0}".format)
+    slug = factory.Sequence("my-awsome-trip-{0}".format)
+    description = factory.Sequence("awsome trip description- {}".format)
 
     destination = factory.SubFactory(LocationFactory)
     locations = factory.SubFactory(LocationFactory)
     category = factory.SubFactory(CategoryFactory)
     facilities = factory.SubFactory(FacilityFactory)
+    trip_schedule = factory.SubFactory(TripScheduleFactory)
 
-    gear = factory.Sequence('Trip gear - {0}'.format)
+    gear = factory.Sequence("Trip gear - {0}".format)
 
     created_by = factory.SubFactory(UserFactory)
     host = factory.SubFactory(HostFactory)
 
     created_at = datetime(2012, 1, 1, tzinfo=UTC)
-    updated_at = datetime(2011, 1, 1, tzinfo=UTC)
+    updated_at = datetime(2013, 1, 1, tzinfo=UTC)
 
     @factory.post_generation
     def locations(self, create, extracted, **kwargs):
@@ -127,3 +136,10 @@ class TripFactory(DjangoModelFactory):
 
         for group_name in extracted:
             self.facilities.add(FacilityFactory.simple_generate(create, name=group_name))
+
+    @factory.post_generation
+    def trip_schedule(self, create, number, **kwargs):
+        """The post_generation decorator performs actions once the model object has been generated."""
+        if number is None:
+            return
+        TripScheduleFactory.simple_generate_batch(create, trip=self, size=number)

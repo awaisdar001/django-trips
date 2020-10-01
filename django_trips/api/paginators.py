@@ -35,11 +35,13 @@ class CustomResponsePagination(PageNumberPagination):
         else:
             number_of_pages = self.page.paginator.count / len(data) + 1
 
-        return Response({
-            'next': self.get_next_link(),
-            'previous': self.get_previous_link(),
-            'count': self.page.paginator.count,
-            'current': self.page.number,
-            'pages': number_of_pages,
-            'results': data
-        })
+        return Response(
+            {
+                'next': self.get_next_link(),
+                'previous': self.get_previous_link(),
+                'count': self.page.paginator.count,
+                'current': self.page.number,
+                'pages': number_of_pages,
+                'results': data,
+            }
+        )

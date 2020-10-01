@@ -1,15 +1,25 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
-
+from django.utils import timezone
 from django.test import TestCase
 from pytz import UTC
 
 from trips.models import (
-    Facility, Host, Location, Trip, TripSchedule, CancellationPolicy
+    Facility,
+    Host,
+    Location,
+    Trip,
+    TripSchedule,
+    CancellationPolicy,
 )
 from trips.tests.factories import (
-    FacilityFactory, HostFactory, LocationFactory,
-    TripFactory, TripItineraryFactory, TripScheduleFactory
+    ActivityFactory,
+    FacilityFactory,
+    HostFactory,
+    LocationFactory,
+    TripFactory,
+    TripItineraryFactory,
+    TripScheduleFactory,
 )
 
 
@@ -133,7 +143,7 @@ class TestTrip(TestCase):
 
     def setUp(self):
         """Setup objects for testing"""
-        self.trip = TripFactory.create(locations=['Lahore', 'Gilgit'])
+        self.trip = TripFactory.create(locations=["Lahore", "Gilgit"])
 
     def _update_trip_field(self, field, value):
         """Updates a field in trip object"""
@@ -146,8 +156,8 @@ class TestTrip(TestCase):
 
     def test_update(self):
         """Test update trip method."""
-        new_description = u'This is my dummy description'
-        self._update_trip_field('description', new_description)
+        new_description = u"This is my dummy description"
+        self._update_trip_field("description", new_description)
 
         trip = Trip.objects.get(id=self.trip.id)
         self.assertEqual(new_description, trip.description)
@@ -160,8 +170,8 @@ class TestTrip(TestCase):
 
     def test_gear_update(self):
         """Test update gear"""
-        new_gear = u'My test gear'
-        self._update_trip_field('gear', new_gear)
+        new_gear = u"My test gear"
+        self._update_trip_field("gear", new_gear)
         self.assertEqual(Trip.objects.get(id=self.trip.id).gear, new_gear)
 
     def test_trip_itinerary(self):
@@ -182,7 +192,10 @@ class TestTrip(TestCase):
 
     def test_trip_availability(self):
         """Test available manager of trip schedule"""
-        future_trip_date = datetime.now(UTC) + timedelta(days=7)
+        future_trip_date = timezone.now() + timedelta(days=7)
+        past_trip_date = timezone.now() - timedelta(days=7)
+        past_trip = TripScheduleFactory(trip=self.trip, date_from=past_trip_date)
+
         __ = TripScheduleFactory(trip=self.trip)
         self.assertEqual(TripSchedule.available.all().count(), 0)
         __ = TripScheduleFactory(trip=self.trip, date_from=future_trip_date)
@@ -199,9 +212,9 @@ class TestTrip(TestCase):
         self.trip.host.cancellation_policy = None
         self.trip.host.save()
 
-        common_policy = 'Common trip CancellationPolicy'
+        common_policy = "Common trip CancellationPolicy"
         CancellationPolicy(description=common_policy).save()
-        new_cancellation_policy = 'new cancellation policy'
+        new_cancellation_policy = "new cancellation policy"
 
         self.assertEqual(self.trip.cancellation_policy, CancellationPolicy.current().description)
 

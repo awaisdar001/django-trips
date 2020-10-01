@@ -3,7 +3,12 @@ from django.urls import reverse
 from rest_framework import serializers
 
 from trips.models import (
-    Facility, Host, Location, Trip, TripItinerary, TripSchedule,
+    Facility,
+    Host,
+    Location,
+    Trip,
+    TripItinerary,
+    TripSchedule,
 )
 
 
@@ -44,7 +49,7 @@ class TripItinerarySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TripItinerary
-        fields = '__all__'
+        fields = "__all__"
 
 
 class TripScheduleSerializer(serializers.ModelSerializer):
@@ -78,14 +83,26 @@ class TripBaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = (
-            'name', 'slug', 'description', 'duration', 'age_limit', 'destination',
-            'metadata', 'category', 'gear', 'created_by', 'trip_schedule',
-            'trip_itinerary', 'locations', 'facilities', 'trip_url'
+            'name',
+            'slug',
+            'description',
+            'duration',
+            'age_limit',
+            'destination',
+            'metadata',
+            'category',
+            'gear',
+            'created_by',
+            'trip_schedule',
+            'trip_itinerary',
+            'locations',
+            'facilities',
+            'trip_url',
         )
         model = Trip
 
     def get_trip_url(self, trip):
-        return reverse('trip-item', kwargs={'pk': trip.id})
+        return reverse("trip-item", kwargs={"pk": trip.id})
 
     def get_trip_schedule(self, trip):
         qs = TripSchedule.available.filter(trip=trip)
@@ -100,6 +117,7 @@ class TripDetailSerializer(TripBaseSerializer):
     This Serializer is used for trip object retrieval as it requires all
     the details of the object
     """
+
     cancellation_policy = serializers.CharField(read_only=True)
     host = HostSerializer(read_only=True)
 

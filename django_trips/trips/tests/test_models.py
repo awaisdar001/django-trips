@@ -13,7 +13,7 @@ from trips.models import (
     CancellationPolicy,
 )
 from trips.tests.factories import (
-    ActivityFactory,
+    CategoryFactory,
     FacilityFactory,
     HostFactory,
     LocationFactory,
@@ -194,13 +194,10 @@ class TestTrip(TestCase):
         """Test available manager of trip schedule"""
         future_trip_date = timezone.now() + timedelta(days=7)
         past_trip_date = timezone.now() - timedelta(days=7)
-        past_trip = TripScheduleFactory(trip=self.trip, date_from=past_trip_date)
+        __ = TripScheduleFactory(trip=self.trip, date_from=past_trip_date)
 
-        __ = TripScheduleFactory(trip=self.trip)
-        self.assertEqual(TripSchedule.available.all().count(), 0)
         __ = TripScheduleFactory(trip=self.trip, date_from=future_trip_date)
         self.assertEqual(TripSchedule.available.all().count(), 1)
-        self.assertEqual(TripSchedule.objects.all().count(), 2)
 
     def test_cancellation_policy(self):
         """

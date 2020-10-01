@@ -102,7 +102,7 @@ class TripBaseSerializer(serializers.ModelSerializer):
         model = Trip
 
     def get_trip_url(self, trip):
-        return reverse("trip-item", kwargs={"pk": trip.id})
+        return reverse("trips-api:trip-item", kwargs={"pk": trip.id})
 
     def get_trip_schedule(self, trip):
         qs = TripSchedule.available.filter(trip=trip)

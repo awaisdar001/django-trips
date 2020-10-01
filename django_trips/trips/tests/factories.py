@@ -4,7 +4,7 @@ import factory
 from django.contrib.auth.models import Group, User
 from factory.django import DjangoModelFactory
 from pytz import UTC
-
+import factory.fuzzy
 from trips.models import (
     Category,
     Facility,
@@ -14,6 +14,9 @@ from trips.models import (
     TripItinerary,
     TripSchedule,
 )
+from dateutil.relativedelta import relativedelta
+
+USER_PASSWORD = 'pswd'
 
 
 class GroupFactory(DjangoModelFactory):
@@ -30,6 +33,7 @@ class UserFactory(DjangoModelFactory):
     """User factory"""
 
     username = factory.Sequence(u'User - {0}'.format)
+    password = factory.PostGenerationMethodCall('set_password', USER_PASSWORD)
 
     class Meta:
         model = User
@@ -80,7 +84,9 @@ class TripScheduleFactory(DjangoModelFactory):
     class Meta:
         model = TripSchedule
 
-    date_from = datetime(2012, 1, 1, tzinfo=UTC)
+    date_from = factory.fuzzy.FuzzyDateTime(
+        datetime.now(tz=UTC), datetime.now(tz=UTC) + relativedelta(months=+1)
+    )
 
 
 class TripItineraryFactory(DjangoModelFactory):

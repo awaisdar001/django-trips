@@ -24,24 +24,11 @@ class CustomResponsePagination(PageNumberPagination):
         'data': data returned by API
         }
         """
-
-        # On last page, the page count = page number
-        if self.get_next_link() is None:
-            number_of_pages = self.page.number
-
-        # If total data count is perfectly divisible by current page data length
-        elif self.page.paginator.count % len(data) == 0:
-            number_of_pages = self.page.paginator.count / len(data)
-        else:
-            number_of_pages = self.page.paginator.count / len(data) + 1
-
-        return Response(
-            {
-                'next': self.get_next_link(),
-                'previous': self.get_previous_link(),
-                'count': self.page.paginator.count,
-                'current': self.page.number,
-                'pages': number_of_pages,
-                'results': data,
-            }
-        )
+        return Response({
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'count': self.page.paginator.count,
+            'current': self.page.number,
+            'pages': self.page.paginator.num_pages,
+            'results': data,
+        })

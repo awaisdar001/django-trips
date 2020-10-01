@@ -1,9 +1,11 @@
 setuptools
-# Stay on the latest LTS release of Django
-Django<2.3
+ddt
+Django<2.3 # Stay on the latest LTS release of Django
 django-cors-headers
 django-config-models
 django_extensions
 djangorestframework
 mysqlclient
 factory_boy
+pytest
+pytest-django

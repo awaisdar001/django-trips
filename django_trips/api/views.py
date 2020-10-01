@@ -12,6 +12,7 @@ from trips.models import Trip
 
 class TripListCreateAPIView(generics.ListCreateAPIView):
     """Create Trip view."""
+
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = Trip.active.all()
@@ -24,6 +25,7 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
 
 class TripRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """Create Trip view."""
+
     pagination_class = CustomResponsePagination
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]

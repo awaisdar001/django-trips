@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'config_models',
     'django_extensions',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
@@ -130,5 +131,6 @@ STATICFILES_DIRS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'api.paginators.CustomResponsePagination',
-    'PAGE_SIZE': 10
+    'PAGE_SIZE': 10,
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }

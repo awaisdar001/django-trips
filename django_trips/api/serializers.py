@@ -9,7 +9,7 @@ from trips.models import (
     Trip,
     TripItinerary,
     TripSchedule,
-)
+    Category)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -18,6 +18,14 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email', 'is_staff')
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    """Category Serializer"""
+
+    class Meta:
+        model = Category
+        fields = '__all__'
 
 
 class LocationSerializer(serializers.ModelSerializer):
@@ -61,8 +69,6 @@ class TripScheduleSerializer(serializers.ModelSerializer):
 
 
 class TripSerializerWithIDs(serializers.ModelSerializer):
-    # metadata = serializers.JSONField(source="_metadata", initial="{}")
-
     class Meta:
         model = Trip
         exclude = ('_metadata',)
@@ -74,35 +80,38 @@ class TripSerializerWithIDs(serializers.ModelSerializer):
 class TripBaseSerializer(serializers.ModelSerializer):
     trip_url = serializers.SerializerMethodField()
     metadata = serializers.JSONField(source="_metadata", initial="{}")
+    departure = LocationSerializer()
     destination = LocationSerializer()
     created_by = UserSerializer(read_only=True)
     trip_schedule = serializers.SerializerMethodField()
     trip_itinerary = TripItinerarySerializer(many=True)
     locations = LocationSerializer(many=True)
     facilities = FacilitySerializer(many=True)
+    category = CategorySerializer()
 
     class Meta:
         fields = (
             'name',
             'slug',
+            'trip_url',
             'description',
             'duration',
             'age_limit',
+            'departure',
             'destination',
-            'metadata',
             'category',
             'gear',
-            'created_by',
+            'metadata',
+            'locations',
             'trip_schedule',
             'trip_itinerary',
-            'locations',
             'facilities',
-            'trip_url',
+            'created_by',
         )
         model = Trip
 
     def get_trip_url(self, trip):
-        return reverse("trips-api:trip-item", kwargs={"pk": trip.id})
+        return reverse("trips-api:trip-item-slug", kwargs={"slug": trip.slug})
 
     def get_trip_schedule(self, trip):
         qs = TripSchedule.available.filter(trip=trip)

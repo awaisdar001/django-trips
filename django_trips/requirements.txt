@@ -5,6 +5,7 @@ django-cors-headers
 django-config-models
 django_extensions
 djangorestframework
+django-filter
 mysqlclient
 factory_boy
 pytest

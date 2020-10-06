@@ -22,6 +22,21 @@ class AvailableTripScheduleManager(models.Manager):
         )
 
 
+class AvailableLocationManager(models.Manager):
+    """
+    Trip schedule safe queryset manager.
+
+    Usage:
+        >>> Location.available.all()
+    """
+
+    def get_queryset(self):
+        """
+        This method will only return the objects which are active.
+        """
+        return super().get_queryset().filter(is_active=True)
+
+
 class ActiveTripManager(models.Manager):
     """
     Trip schedule safe queryset manager.

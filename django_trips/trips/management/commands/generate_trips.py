@@ -3,6 +3,7 @@
 import random
 from datetime import datetime, timedelta
 
+from dateutil.tz import UTC
 from django.utils.text import slugify
 from django.utils.timezone import make_aware
 from django.core.management.base import BaseCommand, CommandError
@@ -32,6 +33,10 @@ class Command(BaseCommand):
     """
 
     help = "Generate batches of trip with pre-populated random data"
+    locations_names_list = [
+        'Fairy Meadows', 'Hunza', 'Gilgit', 'Lahore', 'Islamabad',
+        'Karachi', 'Kashmir', 'Murree', 'Kaghan', 'Swat', 'Skardu'
+    ]
 
     def add_arguments(self, parser):
         """
@@ -56,41 +61,28 @@ class Command(BaseCommand):
         host, __ = Host.objects.get_or_create(name=random.choice(host_list), verified=True)
         return host
 
-    @staticmethod
-    def get_random_locations(locations_count=0):
+    def get_location_instance(self, name=None):
+        name = name or random.choice(self.locations_names_list)
+        location_data = {
+            'name': name,
+            'slug': slugify(name),
+            'is_destination': random.choice([True, False]),
+        }
+        location_data['is_departure'] = not location_data['is_destination']
+        return location_data
+
+    def get_destination(self):
+        location_data = self.get_location_instance()
+        destination, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
+        return destination
+
+    def get_random_locations(self):
         """
         Get multiple/single location object from pre-defined list.
-
-        :param locations_count: If 0, only 1 object is returned,
-        and if 1, random list of location objects is returned.
         """
-
-        locations_names_list = [
-            'Fairy Meadows', 'Hunza', 'Gilgit', 'Lahore', 'Islamabad',
-            'Karachi', 'Kashmir', 'Murree', 'Kaghan', 'Swat', 'Skardu'
-        ]
-
-        def get_location_instance(name=None):
-            name = name or random.choice(locations_names_list)
-            location_data = {
-                'name': name,
-                'slug': slugify(name),
-                'is_destination': random.choice([True, False]),
-            }
-            location_data['is_departure'] = not location_data['is_destination']
-            return location_data
-
-        if locations_count == 0:
-            location_data = get_location_instance()
-            location, __ = Location.objects.get_or_create(
-                slug=location_data['slug'],
-                defaults=location_data
-            )
-            return location
-
         trip_random_locations = []
-        for location_name in random.sample(locations_names_list, random.choice(range(2, 7))):
-            location_data = get_location_instance(location_name)
+        for location_name in random.sample(self.locations_names_list, random.choice(range(2, 7))):
+            location_data = self.get_location_instance(location_name)
             location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
             trip_random_locations.append(location)
         return trip_random_locations
@@ -135,7 +127,7 @@ class Command(BaseCommand):
         """
         schedules_list = []
         for data_range in range(1, random.choice(range(3, 6))):
-            schedule = datetime.now() + timedelta(days=trip_duration + (data_range * 7))
+            schedule = datetime.now(tz=UTC) + timedelta(days=trip_duration + (data_range * 7))
             schedules_list.append(schedule)
         return schedules_list
 
@@ -179,8 +171,8 @@ class Command(BaseCommand):
         for count in range(0, batch_size):
             trip = Trip(name="Trip : {}".format(count))
             trip_itineraries = self.get_random_itineraries()
-            trip_locations = self.get_random_locations(4)
-            trip.destination = self.get_random_locations()
+
+            trip.destination = self.get_destination()
 
             trip.name = "{} days trip to {}".format(len(trip_itineraries), trip.destination.name)
 
@@ -197,24 +189,27 @@ class Command(BaseCommand):
                 trip.save()
             except Exception as e:
                 raise CommandError(self.stderr.write(
-                    'Error Saving Trip {}\n{}'.format(trip.id, e)))
+                    'Error Saving Trip {}\n{}'.format(trip.name, e)))
 
             # Adding M2M fields for the trip
-            trip.locations.set(trip_locations)
+            trip.locations.set(self.get_random_locations())
             trip.facilities.set(self.get_random_facilities())
             trip.save()
 
             # Setting Schedule & Itinerary
             trip_schedules = self.get_random_schedules(trip.duration)
+            price = random.choice([1000, 5000, 6000, 9000])
             for schedule in trip_schedules:
-                schedule = make_aware(schedule)
-                price = random.choice([1000, 5000, 6000, 9000])
+                price = random.choice([price - 500, price + 500])
                 trip_schedule = TripSchedule(trip=trip, date_from=schedule, price=price)
                 trip_schedule.save()
 
             for itinerary in trip_itineraries:
                 trip_itinerary = TripItinerary(
-                    trip=trip, day=itinerary[0], heading="Day {}".format(itinerary[0]), description=itinerary[1]
+                    trip=trip,
+                    heading="Day {}".format(itinerary[0]),
+                    description=itinerary[1],
+                    day=itinerary[0],
                 )
                 trip_itinerary.save()
 

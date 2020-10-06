@@ -3,6 +3,8 @@ from datetime import timezone, datetime
 
 from django.db import models
 from django.urls import reverse
+from django.utils.text import slugify
+
 import trips.managers as managers
 from config_models.models import ConfigurationModel
 
@@ -40,13 +42,12 @@ class Location(SlugMixin, models.Model):
     objects = models.Manager()
     destinations = managers.TripDestinationManager()
     departures = managers.TripDepartureManager()
+    available = managers.AvailableLocationManager()
 
     name = models.CharField(max_length=30)
     slug = models.SlugField(null=True, blank=True)
     coordinates = models.CharField(max_length=50, null=True, blank=True)
     is_active = models.BooleanField(default=True)
-    is_destination = models.BooleanField(default=False)
-    is_departure = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['name']
@@ -110,7 +111,8 @@ class Trip(SlugMixin, models.Model):
     duration = models.SmallIntegerField(default=0, null=True, blank=True)
     age_limit = models.SmallIntegerField(default=0, null=True, blank=True)
 
-    destination = models.ForeignKey(Location, on_delete=models.CASCADE)
+    destination = models.ForeignKey(Location, related_name='trip_destination', on_delete=models.CASCADE)
+    departure = models.ForeignKey(Location, related_name='trip_departure', on_delete=models.CASCADE)
     locations = models.ManyToManyField(Location, related_name="trip_locations")
 
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.CASCADE)
@@ -132,6 +134,10 @@ class Trip(SlugMixin, models.Model):
 
     class Meta:
         ordering = ['-created_at', '-id']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.slug = slugify(self.name)
 
     def get_absolute_url(self):
         return reverse('view_trip', {'slug': self.slug})

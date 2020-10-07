@@ -19,16 +19,23 @@ INSTALLED_APPS = [
 ```
 python manage.py migrate 
 ```
-Add the following to your root urls.py file.
+Add the following to your root urls.py file. 
 ```
 urlpatterns = [
     ...
     url(r'^trips/', include('django_trips.urls'))
 ]
 ```
-Note that the URL path can be whatever you want.
+You can replace `trips/` to any namespace you like for the api.
 
-## API
+## Generate random trips.
+
+```
+python manage.py generate_trips --batch_size=100
+``` 
+Change the `batch_size` variable to create as much of trips you want. 
+
+## API Endpoints
 The following pages are served in the development:
 
 | Page                 |  Method          | URL                                                        |
@@ -129,6 +136,11 @@ OR
 > make random_trips
 ```
 
+## Test
+Run tests using the following command.
+```
+make tests
+```
 ## Docker Commands
 
 | Action                            |  Command          |

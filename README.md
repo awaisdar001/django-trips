@@ -15,7 +15,10 @@ INSTALLED_APPS = [
     'django_trips',
 ]
 ```
-
+## Migrate
+```
+python manage.py migrate 
+```
 Add the following to your root urls.py file.
 ```
 urlpatterns = [

@@ -10,10 +10,10 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 
-WORKDIR /app/djangotrips
-ADD . /app/djangotrips
+WORKDIR /app/dt
+ADD . /app/dt
 
-WORKDIR /app/djangotrips
+WORKDIR /app/dt
 
 RUN apt-get update && apt-get install -y python3-setuptools \
     python3-pip \
@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y python3-setuptools \
 RUN pip3 install --upgrade pip
 # Install pip requirements
 #ADD requirements.txt .
-RUN python -m pip install -r django_trips/requirements.txt
+RUN python -m pip install -r trips/requirements.txt
 
 
 

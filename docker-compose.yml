@@ -9,22 +9,22 @@ services:
       MYSQL_DATABASE: "db"
       MYSQL_ROOT_PASSWORD: "db"
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-    ports:
-      - 3606:3306
+#    ports:
+#      - 3606:3306
   #    volumes:
   #      - mysql_data:/var/lib/mysql
 
   trips:
-    command: bash -c 'while true; do python django_trips/manage.py runserver 0.0.0.0:8000; sleep 2; done'
+    command: bash -c 'while true; do python trips/manage.py runserver 0.0.0.0:8000; sleep 2; done'
     container_name: djangotrips.django
     depends_on:
       - tripsdb
-    image: awaisdar001/djangotrips:v1.1
+#    image: awaisdar001/djangotrips:v1.1
     volumes:
-      - .:/app/djangotrips
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
+      - .:/app/dt
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - 8000:8000
     stdin_open: true

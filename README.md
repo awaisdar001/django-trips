@@ -69,13 +69,16 @@ This endpoint is used to list all the trips Using the GET request type.
 Search specific trips. Here are the params that can be passed while searching. You can also mix the params together to
 narrow down the search. 
 
-| param     | description                                                           | example                           |
-| ---       | ---                                                                   |---                                |
-| name      | Search Trips that contains specific name.                             | `/api/trips/?name=Islamabad`      |
-| price     | Find trips that contains price greater than or equal                  | `/api/trips/?price=200`           |
-| duration  | Find trips of duration (days) greater than or equal                   | `/api/trips/?duration=2`          |
-| from_date | Find trips that are scheduled greater than or specified date          | `/api/trips/?from_date=2020-01-02`|
-| to_date   | Find trips that are scheduled less than or equal to specified date    | `/api/trips/?to_date=2020-01-02`  |
+| param                 | description                                                           | example                           |
+| ---                   | ---                                                                   |---                                |
+| name ""               | Find trips that contains specific name.                               | `/api/trips/?name=Islamabad`
+| destination[]         | Filter trips with specific destinations.                              | `destination=lahore,islamabad`
+| price_from (str)      | Find trips that has price greater than or equal to the given amount   | `/api/trips/?price_from=200`
+| price_to (str)        | Find trips that has price less than or equal to the given amount      | `/api/trips/?price_to=200`
+| duration_from (int)   | Find trips having duration greater than or equal to the given number  | `/api/trips/?duration_from=2`
+| duration_to (int)     | Find trips having duration less  than or equal to the given number    | `/api/trips/?duration_to=10`
+| date_from (date)      | Find trips that are scheduled greater than or specified date          | `/api/trips/?date_from=2020-01-02`
+| date_to (date)        | Find trips that are scheduled less than or equal to specified date    | `/api/trips/?date_from=2020-01-02`
 
 
 

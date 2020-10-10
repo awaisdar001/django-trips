@@ -25,31 +25,35 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
     Examples:
         POST: Creates a new trip
             /api/trips/
-            data = {
-                "name":"3 days trip to Islamabad",
-                "description": "This is the description for trip: 66",
-                "locations": [1,2],
-                "facilities": [1,2],
-                "destination": 1,
-                "created_by": 1,
-                "host": 1,
-            }
 
         GET: Return all trips (paginated, 10per page.)
             /api/trips/
         GET: Search Trips that contains specific name.
             /api/trips/?name=Islamabad
             Other Options.
-            | Keyword       |                                                                       |
-            | name          | Find trips that contains specific name.                               |
-            | price         | Find trips that contains price greater than or equal                  |
-            | duration      | Find trips of duration greater than or equal                          |
-            | from_date     | Find trips that are scheduled greater than or specified date          |
-            | to_date       | Find trips that are scheduled less than or equal to specified date    |
+            | Keyword               |                                                                       |
+            | name ""               | Find trips that contains specific name.                               |
+            |                       | name=Trip to lahore OR name=chitral                                   |
+            | destination[]         | Filter trips with specific destinations.                              |
+            |                       | e.g. destination=islamabad,lahore                                     |
+            | price_from (str)      | Find trips that has price greater than or equal to the given amount   |
+            | price_to (str)        | Find trips that has price less than or equal to the given amount      |
+            | duration_from (int)   | Find trips having duration greater than or equal to the given number  |
+            | duration_to (int)     | Find trips having duration less  than or equal to the given number    |
+            | date_from (date)      | Find trips that are scheduled greater than or specified date          |
+            | date_to (date)        | Find trips that are scheduled less than or equal to specified date    |
+
+        Examples:
+            /api/trips/?
+                destination=islamabad%2Clahore%2Cfairy+meadows&name=trip
+                &duration_from=1&duration_to=15
+                &price_from=500&price_to=8000
+                &date_from=2020-10-21&date_to=2020-11-11
 
     """
 
     authentication_classes = [SessionAuthentication, BasicAuthentication]
+    pagination_class = TripResponsePagination
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filter_class = TripFilter

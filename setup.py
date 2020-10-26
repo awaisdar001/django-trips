@@ -68,7 +68,7 @@ VERSION = get_version('django_trips', '__init__.py')
 
 setup(
     name='django - trips',
-    version='0.2.7.6',
+    version=VERSION,
     description='A Django Rest API for fetching and creating trips and their schedules.',
     long_description=README,
     long_description_content_type='text/markdown',
@@ -78,7 +78,6 @@ setup(
     license='MIT License',
     keywords='Django trips',
     packages=['django_trips'],
-    # install_requires=load_requirements('trips/requirements.txt'),
     install_requires=['setuptools'],
     classifiers=[
         'Environment :: Web Environment',

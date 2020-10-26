@@ -15,7 +15,7 @@ services:
   #      - mysql_data:/var/lib/mysql
 
   trips:
-    command: bash -c 'while true; do python trips/manage.py runserver 0.0.0.0:8000; sleep 2; done'
+    command: bash -c 'while true; do python manage.py runserver 0.0.0.0:8000; sleep 2; done'
     container_name: djangotrips.django
     depends_on:
       - tripsdb

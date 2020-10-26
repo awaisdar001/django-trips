@@ -1,12 +1,12 @@
 .DEFAULT_GOAL := test
 NODE_BIN=$(CURDIR)/node_modules/.bin
-MANAGE_PY_PATH = python trips/manage.py
+MANAGE_PY_PATH = python manage.py
 
 .PHONY: requirements update_db random_trips static help test build pull \
 		_build stop run restart attach shell destroy
 
 requirements: ## install development environment requirements
-	pip install -qr trips/requirements.txt --exists-action w
+	pip install -qr requirements.txt --exists-action w
 
 update_db: ## Install migrations
 	$(MANAGE_PY_PATH) migrate
@@ -22,7 +22,7 @@ help: ## display this help message
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "\033[36m  %-25s\033[0m %s\n", $$1, $$2}'
 
 test: ## Run unit tests for Trips app
-	cd trips; pytest -v
+	pytest -v
 
 build: destroy _build
 
@@ -58,6 +58,7 @@ _move:
 	rm -rf src/django_trips
 	cp {setup.py,setup.cfg,README.md,MANIFEST.in,LICENSE} src/
 	cp -R trips/django_trips src/
+
 publish: _move
 	python3 -m pip install --user --upgrade twine
 	cd src/; python3 setup.py sdist bdist_wheel; python3 -m twine upload --skip-existing --repository pypi dist/* --verbose

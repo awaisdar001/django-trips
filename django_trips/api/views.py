@@ -45,11 +45,11 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
 
         Examples:
             /api/trips/?
-                destination=islamabad%2Clahore%2Cfairy+meadows&name=trip
+                destination=islamabad,lahore,fairy+meadows
+                &name=trip
                 &duration_from=1&duration_to=15
                 &price_from=500&price_to=8000
                 &date_from=2020-10-21&date_to=2020-11-11
-
     """
 
     authentication_classes = [SessionAuthentication, BasicAuthentication]

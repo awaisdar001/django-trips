@@ -57,10 +57,10 @@ _move:
 	mkdir -p src
 	rm -rf src/django_trips
 	cp {setup.py,setup.cfg,README.md,MANIFEST.in,LICENSE} src/
-	cp -R trips/django_trips src/
+	cp -R ./django_trips src/
 
 publish: _move
-	python3 -m pip install --user --upgrade twine
+	python3 -m pip install --user twine
 	cd src/; python3 setup.py sdist bdist_wheel; python3 -m twine upload --skip-existing --repository pypi dist/* --verbose
 	@echo Warning: Do you want to delete src/ directory? [Y/n]
 	@read line; if [ $$line = "n" ]; then echo aborting; exit 1 ; fi

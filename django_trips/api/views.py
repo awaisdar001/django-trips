@@ -6,7 +6,6 @@ from rest_framework import generics, mixins
 from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 from django_trips.models import Trip, Location
 from . import serializers

@@ -110,6 +110,15 @@ data = {
 
 This endpoint is used to delete a single trip using DELETE request type. 
 
+### Get Destinations List
+`http://localhost:8000/api/destinations/`
+
+This endpoint is used to fetch all destinations available.  
+
+### Get Destination Detail
+`http://localhost:8000/api/destination/destination-slug`
+
+Given a slug, this endpoint provides detail about a single trip.  
 
 ## Develop Django Trips
 Kick the docker build using the following command. 

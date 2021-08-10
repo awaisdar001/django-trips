@@ -4,10 +4,11 @@ import random
 from datetime import datetime, timedelta
 
 from dateutil.tz import UTC
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
-from django.utils.timezone import make_aware
+
 from django_trips.models import (Category, Facility, Host, Location, Trip,
                                  TripItinerary, TripSchedule)
 
@@ -31,10 +32,7 @@ class Command(BaseCommand):
     """
 
     help = "Generate batches of trip with pre-populated random data"
-    locations_names_list = [
-        'Fairy Meadows', 'Hunza', 'Gilgit', 'Lahore', 'Islamabad',
-        'Karachi', 'Kashmir', 'Murree', 'Kaghan', 'Swat', 'Skardu'
-    ]
+    locations_names_list = settings.TRIP_LOCATIONS
 
     def add_arguments(self, parser):
         """
@@ -53,10 +51,7 @@ class Command(BaseCommand):
         """
         Get a random host from a pre-defined list of hosts
         """
-        host_list = [
-            'Arbisoft', 'Traverse', 'Travel Freaks', 'Destivels', 'Arbitainment'
-        ]
-        host, __ = Host.objects.get_or_create(name=random.choice(host_list), verified=True)
+        host, __ = Host.objects.get_or_create(name=random.choice(settings.TRIP_HOSTS), verified=True)
         return host
 
     def get_location_instance(self, name=None):
@@ -65,9 +60,22 @@ class Command(BaseCommand):
         return location_data
 
     def get_destination(self):
-        location_data = self.get_location_instance()
-        destination, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
+        name = random.choice(settings.TRIP_DESTINATIONS)
+        destination_data = {'name': name, 'slug': slugify(name), 'is_destination': True}
+        destination, __ = Location.objects.get_or_create(
+            slug=destination_data['slug'],
+            defaults=destination_data
+        )
         return destination
+
+    def get_departure(self):
+        name = random.choice(settings.TRIP_DESTINATIONS)
+        departure_location_data = {'name': name, 'slug': slugify(name), 'is_departure': True}
+        departure, __ = Location.objects.get_or_create(
+            slug=departure_location_data['slug'],
+            defaults=departure_location_data
+        )
+        return departure
 
     def get_random_locations(self):
         """
@@ -85,12 +93,8 @@ class Command(BaseCommand):
         """
         Get random number of facilities from some pre-defined facilities.
         """
-        facilities_names_list = [
-            'Transport', 'Meals', 'Guide', 'Photography', 'Accommodation',
-            'First Aid Kit', 'Bon Fire', 'Power Bank'
-        ]
         facilities_objects_list = []
-        for facility_name in random.sample(facilities_names_list, random.choice(range(2, 5))):
+        for facility_name in random.sample(settings.TRIP_FACILITIES, random.choice(range(2, 5))):
             facility, __ = Facility.objects.get_or_create(
                 name=facility_name,
                 defaults={'slug': slugify(facility_name)}
@@ -103,10 +107,7 @@ class Command(BaseCommand):
         """
         Get random number of facilities from some pre-defined facilities.
         """
-        category_names_list = [
-            'Long Drive', 'Honeymoon', 'Rode Trip', 'Bone fire', 'Hiking',
-        ]
-        name = random.choice(category_names_list)
+        name = random.choice(settings.TRIP_CATEGORIES)
         category, __ = Category.objects.get_or_create(
             name=name,
             defaults={'slug': slugify(name)}
@@ -142,11 +143,7 @@ class Command(BaseCommand):
         returns a comma-separated string of gears from a pre-defined
         list of gears
         """
-        gears_list = [
-            'Mountain Climber', 'Shoes', 'Stick', 'Coat', 'Camp',
-            'Inhaler', 'Lighter'
-        ]
-        selected_gear = random.sample(gears_list, random.choice(range(1, 4)))
+        selected_gear = random.sample(settings.TRIP_GEARS, random.choice(range(1, 4)))
         return ','.join(selected_gear)
 
     def handle(self, *args, **options):

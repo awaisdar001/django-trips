@@ -37,7 +37,7 @@ class AvailableLocationManager(models.Manager):
         return super().get_queryset().filter(is_active=True)
 
 
-class ActiveTripManager(models.Manager):
+class ActiveModelManager(models.Manager):
     """
     Trip schedule safe queryset manager.
 
@@ -51,7 +51,7 @@ class ActiveTripManager(models.Manager):
         This method will only return the objects which have date_from defined
         in the future
         """
-        return super(ActiveTripManager, self).get_queryset().filter(
+        return super(ActiveModelManager, self).get_queryset().filter(
             deleted=False
         )
 
@@ -90,5 +90,5 @@ class TripDepartureManager(models.Manager):
         in the future
         """
         return super(TripDepartureManager, self).get_queryset().filter(
-            is_departure=False
+            is_departure=True
         )

@@ -2,12 +2,12 @@
 from __future__ import unicode_literals
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django_trips.models import Trip
-from rest_framework import generics
+from rest_framework import generics, mixins
 from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.permissions import IsAuthenticated
 
+from django_trips.models import Trip, Location
 from . import serializers
 from .filters import TripFilter
 from .mixins import MultipleFieldLookupMixin
@@ -103,3 +103,28 @@ class TripRetrieveUpdateDestroyAPIView(
         if self.request.method == 'GET':
             return serializers.TripDetailSerializer
         return serializers.TripSerializerWithIDs
+
+
+class DestinationsListAPIView(mixins.ListModelMixin, mixins.RetrieveModelMixin, generics.GenericAPIView):
+    """
+    Destination List view.
+    This endpoint is used to list one or all the destinations using the GET request type.
+
+    Examples:
+        GET: Return all destinations (paginated, 10per page.)
+            /api/destinations/
+
+        GET: Return single destination
+            /api/destination/gilgit/
+    """
+
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = Location.destinations.all()
+    serializer_class = serializers.DestinationMinimumSerializer
+    lookup_field = 'slug'
+
+    def get(self, request, *args, **kwargs):
+        if self.lookup_field in kwargs:
+            return self.retrieve(request, *args, **kwargs)
+        return self.list(request, *args, **kwargs)

@@ -37,22 +37,26 @@ class Location(SlugMixin, models.Model):
     This model contains information about trip location with respect to
     coordinates. We will use coordinates to draw google map.
     """
+    active = managers.ActiveModelManager()
     objects = models.Manager()
+
     destinations = managers.TripDestinationManager()
     departures = managers.TripDepartureManager()
     available = managers.AvailableLocationManager()
+    deleted = models.BooleanField(default=False)
+    is_destination = models.BooleanField(default=False)
+    is_departure = models.BooleanField(default=False)
 
     name = models.CharField(max_length=30)
     slug = models.SlugField(null=True, blank=True)
     coordinates = models.CharField(max_length=50, null=True, blank=True)
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['name']
 
     def __str__(self):
         """String representation of model instance"""
-        return "{0}".format(self.name)
+        return f"{self.name}"
 
     @property
     def get_coordinates(self):
@@ -98,7 +102,7 @@ class Trip(SlugMixin, models.Model):
     end users.
     """
     objects = models.Manager()
-    active = managers.ActiveTripManager()
+    active = managers.ActiveModelManager()
 
     name = models.CharField("Title", max_length=500)
     slug = models.SlugField(max_length=100, null=True, blank=True)

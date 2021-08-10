@@ -133,3 +133,30 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
+
+# # # # # # # # # # # # # # # # # # # # # # #
+#     Generate trips command args           #
+# # # # # # # # # # # # # # # # # # # # # # #
+
+TRIP_DESTINATIONS = (
+    'Fairy Meadows', 'Hunza', 'Gilgit', 'Kashmir', 'Murree', 'Kaghan', 'Swat', 'Skardu'
+)
+TRIP_DEPARTURES = (
+    'Lahore', 'Islamabad', 'Karachi',
+)
+TRIP_LOCATIONS = TRIP_DEPARTURES + TRIP_DESTINATIONS
+
+TRIP_HOSTS = (
+    'Arbisoft', 'Traverse', 'Travel Freaks', 'Destivels', 'Arbitainment'
+)
+TRIP_FACILITIES = (
+    'Transport', 'Meals', 'Guide', 'Photography', 'Accommodation',
+    'First Aid Kit', 'Bon Fire', 'Power Bank'
+)
+TRIP_CATEGORIES = (
+    'Long Drive', 'Honeymoon', 'Rode Trip', 'Bone fire', 'Hiking',
+)
+TRIP_GEARS = (
+    'Mountain Climber', 'Shoes', 'Stick', 'Coat', 'Camp',
+    'Inhaler', 'Lighter'
+)

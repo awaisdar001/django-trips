@@ -130,3 +130,14 @@ class TripDetailSerializer(TripBaseSerializer):
     class Meta:
         model = Trip
         fields = TripBaseSerializer.Meta.fields + ('cancellation_policy', 'host')
+
+
+class DestinationMinimumSerializer(serializers.ModelSerializer):
+    destination_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Location
+        fields = ('slug', 'name', 'destination_url')
+
+    def get_destination_url(self, destination):
+        return reverse("trips-api:destination-item", kwargs={"slug": destination.slug})

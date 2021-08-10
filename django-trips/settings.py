@@ -137,14 +137,15 @@ REST_FRAMEWORK = {
 # # # # # # # # # # # # # # # # # # # # # # #
 #     Generate trips command args           #
 # # # # # # # # # # # # # # # # # # # # # # #
+USE_DEFAULT_TRIPS = False
 
 TRIP_DESTINATIONS = (
     'Fairy Meadows', 'Hunza', 'Gilgit', 'Kashmir', 'Murree', 'Kaghan', 'Swat', 'Skardu'
 )
-TRIP_DEPARTURES = (
+TRIP_DEPARTURE_LOCATION = (
     'Lahore', 'Islamabad', 'Karachi',
 )
-TRIP_LOCATIONS = TRIP_DEPARTURES + TRIP_DESTINATIONS
+TRIP_LOCATIONS = TRIP_DEPARTURE_LOCATION + TRIP_DESTINATIONS
 
 TRIP_HOSTS = (
     'Arbisoft', 'Traverse', 'Travel Freaks', 'Destivels', 'Arbitainment'

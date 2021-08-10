@@ -1,9 +1,8 @@
 """Urls for trips app"""
-from django.conf.urls import include
-from django.urls import path
+from django.urls import path, include
 
-app_label="ol"
+
 urlpatterns = [
-    path('api/', include('django_trips.api.urls')),
+    path('', include('django_trips.api.urls')),
 
 ]

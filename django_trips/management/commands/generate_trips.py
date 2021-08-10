@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import random
+from collections import namedtuple
 from datetime import datetime, timedelta
 
 from dateutil.tz import UTC
@@ -8,9 +9,27 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
-
 from django_trips.models import (Category, Facility, Host, Location, Trip,
                                  TripItinerary, TripSchedule)
+
+TRIP_DESTINATIONS = 'TRIP_DESTINATIONS'
+TRIP_DEPARTURE_LOCATION = 'TRIP_DEPARTURE_LOCATION'
+TRIP_LOCATIONS = 'TRIP_LOCATIONS'
+TRIP_HOSTS = 'TRIP_HOSTS'
+TRIP_FACILITIES = 'TRIP_FACILITIES'
+TRIP_CATEGORIES = 'TRIP_CATEGORIES'
+TRIP_GEARS = 'TRIP_GEARS'
+
+DEFAULT_SETTINGS = namedtuple(
+    'Settings',
+    [TRIP_DESTINATIONS, TRIP_DEPARTURE_LOCATION, TRIP_LOCATIONS, TRIP_HOSTS, TRIP_FACILITIES,
+     TRIP_CATEGORIES, TRIP_GEARS]
+)
+
+LocalSettings = DEFAULT_SETTINGS(
+    ['Swat', 'Gilgit'], ['Lahore'], ['Lahore', 'Swat', 'Gilgit'], ['Django'], ['Bonefire', 'Food', 'Drinks'],
+    ['Honymoon', 'Outdoor'], ['Sun glasses', 'Sun block']
+)
 
 
 class Command(BaseCommand):
@@ -28,11 +47,9 @@ class Command(BaseCommand):
         ./manage.py generate_trips
 
     If batch size is not provided, the command will generate 10 trips
-
     """
 
     help = "Generate batches of trip with pre-populated random data"
-    locations_names_list = settings.TRIP_LOCATIONS
 
     def add_arguments(self, parser):
         """
@@ -46,21 +63,26 @@ class Command(BaseCommand):
             help="number to trips to generate"
         )
 
-    @staticmethod
-    def get_random_host():
+    def get_settings(self, setting_needed, default=None):
+        value = getattr(settings, setting_needed, getattr(LocalSettings, setting_needed, default))
+        assert value, f'Missing required settings {setting_needed}.'
+        return value
+
+    def get_random_host(self):
         """
         Get a random host from a pre-defined list of hosts
         """
-        host, __ = Host.objects.get_or_create(name=random.choice(settings.TRIP_HOSTS), verified=True)
+        hosts = self.get_settings('TRIP_HOSTS')
+        host, __ = Host.objects.get_or_create(name=random.choice(hosts), verified=True)
         return host
 
     def get_location_instance(self, name=None):
-        name = name or random.choice(self.locations_names_list)
+        name = name or random.choice(self.get_settings('TRIP_LOCATIONS'))
         location_data = {'name': name, 'slug': slugify(name)}
         return location_data
 
     def get_destination(self):
-        name = random.choice(settings.TRIP_DESTINATIONS)
+        name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
         destination_data = {'name': name, 'slug': slugify(name), 'is_destination': True}
         destination, __ = Location.objects.get_or_create(
             slug=destination_data['slug'],
@@ -69,7 +91,7 @@ class Command(BaseCommand):
         return destination
 
     def get_departure(self):
-        name = random.choice(settings.TRIP_DESTINATIONS)
+        name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
         departure_location_data = {'name': name, 'slug': slugify(name), 'is_departure': True}
         departure, __ = Location.objects.get_or_create(
             slug=departure_location_data['slug'],
@@ -82,19 +104,20 @@ class Command(BaseCommand):
         Get multiple/single location object from pre-defined list.
         """
         trip_random_locations = []
-        for location_name in random.sample(self.locations_names_list, random.choice(range(2, 7))):
+        locations = self.get_settings('TRIP_LOCATIONS')
+        for location_name in random.sample(locations, random.choice(range(1, len(locations)))):
             location_data = self.get_location_instance(location_name)
             location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
             trip_random_locations.append(location)
         return trip_random_locations
 
-    @staticmethod
-    def get_random_facilities():
+    def get_random_facilities(self):
         """
         Get random number of facilities from some pre-defined facilities.
         """
         facilities_objects_list = []
-        for facility_name in random.sample(settings.TRIP_FACILITIES, random.choice(range(2, 5))):
+        facilities = self.get_settings('TRIP_FACILITIES')
+        for facility_name in random.sample(facilities, random.choice(range(1, len(facilities)))):
             facility, __ = Facility.objects.get_or_create(
                 name=facility_name,
                 defaults={'slug': slugify(facility_name)}
@@ -102,12 +125,11 @@ class Command(BaseCommand):
             facilities_objects_list.append(facility)
         return facilities_objects_list
 
-    @staticmethod
-    def get_random_category():
+    def get_random_category(self):
         """
         Get random number of facilities from some pre-defined facilities.
         """
-        name = random.choice(settings.TRIP_CATEGORIES)
+        name = random.choice(self.get_settings('TRIP_CATEGORIES'))
         category, __ = Category.objects.get_or_create(
             name=name,
             defaults={'slug': slugify(name)}
@@ -132,18 +154,18 @@ class Command(BaseCommand):
         """
         return [
             (day, "Itinerary for Day: {}".format(day))
-            for day in range(1, random.choice(range(4, 7)))
+            for day in range(1, random.choice(range(5, 20)))
         ]
 
-    @staticmethod
-    def get_random_gear():
+    def get_random_gear(self):
         """
         get random number of gears for a trip.
 
         returns a comma-separated string of gears from a pre-defined
         list of gears
         """
-        selected_gear = random.sample(settings.TRIP_GEARS, random.choice(range(1, 4)))
+        trip_gear = self.get_settings('TRIP_GEARS')
+        selected_gear = random.sample(trip_gear, random.choice(range(1, len(trip_gear))))
         return ','.join(selected_gear)
 
     def handle(self, *args, **options):
@@ -158,15 +180,15 @@ class Command(BaseCommand):
         user = super_users.first()
 
         for count in range(0, batch_size):
-            trip = Trip(name="Trip : {}".format(count))
+            trip = Trip(
+                destination=self.get_destination(),
+                departure=self.get_departure(),
+            )
             trip_itineraries = self.get_random_itineraries()
+            trip.duration = len(trip_itineraries)
 
-            trip.destination = self.get_destination()
-            trip.departure = self.get_destination()
+            trip.name = "{} days trip to {}".format(trip.duration, trip.destination.name)
 
-            trip.name = "{} days trip to {}".format(len(trip_itineraries), trip.destination.name)
-
-            trip.duration = random.choice(range(3, 8))
             trip.age_limit = random.choice(range(20, 40))
             trip.host = self.get_random_host()
             trip.gear = self.get_random_gear()

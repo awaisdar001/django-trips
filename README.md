@@ -19,16 +19,26 @@ INSTALLED_APPS = [
 ```
 python manage.py migrate 
 ```
-Add the following to your root urls.py file. 
+Add the following to your root `urls.py` or to your desired file location.   
 ```
 urlpatterns = [
     ...
-    url(r'^trips/', include('django_trips.urls'))
+    path('trips/', include(('django_trips.api.urls', 'trips-api'), namespace='trips-api')),
 ]
 ```
 You can replace `trips/` to any namespace you like for the api.
 
 ## Generate random trips.
+Before you generate random scripts, make sure you have the required settings available in your project. If you want to use the default settings set `USE_DEFAULT_TRIPS=True`. 
+The script depends upon these variables, if you don't want to use the default settings set the 
+following settings. 
+1. `TRIP_DESTINATIONS`
+2. `TRIP_DEPARTURE_LOCATION`
+3. `TRIP_LOCATIONS = TRIP_DEPARTURE_LOCATION + TRIP_DESTINATIONS`
+4. `TRIP_HOSTS`
+5. `TRIP_FACILITIES`
+6. `TRIP_CATEGORIES`
+7. `TRIP_GEARS`
 
 ```
 python manage.py generate_trips --batch_size=100

@@ -52,6 +52,8 @@ class Location(SlugMixin, models.Model):
     coordinates = models.CharField(max_length=50, null=True, blank=True)
 
     class Meta:
+        constraints = [models.UniqueConstraint(fields=("slug",), name="unique_slug_for_location")]
+        indexes = [models.Index(fields=('slug',))]
         ordering = ['name']
 
     def __str__(self):
@@ -139,7 +141,7 @@ class Trip(SlugMixin, models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        self.slug = slugify(self.name)
+        self.slug = slugify(f'{self.host}-{self.name}')
 
     def get_absolute_url(self):
         return reverse('view_trip', {'slug': self.slug})

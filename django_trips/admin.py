@@ -54,6 +54,7 @@ class LocationAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'slug',
     )
+    list_filter = ('is_destination', 'is_departure', 'deleted')
 
 
 @admin.register(TripItinerary)

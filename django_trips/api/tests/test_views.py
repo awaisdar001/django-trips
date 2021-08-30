@@ -51,8 +51,8 @@ class TestTripList(APITestCase):
     def test_trip_list_results(self):
         """Verify if the returned data contains expected result keys"""
         expected_keys = [
-            'name', 'slug', 'description', 'duration', 'age_limit', 'destination', 'metadata', 'category',
-            'gear', 'created_by', 'trip_schedule', 'trip_itinerary', 'locations', 'facilities',
+            'name', 'slug', 'description', 'duration', 'age_limit', 'destination', 'metadata', 'categories',
+            'primary_category', 'gear', 'created_by', 'trip_schedule', 'trip_itinerary', 'locations', 'facilities',
             'trip_url', 'cancellation_policy', 'host'
         ]
         results = self.get_trips_list_result()

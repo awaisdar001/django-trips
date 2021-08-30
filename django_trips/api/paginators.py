@@ -9,7 +9,6 @@ class TripResponsePagination(PageNumberPagination):
     API Custom paginator to tell number of pages
     on which data has been distributed.
     """
-
     page_size = 10
 
     def get_paginated_response(self, data):

@@ -76,28 +76,18 @@ class Command(BaseCommand):
         host, __ = Host.objects.get_or_create(name=random.choice(hosts), verified=True)
         return host
 
-    def get_location_instance(self, name=None):
-        name = name or random.choice(self.get_settings('TRIP_LOCATIONS'))
+    def get_location_instance(self, name):
         location_data = {'name': name, 'slug': slugify(name)}
-        return location_data
+        location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
+        return location
 
     def get_destination(self):
         name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
-        destination_data = {'name': name, 'slug': slugify(name), 'is_destination': True}
-        destination, __ = Location.objects.get_or_create(
-            slug=destination_data['slug'],
-            defaults=destination_data
-        )
-        return destination
+        return self.get_location_instance(name)
 
     def get_departure(self):
         name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
-        departure_location_data = {'name': name, 'slug': slugify(name), 'is_departure': True}
-        departure, __ = Location.objects.get_or_create(
-            slug=departure_location_data['slug'],
-            defaults=departure_location_data
-        )
-        return departure
+        return self.get_location_instance(name)
 
     def get_random_locations(self):
         """
@@ -106,8 +96,7 @@ class Command(BaseCommand):
         trip_random_locations = []
         locations = self.get_settings('TRIP_LOCATIONS')
         for location_name in random.sample(locations, random.choice(range(1, len(locations)))):
-            location_data = self.get_location_instance(location_name)
-            location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
+            location = self.get_location_instance(location_name)
             trip_random_locations.append(location)
         return trip_random_locations
 
@@ -182,7 +171,7 @@ class Command(BaseCommand):
         for count in range(0, batch_size):
             trip = Trip(
                 destination=self.get_destination(),
-                departure=self.get_departure(),
+                starting_location=self.get_departure(),
             )
             trip_itineraries = self.get_random_itineraries()
             trip.duration = len(trip_itineraries)
@@ -192,7 +181,7 @@ class Command(BaseCommand):
             trip.age_limit = random.choice(range(20, 40))
             trip.host = self.get_random_host()
             trip.gear = self.get_random_gear()
-            trip.category = self.get_random_category()
+            trip.primary_category = self.get_random_category()
             trip.description = "This is the description for trip: {}".format(count)
             trip.created_by = user
 

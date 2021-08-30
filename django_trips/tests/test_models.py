@@ -84,23 +84,6 @@ class TestLocation(TestCase):
         updated_location = Location.objects.get(name=self.location.name)
         self.assertIsNotNone(updated_location.coordinates)
 
-    def test_location_destination(self):
-        destination = LocationFactory(is_destination=True)
-        self.assertTrue(destination.is_destination)
-
-        destination_ids = Location.destinations.all().values_list('id', flat=True)
-        departure_ids = Location.departures.all().values_list('id', flat=True)
-        self.assertNotIn(destination.id, departure_ids)
-        self.assertIn(destination.id, destination_ids)
-
-    def test_location_departure(self):
-        departure_location = LocationFactory(is_departure=True)
-        self.assertTrue(departure_location.is_departure)
-
-        destination_ids = Location.destinations.all().values_list('id', flat=True)
-        departure_ids = Location.departures.all().values_list('id', flat=True)
-        self.assertNotIn(departure_location.id, destination_ids)
-        self.assertIn(departure_location.id, departure_ids)
 
     def test_inactive_location(self):
         inactive_location = LocationFactory(deleted=True)

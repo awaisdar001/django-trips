@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 import django_trips.managers as managers
 from config_models.models import ConfigurationModel
@@ -7,6 +7,18 @@ from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
 from django_trips.mixins import SlugMixin
+
+
+class HostType(models.Model):
+    """Host type model."""
+    name = models.CharField(max_length=50)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        """String representation of model instance"""
+        return self.name
 
 
 class Host(SlugMixin, models.Model):
@@ -19,7 +31,12 @@ class Host(SlugMixin, models.Model):
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=70, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    cancellation_policy = models.TextField(null=True, blank=True)
+    type = models.ForeignKey(HostType, null=True, blank=True, related_name='host_type', on_delete=models.CASCADE)
+    cnic = models.CharField(max_length=15, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    mobile = models.CharField(max_length=15, null=True, blank=True)
+    address = models.CharField(max_length=50, null=True, blank=True)
+    _cancellation_policy = models.TextField(default='[]', null=True, blank=True)
     verified = models.BooleanField(default=False)
 
     class Meta:
@@ -28,6 +45,32 @@ class Host(SlugMixin, models.Model):
     def __str__(self):
         """String representation of model instance"""
         return self.name
+
+    @property
+    def cancellation_policy(self):
+        """Host cancellation policy."""
+        return json.loads(self._cancellation_policy)
+
+    @cancellation_policy.setter
+    def cancellation_policy(self, value):
+        self._cancellation_policy = json.dumps(value)
+
+
+class HostRating(models.Model):
+    host = models.OneToOneField(
+        Host, related_name="host_rating", on_delete=models.CASCADE, null=True, blank=True
+    )
+    rating_count = models.SmallIntegerField(default=0, null=True, blank=True)  # 32767
+    rated_by = models.SmallIntegerField(default=0, null=True, blank=True)
+
+    @property
+    def average_rating(self):
+        """Returns calculated rating."""
+        return float(self.rating_count / self.rated_by) if self.rated_by else 0
+
+    def __str__(self):
+        """String representation of model instance"""
+        return f'{self.host.name}: {self.rating_count} / {self.rated_by}'
 
 
 class Location(SlugMixin, models.Model):
@@ -40,19 +83,22 @@ class Location(SlugMixin, models.Model):
     active = managers.ActiveModelManager()
     objects = models.Manager()
 
-    destinations = managers.TripDestinationManager()
-    departures = managers.TripDepartureManager()
-    available = managers.AvailableLocationManager()
+    # destinations = managers.LocationDestinationManager()
+    # departures = managers.LocationDepartureManager()
+    available = managers.LocationAvailableManager()
+
     deleted = models.BooleanField(default=False)
-    is_destination = models.BooleanField(default=False)
-    is_departure = models.BooleanField(default=False)
+    # is_destination = models.BooleanField(default=False)
+    # is_departure = models.BooleanField(default=False)
 
     name = models.CharField(max_length=30)
     slug = models.SlugField(null=True, blank=True)
     coordinates = models.CharField(max_length=50, null=True, blank=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("slug",), name="unique_slug_for_location")]
+        constraints = [
+            models.UniqueConstraint(name="unique_slug_for_location", fields=("slug",), )
+        ]
         indexes = [models.Index(fields=('slug',))]
         ordering = ['name']
 
@@ -66,6 +112,19 @@ class Location(SlugMixin, models.Model):
         return self.coordinates.split(',')
 
 
+class Gear(SlugMixin, models.Model):
+    """
+    Gear options for a trip.
+
+    This model contains information all the gears that can be used for a trip.
+    """
+    name = models.CharField(max_length=70, unique=True)
+    slug = models.SlugField(max_length=85, null=True, blank=True)
+    deleted = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
 class Facility(SlugMixin, models.Model):
     """
     Trip Facility model
@@ -73,7 +132,7 @@ class Facility(SlugMixin, models.Model):
     This model contains information all the available facilities that can be
     provided in a trip.
     """
-    name = models.CharField(max_length=70)
+    name = models.CharField(max_length=70, unique=True)
     slug = models.SlugField(max_length=85, null=True, blank=True)
     deleted = models.BooleanField(default=False)
 
@@ -103,6 +162,14 @@ class Trip(SlugMixin, models.Model):
     This model contains the main information that will be presented to
     end users.
     """
+    STANDARD = 'ST'
+    BUDGET = 'BG'
+    PREMIUM = 'PM'
+    PRICE_BRACKET_CHOICES = [
+        (STANDARD, 'Standard'),
+        (BUDGET, 'Budget'),
+        (PREMIUM, 'Premium'),
+    ]
     objects = models.Manager()
     active = managers.ActiveModelManager()
 
@@ -111,21 +178,37 @@ class Trip(SlugMixin, models.Model):
     description = models.TextField()
     # meta includes tinyurl, poster
     _metadata = models.TextField(default='{}', null=True, blank=True)
-
+    price_bracket = models.CharField(max_length=2, choices=PRICE_BRACKET_CHOICES, default=STANDARD, )
     duration = models.SmallIntegerField(default=0, null=True, blank=True)
     age_limit = models.SmallIntegerField(default=0, null=True, blank=True)
 
-    destination = models.ForeignKey(Location, related_name='trip_destination', on_delete=models.CASCADE)
-    departure = models.ForeignKey(Location, related_name='trip_departure', on_delete=models.CASCADE)
+    destination = models.ForeignKey(
+        Location,
+        null=True,
+        blank=True,
+        related_name='trip_destination',
+        on_delete=models.CASCADE
+    )
+    starting_location = models.ForeignKey(
+        Location,
+        null=True,
+        blank=True,
+        related_name='trip_starting_location',
+        on_delete=models.CASCADE,
+    )
     locations = models.ManyToManyField(Location, related_name="trip_locations")
+    passenger_limit = models.SmallIntegerField(default=0, null=True, blank=True)
+    primary_category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.CASCADE)
 
-    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.CASCADE)
+    categories = models.ManyToManyField(Category, related_name="trip_categories")
     facilities = models.ManyToManyField(Facility, related_name="trip_facilities")
-    gear = models.TextField("Recommended Gear", null=True, blank=True)
+    gear = models.ManyToManyField(Gear, related_name="trip_gear")
 
     deleted = models.BooleanField(default=False)
     created_by = models.ForeignKey(
-        'auth.User', related_name="created_by_trips", on_delete=models.CASCADE
+        'auth.User',
+        related_name="created_by_trips",
+        on_delete=models.CASCADE
     )
     host = models.ForeignKey(Host, related_name="host_trips", on_delete=models.CASCADE)
 
@@ -151,6 +234,11 @@ class Trip(SlugMixin, models.Model):
         """Parse the internal metadata field into python object"""
         return json.loads(self._metadata)
 
+    @metadata.setter
+    def metadata(self, value):
+        """Setter method for """
+        self._metadata = json.dumps(value)
+
     @property
     def cancellation_policy(self):
         """
@@ -158,6 +246,34 @@ class Trip(SlugMixin, models.Model):
         generic host cancellation (all-host-trips) policy.
         """
         return self.host.cancellation_policy or CancellationPolicy.current().description
+
+
+class TripAvailability(models.Model):
+    """Trip future availabilities"""
+    DAILY = 'DL'
+    WEEKLY = 'WK'
+    MONTHLY = 'MN'
+    FIX_DATE = 'FD'
+    AVAILABILITY_CHOICES = [
+        (DAILY, 'Daily'),
+        (WEEKLY, 'Weekly'),
+        (MONTHLY, 'Monthly'),
+        (FIX_DATE, 'FixDate'),
+    ]
+    trip = models.OneToOneField(Trip, null=True, blank=True, related_name='trip_availability', on_delete=models.CASCADE)
+    type = models.CharField(max_length=2, choices=AVAILABILITY_CHOICES, default=MONTHLY)
+    _options = models.TextField(default='{}', null=True, blank=True)
+
+    def __str__(self):
+        return f'Trip:{self.trip.id}[{self.type}]'
+
+    @property
+    def options(self):
+        return json.loads(self._options)
+
+    @options.setter
+    def options(self, value):
+        self._options = json.dumps(value)
 
 
 class TripItinerary(models.Model):
@@ -191,12 +307,12 @@ class TripSchedule(models.Model):
     available = managers.AvailableTripScheduleManager()
 
     trip = models.ForeignKey(Trip, related_name="trip_schedule", on_delete=models.CASCADE)
-    price = models.SmallIntegerField(default=0)
+    price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
     date_from = models.DateTimeField()
 
     def __str__(self):
         """String representation of model instance"""
-        return self.trip.name
+        return f'{self.trip.host}: {self.trip.name} - {self.date_from.date()}'
 
     @property
     def is_active(self):
@@ -251,15 +367,17 @@ class CancellationPolicy(ConfigurationModel):
 
 class TripBooking(models.Model):
     """Trip booking"""
-    schedule = models.ForeignKey(TripSchedule, related_name="trip_bookings", on_delete=models.CASCADE)
+    # schedule = models.ForeignKey(TripSchedule, related_name="trip_bookings", on_delete=models.CASCADE)
+    trip = models.ForeignKey(Trip, related_name="trip_bookings", null=True, blank=True, on_delete=models.CASCADE)
+    date_from = models.DateTimeField(null=True, blank=True)
     name = models.CharField(max_length=60)
     phone_number = models.CharField(max_length=30)
     cnic_number = models.CharField(max_length=30)
     email = models.EmailField()
-    message = models.TextField()
+    message = models.TextField(null=True, blank=True)
 
     def __str__(self):
-        return self.name
+        return f'{self.name}, {self.schedule}'
 
 
 class TripPickupLocation(models.Model):

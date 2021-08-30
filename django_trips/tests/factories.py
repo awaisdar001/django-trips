@@ -100,7 +100,8 @@ class TripFactory(DjangoModelFactory):
     destination = factory.SubFactory(LocationFactory)
     departure = factory.SubFactory(LocationFactory)
     locations = factory.SubFactory(LocationFactory)
-    category = factory.SubFactory(CategoryFactory)
+    primary_category = factory.SubFactory(CategoryFactory)
+    categories = factory.SubFactory(CategoryFactory)
     facilities = factory.SubFactory(FacilityFactory)
     trip_schedule = factory.SubFactory(TripScheduleFactory)
 

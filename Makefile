@@ -49,6 +49,8 @@ logs: # Attach logs for the django server
 
 shell: ## Enter in django shell
 	docker exec -it djangotrips.django /bin/bash
+mysql-shell: ## Enter in mysql shell
+	docker exec -it djangotrips.mysql /bin/bash
 
 destroy: stop ## Remove all containers, networks, and volumes
 	docker-compose down -v

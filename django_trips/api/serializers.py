@@ -2,16 +2,45 @@
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django_trips.models import (Category, Facility, Host, Location, Trip,
-                                 TripItinerary, TripSchedule)
+                                 TripItinerary, TripSchedule, TripBooking, Gear, TripAvailability)
 from rest_framework import serializers
+
+
+class TripScheduleField(serializers.Field):
+    """
+    Trip schedule field.
+    """
+
+    def to_representation(self, value):
+        breakpoint()
+        ret = {
+            "trip_id": value.trip.slug,
+            "date": value.date_from,
+            "price": value.price,
+        }
+        return ret
+
+    def to_internal_value(self, data):
+        breakpoint()
+        ret = {
+            "x_coordinate": data["x"],
+            "y_coordinate": data["y"],
+        }
+        return ret
 
 
 class UserSerializer(serializers.ModelSerializer):
     """User Modal Serializer"""
+    full_name = serializers.CharField(source='get_full_name')
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'is_staff')
+        fields = [
+            'username',
+            'full_name',
+            'first_name',
+            'last_name',
+        ]
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -19,7 +48,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ('name', 'slug')
 
 
 class LocationSerializer(serializers.ModelSerializer):
@@ -27,7 +56,7 @@ class LocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
-        fields = '__all__'
+        fields = ('name', 'slug', 'coordinates')
 
 
 class FacilitySerializer(serializers.ModelSerializer):
@@ -35,15 +64,39 @@ class FacilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Facility
-        fields = '__all__'
+        exclude = ('id', 'deleted',)
+
+
+class GearSerializer(serializers.ModelSerializer):
+    """Gear Modal Serializer"""
+
+    class Meta:
+        model = Gear
+        exclude = ('id', 'deleted',)
 
 
 class HostSerializer(serializers.ModelSerializer):
     """Host Modal Serializer"""
+    type = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Host
-        fields = '__all__'
+        fields = ('name', 'slug', 'description', 'cancellation_policy', 'verified', 'type', 'rating')
+
+    def get_type(self, object):
+        return object.type.name
+
+    def get_rating(self, object):
+        rating = {
+            'rating_count': 0,
+            'rated_by': 0
+        }
+        host_rating = getattr(object, 'host_rating')
+        if host_rating:
+            rating['rating_count'] = host_rating.rating_count
+            rating['rated_by'] = host_rating.rated_by
+        return rating
 
 
 class TripItinerarySerializer(serializers.ModelSerializer):
@@ -51,11 +104,21 @@ class TripItinerarySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TripItinerary
-        fields = "__all__"
+        exclude = ('trip', 'id')
+
+
+class TripAvailabilitySerializer(serializers.ModelSerializer):
+    """TripItinerary Modal Serializer"""
+    type = serializers.CharField(source='get_type_display')
+
+    class Meta:
+        model = TripAvailability
+        fields = ('type', 'options',)
 
 
 class TripScheduleSerializer(serializers.ModelSerializer):
     """TripSchedule Modal Serializer"""
+    date_from = serializers.DateTimeField(format="%Y-%m-%d")
 
     class Meta:
         model = TripSchedule
@@ -73,15 +136,17 @@ class TripSerializerWithIDs(serializers.ModelSerializer):
 
 class TripBaseSerializer(serializers.ModelSerializer):
     trip_url = serializers.SerializerMethodField()
-    metadata = serializers.JSONField(source="_metadata", initial="{}")
-    departure = LocationSerializer()
+    starting_location = LocationSerializer()
     destination = LocationSerializer()
     created_by = UserSerializer(read_only=True)
     trip_schedule = serializers.SerializerMethodField()
     trip_itinerary = TripItinerarySerializer(many=True)
+    trip_availability = TripAvailabilitySerializer()
     locations = LocationSerializer(many=True)
     facilities = FacilitySerializer(many=True)
-    category = CategorySerializer()
+    gear = GearSerializer(many=True)
+    primary_category = CategorySerializer()
+    categories = CategorySerializer(many=True)
 
     class Meta:
         fields = (
@@ -91,14 +156,16 @@ class TripBaseSerializer(serializers.ModelSerializer):
             'description',
             'duration',
             'age_limit',
-            'departure',
+            'starting_location',
             'destination',
-            'category',
+            'primary_category',
+            'categories',
             'gear',
             'metadata',
             'locations',
             'trip_schedule',
             'trip_itinerary',
+            'trip_availability',
             'facilities',
             'created_by',
         )
@@ -121,11 +188,11 @@ class TripDetailSerializer(TripBaseSerializer):
     the details of the object
     """
 
-    cancellation_policy = serializers.CharField(read_only=True)
+    # cancellation_policy = serializers.CharField(read_only=True)
     host = HostSerializer(read_only=True)
 
-    def get_cancellation_policy(self, trip):
-        return trip.cancellation_policy
+    # def get_cancellation_policy(self, trip):
+    #     return trip.cancellation_policy
 
     class Meta:
         model = Trip
@@ -141,3 +208,11 @@ class DestinationMinimumSerializer(serializers.ModelSerializer):
 
     def get_destination_url(self, destination):
         return reverse("trips-api:destination-item", kwargs={"slug": destination.slug})
+
+
+class TripBookingSerializer(serializers.ModelSerializer):
+    schedule = TripScheduleField()
+
+    class Meta:
+        model = TripBooking
+        fields = ('name', 'phone_number', 'cnic_number', 'email', 'message', 'schedule')

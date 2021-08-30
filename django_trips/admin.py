@@ -2,15 +2,28 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from django_trips.models import (CancellationPolicy, Facility, Host, Location,
-                                 Trip, TripBooking, TripItinerary,
-                                 TripPickupLocation, TripReview,
-                                 TripReviewSummary, TripSchedule)
+from django_trips.models import (
+    CancellationPolicy, Facility, Host, Location,
+    Trip, TripBooking, TripItinerary,
+    TripPickupLocation, TripReview,
+    TripReviewSummary, TripAvailability, TripSchedule, HostType, HostRating
+)
 
 
 class TripScheduleAdminInline(admin.TabularInline):
     """Trip schedule inline modal admin"""
     model = TripSchedule
+    extra = 0
+
+
+class TripAvailabilityAdminInline(admin.TabularInline):
+    """Trip schedule inline modal admin"""
+    model = TripAvailability
+    extra = 0
+
+
+class HostRatingInline(admin.StackedInline):
+    model = HostRating
     extra = 0
 
 
@@ -31,10 +44,15 @@ admin.register(CancellationPolicy)
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):
     """Trip modal admin configuration"""
-    inlines = [TripItineraryAdminInline, TripScheduleAdminInline, TripReviewSummaryInline]
+    inlines = [
+        TripAvailabilityAdminInline,
+        TripItineraryAdminInline,
+        TripScheduleAdminInline,
+        TripReviewSummaryInline
+    ]
     prepopulated_fields = {'slug': ('name',)}
     list_display = ('name', 'slug',)
-    list_filter = ('destination',)
+    list_filter = ('trip_availability__type', 'destination',)
     search_fields = ['name', 'description', 'slug', 'locations__name']
 
 
@@ -54,7 +72,7 @@ class LocationAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'slug',
     )
-    list_filter = ('is_destination', 'is_departure', 'deleted')
+    list_filter = ('deleted',)
 
 
 @admin.register(TripItinerary)
@@ -76,6 +94,7 @@ class TripScheduleAdmin(admin.ModelAdmin):
 @admin.register(Host)
 class HostAdmin(admin.ModelAdmin):
     """Host modal admin configuration"""
+    inlines = [HostRatingInline]
     list_display = (
         'name', 'description', 'verified'
     )
@@ -116,6 +135,18 @@ class TripPickupLocationAdmin(admin.ModelAdmin):
 
 @admin.register(TripBooking)
 class TripBookingSummaryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'schedule', 'phone_number', 'message')
-    search_fields = ['schedule__trip__name', 'name']
-    list_filter = ('schedule__trip__name', 'schedule__date_from')
+    # pass
+    list_display = ('name', 'trip', 'phone_number', 'message')
+    search_fields = ['trip__name', 'name']
+    list_filter = ('trip__name', 'date_from')
+
+
+@admin.register(HostType)
+class HostTypeAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ['name']
+
+
+@admin.register(TripAvailability)
+class TripAvailabilityAdmin(admin.ModelAdmin):
+    pass

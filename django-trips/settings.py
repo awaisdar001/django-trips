@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'config_models',
     'django_extensions',
     'django_filters',
-    'django_trips'
+    'django_trips',
+    'tagging',
 ]
 
 MIDDLEWARE = [

@@ -6,8 +6,7 @@ from rest_framework.response import Response
 
 class TripResponsePagination(PageNumberPagination):
     """
-    API Custom paginator to tell number of pages
-    on which data has been distributed.
+    API Custom paginator for trips listing.
     """
     page_size = 10
 
@@ -31,3 +30,12 @@ class TripResponsePagination(PageNumberPagination):
             'pages': self.page.paginator.num_pages,
             'results': data,
         })
+
+
+class TripBookingsPagination(PageNumberPagination):
+    """
+    API Custom paginator for trip bookings
+    """
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 100

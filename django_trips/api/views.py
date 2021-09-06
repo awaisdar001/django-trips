@@ -9,9 +9,9 @@ from rest_framework.authentication import (BasicAuthentication,
 from rest_framework.permissions import IsAuthenticated
 
 from . import serializers
-from .filters import TripFilter
+from .filters import TripScheduleFilter, TripAvailabilityFilter
 from .mixins import MultipleFieldLookupMixin
-from .paginators import TripResponsePagination
+from .paginators import TripResponsePagination, TripBookingsPagination
 
 
 class TripListCreateAPIView(generics.ListCreateAPIView):
@@ -56,8 +56,14 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
     pagination_class = TripResponsePagination
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filter_class = TripFilter
+    filter_by = ''
     queryset = Trip.active.all()
+
+    @property
+    def filter_class(self):
+        if self.filter_by == 'availability':
+            return TripAvailabilityFilter
+        return TripScheduleFilter
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -132,54 +138,33 @@ class DestinationsListAPIView(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
 
 class TripBookingsListCreateAPIView(generics.ListCreateAPIView):
     """
-    Trips List and Create Trip view.
+    Get all list of the bookings.
+    """
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    pagination_class = TripBookingsPagination
+    permission_classes = [IsAuthenticated]
+    queryset = TripBooking.objects.all()
+    serializer_class = serializers.TripBookingSerializer
 
-    This endpoint is used to list all the trips Using the GET request type.
-    This endpoint is used to create a single trip using the POST request type. Provide all required data in
-    the request body.
+
+class TripBookingsRetrieveUpdateDestroyAPIView(
+    MultipleFieldLookupMixin, generics.ListAPIView, generics.CreateAPIView
+):
+    """
+    Retrieve "Trip Bookings" & update or destroy API View.
+
+    This endpoint is used to fetch all bookings of a trip using GET request.
+    This endpoint is used to update a trip booking using PUT request.
+    This endpoint is used to partially update a single trip booking using PATCH request.
+    This endpoint is used to delete a single trip booking using DELETE request type.
 
     Examples:
-        POST: Creates a new trip
-            /api/trips/
-
-        GET: Return all trips (paginated, 10per page.)
-            /api/trips/
-        GET: Search Trips that contains specific name.
-            /api/trips/?name=Islamabad
-            Other Options.
-            | Keyword               |                                                                       |
-            | name ""               | Find trips that contains specific name.                               |
-            |                       | name=Trip to lahore OR name=chitral                                   |
-            | destination[]         | Filter trips with specific destinations.                              |
-            |                       | e.g. destination=islamabad,lahore                                     |
-            | price_from (str)      | Find trips that has price greater than or equal to the given amount   |
-            | price_to (str)        | Find trips that has price less than or equal to the given amount      |
-            | duration_from (int)   | Find trips having duration greater than or equal to the given number  |
-            | duration_to (int)     | Find trips having duration less  than or equal to the given number    |
-            | date_from (date)      | Find trips that are scheduled greater than or specified date          |
-            | date_to (date)        | Find trips that are scheduled less than or equal to specified date    |
-
-        Examples:
-            /api/trips/?
-                destination=islamabad,lahore,fairy+meadows
-                &name=trip
-                &duration_from=1&duration_to=15
-                &price_from=500&price_to=8000
-                &date_from=2020-10-21&date_to=2020-11-11
+        GET: Fetch Trip booking
+            api/trip/bookings/5-days-trip-to-jhelum/
     """
 
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    pagination_class = None
     permission_classes = [IsAuthenticated]
-
-    # filter_backends = [DjangoFilterBackend]
-    # filter_class = TripFilter
-    # queryset = Trip.active.all()
-
-    def get_queryset(self):
-        return TripBooking.objects.all()
-
-    def get_serializer_class(self):
-        # if self.request.method == 'POST':
-        #     return serializers.TripSerializerWithIDs
-        return serializers.TripBookingSerializer
+    queryset = TripBooking.objects.all()
+    serializer_class = serializers.TripBookingSerializer
+    lookup_fields = ['pk', 'slug']

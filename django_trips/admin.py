@@ -51,7 +51,7 @@ class TripAdmin(admin.ModelAdmin):
         TripReviewSummaryInline
     ]
     prepopulated_fields = {'slug': ('name',)}
-    list_display = ('name', 'slug',)
+    list_display = ('name', 'slug', 'host', 'starting_location', 'destination')
     list_filter = ('trip_availability__type', 'destination',)
     search_fields = ['name', 'description', 'slug', 'locations__name']
 
@@ -138,7 +138,7 @@ class TripBookingSummaryAdmin(admin.ModelAdmin):
     # pass
     list_display = ('name', 'trip', 'phone_number', 'message')
     search_fields = ['trip__name', 'name']
-    list_filter = ('trip__name', 'date_from')
+    list_filter = ('trip__name', 'target_date')
 
 
 @admin.register(HostType)
@@ -149,4 +149,5 @@ class HostTypeAdmin(admin.ModelAdmin):
 
 @admin.register(TripAvailability)
 class TripAvailabilityAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('trip', 'type', 'price', 'date_to',)
+    list_filter = ('type', 'date_to',)

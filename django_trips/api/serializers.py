@@ -1,4 +1,5 @@
 """Django Trips serializers"""
+
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django_trips.models import (Category, Facility, Host, Location, Trip,
@@ -110,10 +111,11 @@ class TripItinerarySerializer(serializers.ModelSerializer):
 class TripAvailabilitySerializer(serializers.ModelSerializer):
     """TripItinerary Modal Serializer"""
     type = serializers.CharField(source='get_type_display')
+    date_to = serializers.DateTimeField(format="%Y-%m-%d")
 
     class Meta:
         model = TripAvailability
-        fields = ('type', 'options',)
+        fields = ('type', 'price', 'date_to', 'options', 'is_per_person_price')
 
 
 class TripScheduleSerializer(serializers.ModelSerializer):
@@ -123,6 +125,12 @@ class TripScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = TripSchedule
         exclude = ('trip',)
+
+
+class TripLightWeightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trip
+        fields = ('name', 'slug')
 
 
 class TripSerializerWithIDs(serializers.ModelSerializer):
@@ -187,15 +195,10 @@ class TripDetailSerializer(TripBaseSerializer):
     This Serializer is used for trip object retrieval as it requires all
     the details of the object
     """
-
-    # cancellation_policy = serializers.CharField(read_only=True)
     host = HostSerializer(read_only=True)
 
-    # def get_cancellation_policy(self, trip):
-    #     return trip.cancellation_policy
-
     class Meta:
-        model = Trip
+        model = TripBaseSerializer.Meta.model
         fields = TripBaseSerializer.Meta.fields + ('cancellation_policy', 'host')
 
 
@@ -211,8 +214,9 @@ class DestinationMinimumSerializer(serializers.ModelSerializer):
 
 
 class TripBookingSerializer(serializers.ModelSerializer):
-    schedule = TripScheduleField()
+    trip = TripLightWeightSerializer()
+    target_date = serializers.DateTimeField(format="%Y-%m-%d")
 
     class Meta:
         model = TripBooking
-        fields = ('name', 'phone_number', 'cnic_number', 'email', 'message', 'schedule')
+        exclude = ('id',)

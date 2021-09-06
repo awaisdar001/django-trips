@@ -7,6 +7,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
 from django_trips.mixins import SlugMixin
+from tagging.registry import register
 
 
 class HostType(models.Model):
@@ -125,6 +126,7 @@ class Gear(SlugMixin, models.Model):
     def __str__(self):
         return self.name
 
+
 class Facility(SlugMixin, models.Model):
     """
     Trip Facility model
@@ -176,12 +178,13 @@ class Trip(SlugMixin, models.Model):
     name = models.CharField("Title", max_length=500)
     slug = models.SlugField(max_length=100, null=True, blank=True)
     description = models.TextField()
+
     # meta includes tinyurl, poster
     _metadata = models.TextField(default='{}', null=True, blank=True)
     price_bracket = models.CharField(max_length=2, choices=PRICE_BRACKET_CHOICES, default=STANDARD, )
     duration = models.SmallIntegerField(default=0, null=True, blank=True)
     age_limit = models.SmallIntegerField(default=0, null=True, blank=True)
-
+    is_featured = models.BooleanField(default=False)
     destination = models.ForeignKey(
         Location,
         null=True,
@@ -247,6 +250,40 @@ class Trip(SlugMixin, models.Model):
         """
         return self.host.cancellation_policy or CancellationPolicy.current().description
 
+    def create_schedules(self):
+        """
+        Creates schedules from the trip availability options.
+        """
+        from datetime import datetime
+        from django.utils import timezone
+
+        availability = self.trip_availability
+        if not availability:
+            return
+
+        if availability.type == TripAvailability.DAILY:
+            total_created = 0
+
+            options = availability.options
+            today = datetime.now(timezone.utc)
+            schedule_from = datetime.fromtimestamp(options['date_from'] / 1000.0, tz=timezone.utc)
+            schedule_to = datetime.fromtimestamp(options['date_to'] / 1000.0, tz=timezone.utc)
+            if schedule_from < today < schedule_to:
+                for day in range(20):
+                    schedule_date = (today + timedelta(days=day))
+                    instance, created = TripSchedule.objects.get_or_create(
+                        trip=self,
+                        date_from=schedule_date,
+                        is_per_person_price=availability['is_per_person_price'],
+                        defaults={
+                            'price': availability.price,
+                        }
+                    )
+                    if created:
+                        total_created += 1
+            return total_created
+        return 0
+
 
 class TripAvailability(models.Model):
     """Trip future availabilities"""
@@ -262,10 +299,16 @@ class TripAvailability(models.Model):
     ]
     trip = models.OneToOneField(Trip, null=True, blank=True, related_name='trip_availability', on_delete=models.CASCADE)
     type = models.CharField(max_length=2, choices=AVAILABILITY_CHOICES, default=MONTHLY)
+    date_to = models.DateTimeField()
+    price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    is_per_person_price = models.BooleanField(default=True)
     _options = models.TextField(default='{}', null=True, blank=True)
 
     def __str__(self):
-        return f'Trip:{self.trip.id}[{self.type}]'
+        return f'type:{self.type} - price:{self.price} - date_to: {self.date_to.date()}'
+
+    class Meta:
+        ordering = ['date_to', 'price']
 
     @property
     def options(self):
@@ -308,6 +351,7 @@ class TripSchedule(models.Model):
 
     trip = models.ForeignKey(Trip, related_name="trip_schedule", on_delete=models.CASCADE)
     price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    is_per_person_price = models.BooleanField(default=True)
     date_from = models.DateTimeField()
 
     def __str__(self):
@@ -367,17 +411,22 @@ class CancellationPolicy(ConfigurationModel):
 
 class TripBooking(models.Model):
     """Trip booking"""
-    # schedule = models.ForeignKey(TripSchedule, related_name="trip_bookings", on_delete=models.CASCADE)
     trip = models.ForeignKey(Trip, related_name="trip_bookings", null=True, blank=True, on_delete=models.CASCADE)
-    date_from = models.DateTimeField(null=True, blank=True)
+    target_date = models.DateTimeField(null=True, blank=True)
     name = models.CharField(max_length=60)
     phone_number = models.CharField(max_length=30)
     cnic_number = models.CharField(max_length=30)
     email = models.EmailField()
     message = models.TextField(null=True, blank=True)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('target_date', '-created_at')
+
     def __str__(self):
-        return f'{self.name}, {self.schedule}'
+        return f'<TripBooking {self.trip} - {self.name}, {self.target_date} />'
 
 
 class TripPickupLocation(models.Model):
@@ -388,3 +437,7 @@ class TripPickupLocation(models.Model):
 
     def __str__(self):
         return self.location
+
+
+# Register tags.
+register(Trip)

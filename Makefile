@@ -35,21 +35,30 @@ _build:
 
 stop:  ## Stop all services
 	docker-compose stop
+
 run: # Run the server
 	docker-compose up -d --remove-orphans
 
 restart: # Restart the server
 	docker restart djangotrips.django
+	docker restart djangotrips.mysql
 
 attach: ## Attach to the django container process to use the debugger & see logs.
 	docker attach djangotrips.django
 
-logs: # Attach logs for the django server
+logs: trips-logs ## Run a shell on django container
+trips-logs: ## Run a shell on the django service container
 	docker-compose -f docker-compose.yml logs -f --tail=100 trips
 
-shell: ## Enter in django shell
+mysql-logs: ## Run a shell on the mysql service container
+	docker-compose -f docker-compose.yml logs -f --tail=100 tripsdb
+
+
+shell: django-shell ## Run a shell on django container
+django-shell: ## Run django shell
 	docker exec -it djangotrips.django /bin/bash
-mysql-shell: ## Enter in mysql shell
+
+mysql-shell: ## Run mysql shell
 	docker exec -it djangotrips.mysql /bin/bash
 
 destroy: stop ## Remove all containers, networks, and volumes

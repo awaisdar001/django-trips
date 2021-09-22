@@ -2,9 +2,11 @@
 
 from django.contrib.auth.models import User
 from django.urls import reverse
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+
 from django_trips.models import (Category, Facility, Host, Location, Trip,
                                  TripItinerary, TripSchedule, TripBooking, Gear, TripAvailability)
-from rest_framework import serializers
 
 
 class TripScheduleField(serializers.Field):
@@ -219,4 +221,23 @@ class TripBookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TripBooking
-        exclude = ('id',)
+        exclude = ()
+
+
+class TripBookingCreateSerializer(serializers.ModelSerializer):
+    trip = TripLightWeightSerializer()
+    target_date = serializers.DateTimeField(format="%Y-%m-%d")
+
+    def to_internal_value(self, data):
+        if 'trip' in data:
+            data['trip'] = Trip.objects.filter(slug=data['trip']).first()
+        return data
+
+    def validate(self, attrs):
+        if not isinstance(attrs.get('trip'), Trip):
+            raise ValidationError({'trip': {'detail': 'Trip not found', 'code': 400}})
+        return attrs
+
+    class Meta:
+        model = TripBookingSerializer.Meta.model
+        exclude = ()

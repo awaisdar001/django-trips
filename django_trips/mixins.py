@@ -6,13 +6,18 @@ from django.utils.text import slugify
 
 
 class SlugMixin:
-    def create_slug(self, slug_field="name", *args, **kwargs):
+    def create_slug(self, slug_field="name", value=None, *args, **kwargs):
         """ long stuff to ensure the slug is unique """
-        unique_slugify(self, getattr(self, slug_field))
+        if value is None:
+            value = getattr(self, slug_field)
+        unique_slugify(self, value)
 
     def save(self, *args, **kwargs):
-        if any([self.pk is None, self.slug is None]):
+        if self.slug:
+            self.create_slug(value=self.slug, *args, **kwargs)
+        else:
             self.create_slug(*args, **kwargs)
+
         return super().save(*args, **kwargs)
 
 

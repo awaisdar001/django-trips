@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from django_trips.models import Trip, Location, TripBooking
 from rest_framework import generics, mixins
 from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.permissions import IsAuthenticated
 
+from django_trips.models import Trip, Location, TripBooking
 from . import serializers
 from .filters import TripScheduleFilter, TripAvailabilityFilter
 from .mixins import MultipleFieldLookupMixin
@@ -136,35 +137,69 @@ class DestinationsListAPIView(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
         return self.list(request, *args, **kwargs)
 
 
-class TripBookingsListCreateAPIView(generics.ListCreateAPIView):
+class TripBookingCreateListAPIView(generics.ListCreateAPIView):
     """
-    Get all list of the bookings.
+    Create trip booking or List all bookings.
+
+    Endpoints:
+        Create > POST: Creates a new booking in db.
+            api/trip/bookings/
+            {
+              "name": "tom latham",
+              "trip": "5-days-trip-to-jhelum",
+              "phone_number": "tom",
+              "cnic_number": "1234234-23423",
+              "email": "a@gmail.com",
+              "target_date": "2021-09-01",
+              "message": "Tom booking# 1"
+            }
+        List > GET: Lists paginated bookings.
+            api/trip/bookings/
     """
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    pagination_class = TripBookingsPagination
     permission_classes = [IsAuthenticated]
     queryset = TripBooking.objects.all()
-    serializer_class = serializers.TripBookingSerializer
+    pagination_class = TripBookingsPagination
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return serializers.TripBookingCreateSerializer
+        return serializers.TripBookingSerializer
 
 
-class TripBookingsRetrieveUpdateDestroyAPIView(
-    MultipleFieldLookupMixin, generics.ListAPIView, generics.CreateAPIView
-):
+class TripBookingRetrieveUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
-    Retrieve "Trip Bookings" & update or destroy API View.
+    Retrieve trip booking or Update existing trip booking.
 
-    This endpoint is used to fetch all bookings of a trip using GET request.
-    This endpoint is used to update a trip booking using PUT request.
-    This endpoint is used to partially update a single trip booking using PATCH request.
-    This endpoint is used to delete a single trip booking using DELETE request type.
+    api/trip/booking/<pk>/
 
     Examples:
-        GET: Fetch Trip booking
-            api/trip/bookings/5-days-trip-to-jhelum/
+        Detail View > GET: Get details about a single trip booking.
+            Returns: Http200 - Http404
+        Delete View: DELETE: Deletes a single booking from the db.
+            Returns: HTTP204
+        Update View > PATCH: Updates a trip booking.
+            Returns: Http200 - Http404
     """
-
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
-    queryset = TripBooking.objects.all()
     serializer_class = serializers.TripBookingSerializer
-    lookup_fields = ['pk', 'slug']
+    queryset = TripBooking.objects.all()
+    lookup_fields = ['pk']
+
+
+class TripBookingsRetrieveAPIView(generics.ListAPIView):
+    """
+    Retrieve "Trip Bookings" View.
+
+    Examples:
+        List view: GET: Fetch Trip's booking
+            api/trip/5-days-trip-to-jhelum/bookings
+    """
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = serializers.TripBookingSerializer
+
+    def get_queryset(self, *args, **kwargs):
+        filter_args = Q(trip__slug=self.kwargs['slug'])
+        return TripBooking.objects.filter(filter_args)

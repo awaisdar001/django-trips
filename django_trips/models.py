@@ -226,8 +226,8 @@ class Trip(SlugMixin, models.Model):
         ordering = ['-created_at', '-id']
 
     def save(self, *args, **kwargs):
+        self.slug = slugify(f'{self.name}-by-{self.host.name}-from-{self.starting_location.name}')
         super().save(*args, **kwargs)
-        self.slug = slugify(f'{self.host}-{self.name}')
 
     def get_absolute_url(self):
         return reverse('view_trip', {'slug': self.slug})
@@ -255,6 +255,7 @@ class Trip(SlugMixin, models.Model):
         Creates schedules from the trip availability options.
         """
         from datetime import datetime
+
         from django.utils import timezone
 
         availability = self.trip_availability

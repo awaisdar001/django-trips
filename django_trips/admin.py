@@ -2,12 +2,11 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from django_trips.models import (
-    CancellationPolicy, Facility, Host, Location,
-    Trip, TripBooking, TripItinerary,
-    TripPickupLocation, TripReview,
-    TripReviewSummary, TripAvailability, TripSchedule, HostType, HostRating
-)
+from django_trips.models import (CancellationPolicy, Facility, Host,
+                                 HostRating, HostType, Location, Trip,
+                                 TripAvailability, TripBooking, TripItinerary,
+                                 TripPickupLocation, TripReview,
+                                 TripReviewSummary, TripSchedule)
 
 
 class TripScheduleAdminInline(admin.TabularInline):
@@ -50,8 +49,14 @@ class TripAdmin(admin.ModelAdmin):
         TripScheduleAdminInline,
         TripReviewSummaryInline
     ]
+
+    def get_date(self, trip):
+        return trip.trip_availability.date_to
+
+    get_date.short_description = 'Availability Up to'
+
     prepopulated_fields = {'slug': ('name',)}
-    list_display = ('name', 'slug', 'host', 'starting_location', 'destination')
+    list_display = ('name', 'slug', 'host', 'starting_location', 'destination', 'get_date')
     list_filter = ('trip_availability__type', 'destination',)
     search_fields = ['name', 'description', 'slug', 'locations__name']
 

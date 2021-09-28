@@ -17,48 +17,52 @@ from .paginators import TripResponsePagination, TripBookingsPagination
 
 class TripListCreateAPIView(generics.ListCreateAPIView):
     """
-    Trips List and Create Trip view.
+    **Use Cases**
 
-    This endpoint is used to list all the trips Using the GET request type.
-    This endpoint is used to create a single trip using the POST request type. Provide all required data in
-    the request body.
+        Retrieve the list of trips matching a given critaria, retrive trips details,
+        and post a new trip.
 
-    Examples:
-        POST: Creates a new trip
-            /api/trips/
+    **Example Requests**:
+        
+        GET /api/trips/
+        
+        GET /api/trips/?name=Islamabad
 
-        GET: Return all trips (paginated, 10per page.)
-            /api/trips/
-        GET: Search Trips that contains specific name.
-            /api/trips/?name=Islamabad
-            Other Options.
-            | Keyword               |                                                                       |
-            | name ""               | Find trips that contains specific name.                               |
-            |                       | name=Trip to lahore OR name=chitral                                   |
-            | destination[]         | Filter trips with specific destinations.                              |
-            |                       | e.g. destination=islamabad,lahore                                     |
-            | price_from (str)      | Find trips that has price greater than or equal to the given amount   |
-            | price_to (str)        | Find trips that has price less than or equal to the given amount      |
-            | duration_from (int)   | Find trips having duration greater than or equal to the given number  |
-            | duration_to (int)     | Find trips having duration less  than or equal to the given number    |
-            | date_from (date)      | Find trips that are scheduled greater than or specified date          |
-            | date_to (date)        | Find trips that are scheduled less than or equal to specified date    |
-
-        Examples:
-            /api/trips/?
+        GET /api/trips/?
                 destination=islamabad,lahore,fairy+meadows
                 &name=trip
                 &duration_from=1&duration_to=15
                 &price_from=500&price_to=8000
                 &date_from=2020-10-21&date_to=2020-11-11
+
+        POST: /api/trips/
+    
+    
+    **Other Search Params**
+
+        | Keyword               |        Details                                                        |
+        |-----------            |-----------                                                            |
+        | name ""               | Find trips that contains specific name.                               |
+        |                       | name=Trip to lahore OR name=chitral                                   |
+        | destination[]         | Filter trips with specific destinations.                              |
+        |                       | e.g. destination=islamabad,lahore                                     |
+        | price_from (str)      | Find trips that has price greater than or equal to the given amount   |
+        | price_to (str)        | Find trips that has price less than or equal to the given amount      |
+        | duration_from (int)   | Find trips having duration greater than or equal to the given number  |
+        | duration_to (int)     | Find trips having duration less  than or equal to the given number    |
+        | date_from (date)      | Find trips that are scheduled greater than or specified date          |
+        | date_to (date)        | Find trips that are scheduled less than or equal to specified date    |
+
     """
 
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     pagination_class = TripResponsePagination
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filter_by = ''
     queryset = Trip.active.all()
+
+    # filter by param is passed from the urls.py
+    filter_by = ''
 
     @property
     def filter_class(self):
@@ -76,27 +80,48 @@ class TripRetrieveUpdateDestroyAPIView(
     MultipleFieldLookupMixin, generics.RetrieveUpdateDestroyAPIView
 ):
     """
-    Trip retrieve/update/destroy API View.
+    **Use Cases**
+        
+        Retrieve details of single trip or modify or delete an existing trip.
+        and post a new trip.
 
-    This endpoint is used to fetch a single trip using GET request type.
-    This endpoint is used to update a single trip using PUT request type.
-    This endpoint is used to partially update a single trip using PATCH request type.
-    This endpoint is used to delete a single trip using DELETE request type.
+    **Example Requests**:
+        
+        GET /api/trip/trip_id/
+        
+        GET /api/trip/trip_slug/
+        
+        PUT  /api/trip/99/
+        {
+            ...
+            title: "updated title"
+            age_limit: 39
+        }
 
-    Examples:
-        GET: Fetch Trip by ID/Slug
-            api/trip/99/
-            api/trip/5-days-trip-to-jhelum/
+        PATCH  /api/trip/trip_id/
+        { age_limit: 39 }
 
-        PUT: Update the whole object.
-            api/trip/99/
-            data = {
-                ...
-                age_limit: 39
-            }
+        DELETE /api/trip/trip_id/
+    
+    **GET Trip Parameters**:
 
-        PATCH: Partially update object values
-            data = {age_limit: 39}
+        * trip_id (required): The trip to retrieve details for
+
+        * trip_slug (required): The trip to retrieve details for
+
+    **PATCH Parameters**:
+
+        * age_limit (optional): An integer value to indicate trip age limit.
+
+        Any trip param can be used in this request type. 
+
+    **GET response values:
+        
+        *Coming soon...*
+
+    **DELETE response values:
+
+        Response 204 with no content is returned for a DELETE request
     """
 
     pagination_class = TripResponsePagination
@@ -114,21 +139,42 @@ class TripRetrieveUpdateDestroyAPIView(
 
 class DestinationsListAPIView(mixins.ListModelMixin, mixins.RetrieveModelMixin, generics.GenericAPIView):
     """
-    Destination List view.
-    This endpoint is used to list one or all the destinations using the GET request type.
+    **Use Cases**
+        Retrieve all or specific destination details.
 
-    Examples:
-        GET: Return all destinations (paginated, 10per page.)
-            /api/destinations/
+    **Example Requests**:
+        
+        GET /api/destinations/
+        
+        GET /api/destination/trip_slug/
 
-        GET: Return single destination
-            /api/destination/gilgit/
+    **GET Trip Parameters**:
+
+        trip_slug (optional): Slug of the destination to get information for
+
+    **GET response values:
+
+        * name: The name of the location
+        
+        * slug: The slug of the location
+
+        * coordinates: The latitude,longitude of the location
+
+        * location_url: the relative url of the location details api URL
+
     """
 
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = Location.objects.all()
-    serializer_class = serializers.DestinationMinimumSerializer
+    serializer_class = serializers.LocationSerializer
+
+    def get_queryset(self, *args, **kwargs):
+        """
+        Todo -- replace with queryset class variable. 
+        """
+        return Location.objects.exclude(trip_destination__destination__isnull=True)
+
     lookup_field = 'slug'
 
     def get(self, request, *args, **kwargs):
@@ -139,11 +185,15 @@ class DestinationsListAPIView(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
 
 class TripBookingCreateListAPIView(generics.ListCreateAPIView):
     """
-    Create trip booking or List all bookings.
+    **Use Case**
+    
+        Add new trip booking or retrive all trip bookings
 
-    Endpoints:
-        Create > POST: Creates a new booking in db.
-            api/trip/bookings/
+    **Example Requests**:
+
+        GET /api/trip/bookings/
+        
+        POST /api/trip/bookings/
             {
               "name": "tom latham",
               "trip": "5-days-trip-to-jhelum",
@@ -153,8 +203,24 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
               "target_date": "2021-09-01",
               "message": "Tom booking# 1"
             }
-        List > GET: Lists paginated bookings.
-            api/trip/bookings/
+    
+    **POST Trip Booking Parameters**:
+
+        * name(required): Name of person booking a trip
+        
+        * trip(required): trip slug to create booking for
+        
+        * phone_number(required): Person's contact number.
+        
+        * cnic_number(required): Person's cnic number.
+        
+        * email(required): Person's email address
+        
+        * target_date(required): booking date for the trip
+        
+        * message(optional): any additional informaiton for the trip booking
+
+    **GET Trip Booking Parameters**:
     """
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -169,17 +235,35 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
 
 class TripBookingRetrieveUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
-    Retrieve trip booking or Update existing trip booking.
+    **Use Cases**
+        
+        Retrieve details a trip booking, update existing trip booking or delete existing
+        trip booking.
 
-    api/trip/booking/<pk>/
+    **Example Requests**:
 
-    Examples:
-        Detail View > GET: Get details about a single trip booking.
-            Returns: Http200 - Http404
-        Delete View: DELETE: Deletes a single booking from the db.
-            Returns: HTTP204
-        Update View > PATCH: Updates a trip booking.
-            Returns: Http200 - Http404
+        GET /api/trip/booking/pk/
+
+        PATCH /api/trip/booking/pk/
+        {
+              "name": "tom latham",
+              "trip": "5-days-trip-to-jhelum",
+              "phone_number": "tom",
+              "cnic_number": "1234234-23423",
+              "email": "a@gmail.com",
+              "target_date": "2021-09-01",
+              "message": "Tom booking# 1"
+        }
+
+        DELETE /api/trip/booking/pk/
+
+    **GET Trip Parameters**:
+
+        pk (required): id of the trip booking
+
+    **DELETE response values:
+
+        No content is returned for a DELETE request
     """
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -190,16 +274,18 @@ class TripBookingRetrieveUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 class TripBookingsRetrieveAPIView(generics.ListAPIView):
     """
-    Retrieve "Trip Bookings" View.
+    **Use Cases**
 
-    Examples:
-        List view: GET: Fetch Trip's booking
-            api/trip/5-days-trip-to-jhelum/bookings
+        Retrieve all bookings of a single trip.
+
+
+    **Example Requests**:
+
+        GET /api/trip/trip_slug/bookings/
     """
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = serializers.TripBookingSerializer
 
     def get_queryset(self, *args, **kwargs):
-        filter_args = Q(trip__slug=self.kwargs['slug'])
-        return TripBooking.objects.filter(filter_args)
+        return TripBooking.objects.filter(Q(trip__slug=self.kwargs['slug']))

@@ -56,10 +56,14 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class LocationSerializer(serializers.ModelSerializer):
     """Location Modal Serializer"""
+    location_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
-        fields = ('name', 'slug', 'coordinates')
+        fields = ('name', 'slug', 'coordinates', 'location_url')
+    
+    def get_location_url(self, destination):
+        return reverse("trips-api:destination-item", kwargs={"slug": destination.slug})
 
 
 class FacilitySerializer(serializers.ModelSerializer):
@@ -202,17 +206,6 @@ class TripDetailSerializer(TripBaseSerializer):
     class Meta:
         model = TripBaseSerializer.Meta.model
         fields = TripBaseSerializer.Meta.fields + ('cancellation_policy', 'host')
-
-
-class DestinationMinimumSerializer(serializers.ModelSerializer):
-    destination_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Location
-        fields = ('slug', 'name', 'destination_url')
-
-    def get_destination_url(self, destination):
-        return reverse("trips-api:destination-item", kwargs={"slug": destination.slug})
 
 
 class TripBookingSerializer(serializers.ModelSerializer):

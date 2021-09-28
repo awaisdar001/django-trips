@@ -53,7 +53,6 @@ trips-logs: ## Run a shell on the django service container
 mysql-logs: ## Run a shell on the mysql service container
 	docker-compose -f docker-compose.yml logs -f --tail=100 tripsdb
 
-
 shell: django-shell ## Run a shell on django container
 django-shell: ## Run django shell
 	docker exec -it djangotrips.django /bin/bash

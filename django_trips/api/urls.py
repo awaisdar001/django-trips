@@ -1,6 +1,5 @@
 """Urls for trips app"""
 from django.urls import path
-
 from django_trips.api import views
 
 app_name = "trips-api"

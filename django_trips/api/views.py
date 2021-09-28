@@ -3,16 +3,16 @@ from __future__ import unicode_literals
 
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
+from django_trips.models import Location, Trip, TripBooking
 from rest_framework import generics, mixins
 from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.permissions import IsAuthenticated
 
-from django_trips.models import Trip, Location, TripBooking
 from . import serializers
-from .filters import TripScheduleFilter, TripAvailabilityFilter
+from .filters import TripAvailabilityFilter, TripScheduleFilter
 from .mixins import MultipleFieldLookupMixin
-from .paginators import TripResponsePagination, TripBookingsPagination
+from .paginators import TripBookingsPagination, TripResponsePagination
 
 
 class TripListCreateAPIView(generics.ListCreateAPIView):
@@ -261,7 +261,7 @@ class TripBookingRetrieveUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         pk (required): id of the trip booking
 
-    **DELETE response values:
+    **DELETE response values:**
 
         No content is returned for a DELETE request
     """

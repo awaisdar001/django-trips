@@ -2,34 +2,11 @@
 
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django_trips.models import (Category, Facility, Gear, Host, Location,
+                                 Trip, TripAvailability, TripBooking,
+                                 TripItinerary, TripSchedule)
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-
-from django_trips.models import (Category, Facility, Host, Location, Trip,
-                                 TripItinerary, TripSchedule, TripBooking, Gear, TripAvailability)
-
-
-class TripScheduleField(serializers.Field):
-    """
-    Trip schedule field.
-    """
-
-    def to_representation(self, value):
-        breakpoint()
-        ret = {
-            "trip_id": value.trip.slug,
-            "date": value.date_from,
-            "price": value.price,
-        }
-        return ret
-
-    def to_internal_value(self, data):
-        breakpoint()
-        ret = {
-            "x_coordinate": data["x"],
-            "y_coordinate": data["y"],
-        }
-        return ret
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -61,7 +38,7 @@ class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ('name', 'slug', 'coordinates', 'location_url')
-    
+
     def get_location_url(self, destination):
         return reverse("trips-api:destination-item", kwargs={"slug": destination.slug})
 

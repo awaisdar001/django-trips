@@ -3,12 +3,13 @@ from __future__ import unicode_literals
 
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from django_trips.models import Location, Trip, TripBooking
-from rest_framework import generics, mixins
+from rest_framework import filters, generics, mixins
 from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.permissions import IsAuthenticated
 
+
+from django_trips.models import Location, Trip, TripBooking
 from . import serializers
 from .filters import TripAvailabilityFilter, TripScheduleFilter
 from .mixins import MultipleFieldLookupMixin
@@ -185,14 +186,16 @@ class DestinationsListAPIView(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
 
 class TripBookingCreateListAPIView(generics.ListCreateAPIView):
     """
-    **Use Case**
+    **Use Cases**
     
-        Add new trip booking or retrive all trip bookings
+        Add new trip booking, retrieve all trip bookings or search trip bookings.
 
     **Example Requests**:
 
         GET /api/trip/bookings/
-        
+
+        GET /api/trip/bookings/?search=at%20Gharo
+
         POST /api/trip/bookings/
             {
               "name": "tom latham",
@@ -218,7 +221,7 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
         
         * target_date(required): booking date for the trip
         
-        * message(optional): any additional informaiton for the trip booking
+        * message(optional): any additional information for the trip booking
 
     **GET Trip Booking Parameters**:
     """
@@ -226,6 +229,8 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = TripBooking.objects.all()
     pagination_class = TripBookingsPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'trip__name', 'email', 'phone_number', 'cnic_number']
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -282,10 +287,14 @@ class TripBookingsRetrieveAPIView(generics.ListAPIView):
     **Example Requests**:
 
         GET /api/trip/trip_slug/bookings/
+
+        GET /api/trip/trip_slug/bookings/?search=at%20Gharo
     """
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = serializers.TripBookingSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'trip__name', 'email', 'phone_number', 'cnic_number']
 
     def get_queryset(self, *args, **kwargs):
         return TripBooking.objects.filter(Q(trip__slug=self.kwargs['slug']))

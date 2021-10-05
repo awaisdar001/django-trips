@@ -2,11 +2,12 @@
 
 from django.contrib.auth.models import User
 from django.urls import reverse
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+
 from django_trips.models import (Category, Facility, Gear, Host, Location,
                                  Trip, TripAvailability, TripBooking,
                                  TripItinerary, TripSchedule)
-from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -15,12 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            'username',
-            'full_name',
-            'first_name',
-            'last_name',
-        ]
+        fields = ['username', 'full_name', 'first_name', 'last_name', ]
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -33,14 +29,15 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class LocationSerializer(serializers.ModelSerializer):
     """Location Modal Serializer"""
-    location_url = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
-        fields = ('name', 'slug', 'coordinates', 'location_url')
+        fields = '__all__'
 
-    def get_location_url(self, destination):
-        return reverse("trips-api:destination-item", kwargs={"slug": destination.slug})
+    def get_type(self, location):
+        """Returns human readable model choice value."""
+        return location.get_type_display()
 
 
 class FacilitySerializer(serializers.ModelSerializer):
@@ -71,12 +68,12 @@ class HostSerializer(serializers.ModelSerializer):
     def get_type(self, object):
         return object.type.name
 
-    def get_rating(self, object):
+    def get_rating(self, host):
         rating = {
             'rating_count': 0,
             'rated_by': 0
         }
-        host_rating = getattr(object, 'host_rating')
+        host_rating = getattr(host, 'host_rating')
         if host_rating:
             rating['rating_count'] = host_rating.rating_count
             rating['rated_by'] = host_rating.rated_by

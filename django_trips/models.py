@@ -1,13 +1,14 @@
 import json
 from datetime import datetime, timedelta
 
-import django_trips.managers as managers
 from config_models.models import ConfigurationModel
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
-from django_trips.mixins import SlugMixin
 from tagging.registry import register
+
+import django_trips.managers as managers
+from django_trips.mixins import SlugMixin
 
 
 class HostType(models.Model):
@@ -81,26 +82,31 @@ class Location(SlugMixin, models.Model):
     This model contains information about trip location with respect to
     coordinates. We will use coordinates to draw google map.
     """
+    TOWN = 'TW'
+    CITY = 'CT'
+    PROVINCE = 'PR'
+
+    LOCATION_TYPE_CHOICES = [
+        (TOWN, 'Town'),
+        (CITY, 'City'),
+        (PROVINCE, 'Province'),
+    ]
+
     active = managers.ActiveModelManager()
-    objects = models.Manager()
-
-    # destinations = managers.LocationDestinationManager()
-    # departures = managers.LocationDepartureManager()
     available = managers.LocationAvailableManager()
-
-    deleted = models.BooleanField(default=False)
-    # is_destination = models.BooleanField(default=False)
-    # is_departure = models.BooleanField(default=False)
+    objects = models.Manager()
 
     name = models.CharField(max_length=30)
     slug = models.SlugField(null=True, blank=True)
     coordinates = models.CharField(max_length=50, null=True, blank=True)
+    type = models.CharField(max_length=2, choices=LOCATION_TYPE_CHOICES, default=TOWN)
+    importance = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    deleted = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(name="unique_slug_for_location", fields=("slug",), )
         ]
-        indexes = [models.Index(fields=('slug',))]
         ordering = ['name']
 
     def __str__(self):

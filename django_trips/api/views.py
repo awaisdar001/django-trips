@@ -8,11 +8,10 @@ from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.permissions import IsAuthenticated
 
-
 from django_trips.models import Location, Trip, TripBooking
 from . import serializers
 from .filters import TripAvailabilityFilter, TripScheduleFilter
-from .mixins import MultipleFieldLookupMixin
+from .mixins import StaffOnlyDeleteOperationMixin, MultipleFieldLookupMixin
 from .paginators import TripBookingsPagination, TripResponsePagination
 
 
@@ -78,13 +77,14 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
 
 
 class TripRetrieveUpdateDestroyAPIView(
-    MultipleFieldLookupMixin, generics.RetrieveUpdateDestroyAPIView
+    MultipleFieldLookupMixin,
+    StaffOnlyDeleteOperationMixin,
+    generics.RetrieveUpdateDestroyAPIView
 ):
     """
     **Use Cases**
         
-        Retrieve details of single trip or modify or delete an existing trip.
-        and post a new trip.
+        Retrieve, modify details of a trip or delete an existing trip.
 
     **Example Requests**:
         
@@ -238,7 +238,10 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
         return serializers.TripBookingSerializer
 
 
-class TripBookingRetrieveUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
+class TripBookingRetrieveUpdateAPIView(
+    StaffOnlyDeleteOperationMixin,
+    generics.RetrieveUpdateDestroyAPIView
+):
     """
     **Use Cases**
         
@@ -279,16 +282,22 @@ class TripBookingRetrieveUpdateAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 class TripBookingsRetrieveAPIView(generics.ListAPIView):
     """
-    **Use Cases**
+    **Use Cases:**
 
         Retrieve all bookings of a single trip.
 
 
-    **Example Requests**:
+    **Example Requests:**
 
         GET /api/trip/trip_slug/bookings/
 
         GET /api/trip/trip_slug/bookings/?search=at%20Gharo
+
+    **Search by:**
+
+        GET /api/trip/trip_slug/bookings/?search=at%20Gharo
+        Search term may contain the following.
+        > trip name, > booking name, > booking email, > phone_number, > cnic number.
     """
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]

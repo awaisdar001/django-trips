@@ -27,7 +27,7 @@ DEFAULT_SETTINGS = namedtuple(
 )
 
 LocalSettings = DEFAULT_SETTINGS(
-    ['Swat', 'Gilgit'], ['Lahore'], ['Lahore', 'Swat', 'Gilgit'], ['Django'], ['Bonefire', 'Food', 'Drinks'],
+    ['Boston', 'London'], ['Boston'], ['Boston', 'London', 'Delhi'], ['Django'], ['Bonefire', 'Food', 'Drinks'],
     ['Honymoon', 'Outdoor'], ['Sun glasses', 'Sun block']
 )
 

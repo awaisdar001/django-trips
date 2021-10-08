@@ -26,10 +26,10 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
         
         GET /api/trips/
         
-        GET /api/trips/?name=Islamabad
+        GET /api/trips/?name=Boston
 
         GET /api/trips/?
-                destination=islamabad,lahore,fairy+meadows
+                destination=city1,city2,city+name3
                 &name=trip
                 &duration_from=1&duration_to=15
                 &price_from=500&price_to=8000
@@ -43,9 +43,9 @@ class TripListCreateAPIView(generics.ListCreateAPIView):
         | Keyword               |        Details                                                        |
         |-----------            |-----------                                                            |
         | name ""               | Find trips that contains specific name.                               |
-        |                       | name=Trip to lahore OR name=chitral                                   |
+        |                       | name=Trip to city OR name=sweden                                      |
         | destination[]         | Filter trips with specific destinations.                              |
-        |                       | e.g. destination=islamabad,lahore                                     |
+        |                       | e.g. destination=boston,london                                     |
         | price_from (str)      | Find trips that has price greater than or equal to the given amount   |
         | price_to (str)        | Find trips that has price less than or equal to the given amount      |
         | duration_from (int)   | Find trips having duration greater than or equal to the given number  |
@@ -199,7 +199,7 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
         POST /api/trip/bookings/
             {
               "name": "tom latham",
-              "trip": "5-days-trip-to-jhelum",
+              "trip": "5-days-trip-to-city-center",
               "phone_number": "tom",
               "cnic_number": "1234234-23423",
               "email": "a@gmail.com",
@@ -255,7 +255,7 @@ class TripBookingRetrieveUpdateAPIView(
         PATCH /api/trip/booking/pk/
         {
               "name": "tom latham",
-              "trip": "5-days-trip-to-jhelum",
+              "trip": "5-days-trip-to-city-center",
               "phone_number": "tom",
               "cnic_number": "1234234-23423",
               "email": "a@gmail.com",

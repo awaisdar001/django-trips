@@ -50,12 +50,19 @@ The following pages are served in the development:
 
 | Page                 |  Method          | URL                                                        |
 |----------------------|------------------|-----------------------------------------------             |
-| Trips List           | GET              | http://localhost:8000/api/trips/                           |
-| Search Trip          | GET              | http://localhost:8000/api/trips?name=Islamabad/            |
+| Scheduled Trips List | GET              | http://localhost:8000/api/trips/                           |
+| Available Trips List | GET              | http://localhost:8000/api/trips/by/availability/           |
+| Search Trip          | GET              | http://localhost:8000/api/trips?name=Boston/            |
 | Single Trip          | GET              | http://localhost:8000/api/trip/trip-id-or-slug/            |
 | Update Trip          | PUT              | http://localhost:8000/api/trip/trip-id-or-slug/            |
 | Update Trip          | PATCH            | http://localhost:8000/api/trip/trip-id-or-slug/            |
 | Delete Trip          | DELETE           | http://localhost:8000/api/trip/trip-id-or-slug/            |
+| Destination          | GET              | http://localhost:8000/api/destinations/                    |
+| Destination Detail   | GET              | http://localhost:8000/api/destination/location-slug        |
+| All Trip Bookings    | GET              | http://localhost:8000/api/trip/bookings                    |
+| Single Bookings      | GET              | http://localhost:8000/api/trip/booking/id                  |
+| Single Trip Bookings | GET              | http://localhost:8000/api/trip/<trip-slug>/bookings        |       |
+
 
 ### API permissions
 | Authentication            
@@ -71,24 +78,34 @@ The following pages are served in the development:
 ### Trip List
 `http://localhost:8000/api/trips/`
 
-This endpoint is used to list all the trips Using the GET request type.
+This endpoint is used to list all the trips by schedule using the **GET** request type. These trips have specified 
+(fixed) schedule. These trips use django model `TripSchedule` for creating their schedule. Once the schedule is expired,
+these trips do not renew automatically. 
+These are the trip with "**static**" schedule data.
+
+### Trip List by Availability
+`http://localhost:8000/api/trips/by/availability/`
+
+There is another mechanism which would like you to define dynamic trips schedule. Which is using `TripAvailability` 
+model. In this model you can define the recurrence of any trip, weekly, daily, or monthly and these trip may
+auto-renew themselves. They come handy when you have dynamic trips schedule.    
 
 ### Search Trip
-`http://localhost:8000/api/trip/id-or-slug`
+`http://localhost:8000/api/trip/id-or-slug?destination=<destination name, destination name 2,>`
 
 Search specific trips. Here are the params that can be passed while searching. You can also mix the params together to
 narrow down the search. 
 
 | param                 | description                                                           | example                           |
 | ---                   | ---                                                                   |---                                |
-| name ""               | Find trips that contains specific name.                               | `/api/trips/?name=Islamabad`
-| destination[]         | Filter trips with specific destinations.                              | `destination=lahore,islamabad`
+| name (str)               | Find trips that contains specific name.                               | `/api/trips/?name=Boston`
+| destination[]         | Filter trips with specific destinations.                              | `destination=Boston,London`
 | price_from (str)      | Find trips that has price greater than or equal to the given amount   | `/api/trips/?price_from=200`
 | price_to (str)        | Find trips that has price less than or equal to the given amount      | `/api/trips/?price_to=200`
 | duration_from (int)   | Find trips having duration greater than or equal to the given number  | `/api/trips/?duration_from=2`
 | duration_to (int)     | Find trips having duration less  than or equal to the given number    | `/api/trips/?duration_to=10`
-| date_from (date)      | Find trips that are scheduled greater than or specified date          | `/api/trips/?date_from=2020-01-02`
-| date_to (date)        | Find trips that are scheduled less than or equal to specified date    | `/api/trips/?date_from=2020-01-02`
+| date_from (date)      | Find trips that are scheduled greater than or specified date `<yyyy-mm-dd>`          | `/api/trips/?date_from=2020-01-02`
+| date_to (date)        | Find trips that are scheduled less than or equal to specified date`<yyyy-mm-dd>`    | `/api/trips/?date_from=2020-01-02`
 
 
 
@@ -128,7 +145,36 @@ This endpoint is used to fetch all destinations available.
 ### Get Destination Detail
 `http://localhost:8000/api/destination/destination-slug`
 
-Given a slug, this endpoint provides detail about a single trip.  
+Given a slug, this endpoint provides detail about a single trip.
+
+### Create Trip booking
+`http://localhost:8000/api/trip/bookings`
+
+#### GET:
+Get all the trips list using the `GET` request method. 
+#### POST:
+Create trip booking by giving the following "example" data in the `POST` request.
+```
+{
+    "name": "tom latham",
+    "trip": "5-days-trip-to-city-center",
+    "phone_number": "tom",
+    "cnic_number": "1234234-23423",
+    "email": "a@gmail.com",
+    "target_date": "2021-09-01",
+    "message": "Tom booking# 1"
+}
+```
+
+### Single Trip booking Operations 
+`http://localhost:8000/api/trip/booking/<booking-id>/`
+
+Retrieve, Update & Delete a single trip booking. 
+
+### All Trip Bookings
+`http://localhost:8000/api/trip/<trip-slug>bookings/`
+
+Retrieve all bookings of a single trip.
 
 ## Develop Django Trips
 Kick the docker build using the following command. 

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from config_models.models import ConfigurationModel
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import slugify
 from tagging.registry import register
 
@@ -260,9 +261,6 @@ class Trip(SlugMixin, models.Model):
         """
         Creates schedules from the trip availability options.
         """
-        from datetime import datetime
-
-        from django.utils import timezone
 
         availability = self.trip_availability
         if not availability:
@@ -316,6 +314,7 @@ class TripAvailability(models.Model):
 
     class Meta:
         ordering = ['date_to', 'price']
+        verbose_name_plural = 'Trip availabilities'
 
     @property
     def options(self):
@@ -339,11 +338,11 @@ class TripItinerary(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return "Day:{0}-{1}".format(self.day, self.trip.name)
+        return "<TripItinerary Day='{0}' Trip='{1}'>".format(self.day, self.trip.name)
 
     class Meta:
         ordering = ['trip', 'day']
-        verbose_name_plural = 'Trip Itineraries'
+        verbose_name_plural = 'Trip itineraries'
         unique_together = ('trip', 'day',)
 
 

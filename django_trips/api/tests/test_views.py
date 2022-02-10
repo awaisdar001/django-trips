@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 import ddt
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
-from django_trips.tests import factories
 from rest_framework.test import APITestCase
+
+from django_trips.tests import factories
 
 
 @ddt.ddt
@@ -14,8 +15,8 @@ class TestTripList(APITestCase):
     def setUp(self):
         self.user = factories.UserFactory()
         self.client.login(username=self.user.username, password=factories.USER_PASSWORD)
-        self.trip = factories.TripFactory(locations=['Lahore', 'Gilgit'])
-        self.trip_schedules = factories.TripScheduleFactory.create_batch(2, trip=self.trip)
+        self.trip = factories.get_trip()
+        self.trip_schedules = self.trip.trip_schedule.all()
 
     def _make_trip_schedules_in_past(self, trip=None):
         """Convert trip schedules in past"""

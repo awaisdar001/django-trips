@@ -3,13 +3,14 @@ from datetime import datetime, timedelta
 
 from django.test import TestCase
 from django.utils import timezone
+from pytz import UTC
+
 from django_trips.models import (CancellationPolicy, Facility, Host, Location,
                                  Trip, TripSchedule)
-from django_trips.tests.factories import (CategoryFactory, FacilityFactory,
+from django_trips.tests.factories import (FacilityFactory, GearFactory,
                                           HostFactory, LocationFactory,
-                                          TripFactory, TripItineraryFactory,
-                                          TripScheduleFactory)
-from pytz import UTC
+                                          TripItineraryFactory,
+                                          TripScheduleFactory, get_trip)
 
 
 class TestHost(TestCase):
@@ -84,7 +85,6 @@ class TestLocation(TestCase):
         updated_location = Location.objects.get(name=self.location.name)
         self.assertIsNotNone(updated_location.coordinates)
 
-
     def test_inactive_location(self):
         inactive_location = LocationFactory(deleted=True)
         self.assertTrue(inactive_location.deleted)
@@ -139,12 +139,12 @@ class TestTrip(TestCase):
 
     def setUp(self):
         """Setup objects for testing"""
-        self.trip = TripFactory.create(locations=["Lahore", "Gilgit"])
+        self.trip = get_trip()
 
     def _update_trip_field(self, field, value):
         """Updates a field in trip object"""
         setattr(self.trip, field, value)
-        self.trip.save()
+        self.trip.save(update_fields=[field])
 
     def test_create(self):
         """Checks if setup has created model object"""
@@ -166,9 +166,15 @@ class TestTrip(TestCase):
 
     def test_gear_update(self):
         """Test update gear"""
-        new_gear = u"My test gear"
-        self._update_trip_field("gear", new_gear)
-        self.assertEqual(Trip.objects.get(id=self.trip.id).gear, new_gear)
+        current_trip_gears = self.trip.gear.all().count()
+        new_gear = GearFactory()
+        self.trip.gear.add(*[new_gear])
+
+        self.trip.refresh_from_db()
+        new_trip_gears = self.trip.gear.all()
+
+        self.assertNotEqual(current_trip_gears, new_trip_gears.count())
+        self.assertTrue(new_gear in new_trip_gears)
 
     def test_trip_itinerary(self):
         """Test trip itinerary"""
@@ -178,11 +184,15 @@ class TestTrip(TestCase):
         self.assertEqual(self.trip.trip_itinerary.all().count(), 2)
 
     def test_trip_schedule(self):
-        """Test Trip schedule"""
+        """Test Trip schedule update."""
         today_date = datetime.now(tz=UTC)
-        self.assertEqual(self.trip.trip_schedule.all().count(), 0)
-        __ = TripScheduleFactory(trip=self.trip, date_from=today_date)
-        trip_schedules = self.trip.trip_schedule.all()
+        trip_without_schedules = get_trip(trip_schedules=None)
+        self.assertEqual(trip_without_schedules.trip_schedule.all().count(), 0)
+
+        __ = TripScheduleFactory(trip=trip_without_schedules, date_from=today_date)
+        trip_without_schedules.refresh_from_db()
+
+        trip_schedules = trip_without_schedules.trip_schedule.all()
         self.assertEqual(trip_schedules.all().count(), 1)
         self.assertEqual(trip_schedules.get().date_from, today_date)
 
@@ -190,10 +200,13 @@ class TestTrip(TestCase):
         """Test available manager of trip schedule"""
         future_trip_date = timezone.now() + timedelta(days=7)
         past_trip_date = timezone.now() - timedelta(days=7)
-        __ = TripScheduleFactory(trip=self.trip, date_from=past_trip_date)
+        trip = get_trip(trip_schedules=None)
 
-        __ = TripScheduleFactory(trip=self.trip, date_from=future_trip_date)
-        self.assertEqual(TripSchedule.available.all().count(), 1)
+        __ = TripScheduleFactory(trip=trip, date_from=past_trip_date)
+        self.assertEqual(TripSchedule.available.filter(trip=trip).count(), 0)
+
+        __ = TripScheduleFactory(trip=trip, date_from=future_trip_date)
+        self.assertEqual(TripSchedule.available.filter(trip=trip).count(), 1)
 
     def test_cancellation_policy(self):
         """

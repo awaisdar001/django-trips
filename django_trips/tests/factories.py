@@ -3,10 +3,11 @@ from datetime import datetime
 import factory.fuzzy
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import Group, User
-from django_trips.models import (Category, Facility, Host, Location, Trip,
-                                 TripItinerary, TripSchedule)
 from factory.django import DjangoModelFactory
 from pytz import UTC
+
+from django_trips.models import (Category, Facility, Gear, Host, Location, Trip,
+                                 TripItinerary, TripSchedule, HostType, )
 
 USER_PASSWORD = 'pswd'
 
@@ -29,6 +30,7 @@ class UserFactory(DjangoModelFactory):
 
     class Meta:
         model = User
+        django_get_or_create = ('username',)
 
 
 class CategoryFactory(DjangoModelFactory):
@@ -36,9 +38,29 @@ class CategoryFactory(DjangoModelFactory):
 
     class Meta(object):
         model = Category
+        django_get_or_create = ('name',)
 
     name = factory.Sequence("Category - {0}".format)
     slug = factory.Sequence("category-{0}".format)
+
+
+class GearFactory(DjangoModelFactory):
+    """Gear factory"""
+
+    class Meta(object):
+        model = Gear
+        django_get_or_create = ('name',)
+
+    name = factory.Sequence("Gear - {0}".format)
+    slug = factory.Sequence("gear-{0}".format)
+
+
+class HostTypeFactory(DjangoModelFactory):
+    class Meta:
+        model = HostType
+        django_get_or_create = ('name',)
+
+    name = factory.Sequence("HostType - {0}".format)
 
 
 class HostFactory(DjangoModelFactory):
@@ -49,6 +71,7 @@ class HostFactory(DjangoModelFactory):
 
     name = factory.Sequence("Host - {0}".format)
     cancellation_policy = factory.Sequence("cancellation Policy - {0}".format)
+    type = factory.SubFactory(HostTypeFactory)
 
 
 class FacilityFactory(DjangoModelFactory):
@@ -56,6 +79,7 @@ class FacilityFactory(DjangoModelFactory):
 
     class Meta(object):
         model = Facility
+        django_get_or_create = ('name',)
 
     name = factory.Sequence("Facility - {0}".format)
 
@@ -65,9 +89,9 @@ class LocationFactory(DjangoModelFactory):
 
     class Meta(object):
         model = Location
+        django_get_or_create = ('name',)
 
     name = factory.Sequence("Location - {0}".format)
-    # is_destination = factory
 
 
 class TripScheduleFactory(DjangoModelFactory):
@@ -98,14 +122,14 @@ class TripFactory(DjangoModelFactory):
     description = factory.Sequence("awsome trip description- {}".format)
 
     destination = factory.SubFactory(LocationFactory)
-    departure = factory.SubFactory(LocationFactory)
+    starting_location = factory.SubFactory(LocationFactory)
     locations = factory.SubFactory(LocationFactory)
     primary_category = factory.SubFactory(CategoryFactory)
     categories = factory.SubFactory(CategoryFactory)
     facilities = factory.SubFactory(FacilityFactory)
     trip_schedule = factory.SubFactory(TripScheduleFactory)
 
-    gear = factory.Sequence("Trip gear - {0}".format)
+    gear = factory.SubFactory(GearFactory)
 
     created_by = factory.SubFactory(UserFactory)
     host = factory.SubFactory(HostFactory)
@@ -113,33 +137,65 @@ class TripFactory(DjangoModelFactory):
     created_at = datetime(2012, 1, 1, tzinfo=UTC)
     updated_at = datetime(2013, 1, 1, tzinfo=UTC)
 
+    @staticmethod
+    def get_trip():
+        trip = TripFactory.create(
+            locations=["Lahore", "Gilgit"],
+            facilities=["Transport", "Food"],
+            gear=["Backpack", "Glasses"],
+            categories=["Outdoors", "Hiking"],
+            # trip_schedule=2
+        )
+        return trip
+
     @factory.post_generation
     def locations(self, create, extracted, **kwargs):
         """The post_generation decorator performs actions once the model object has been generated."""
-        if extracted is None:
-            return
-
-        if isinstance(extracted, str):
-            extracted = [extracted]
-
-        for group_name in extracted:
+        for group_name in _as_list(extracted):
             self.locations.add(LocationFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
     def facilities(self, create, extracted, **kwargs):
         """The post_generation decorator performs actions once the model object has been generated."""
-        if extracted is None:
-            return
 
-        if isinstance(extracted, str):
-            extracted = [extracted]
-
-        for group_name in extracted:
+        for group_name in _as_list(extracted):
             self.facilities.add(FacilityFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
-    def trip_schedule(self, create, number, **kwargs):
+    def gear(self, create, extracted, **kwargs):
+        """The post_generation decorator performs actions once the model object has been generated."""
+
+        for group_name in _as_list(extracted):
+            self.gear.add(GearFactory.simple_generate(create, name=group_name))
+
+    @factory.post_generation
+    def categories(self, create, extracted, **kwargs):
+        """The post_generation decorator performs actions once the model object has been generated."""
+        for group_name in _as_list(extracted):
+            self.categories.add(CategoryFactory.simple_generate(create, name=group_name))
+
+    @factory.post_generation
+    def trip_schedule(self, create, number=1, **kwargs):
         """The post_generation decorator performs actions once the model object has been generated."""
         if number is None:
             return
         TripScheduleFactory.simple_generate_batch(create, trip=self, size=number)
+
+
+def _as_list(extracted):
+    if extracted is None:
+        extracted = []
+    elif isinstance(extracted, str):
+        extracted = [extracted]
+    return extracted
+
+
+def get_trip(trip_schedules=2):
+    trip = TripFactory.create(
+        locations=["Lahore", "Gilgit"],
+        facilities=["Transport", "Food"],
+        gear=["Backpack", "Glasses"],
+        categories=["Outdoors", "Hiking"],
+        trip_schedule=trip_schedules
+    )
+    return trip

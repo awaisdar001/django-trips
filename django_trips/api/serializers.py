@@ -65,15 +65,15 @@ class HostSerializer(serializers.ModelSerializer):
         model = Host
         fields = ('name', 'slug', 'description', 'cancellation_policy', 'verified', 'type', 'rating')
 
-    def get_type(self, object):
-        return object.type.name
+    def get_type(self, host):
+        return host.type.name if host else ''
 
     def get_rating(self, host):
         rating = {
             'rating_count': 0,
             'rated_by': 0
         }
-        host_rating = getattr(host, 'host_rating')
+        host_rating = getattr(host, 'host_rating', None)
         if host_rating:
             rating['rating_count'] = host_rating.rating_count
             rating['rated_by'] = host_rating.rated_by

@@ -9,7 +9,8 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
-from django_trips.models import (Category, Facility, Host, Location, Trip,
+
+from django_trips.models import (Category, Facility, Gear, Host, Location, Trip,
                                  TripItinerary, TripSchedule)
 
 TRIP_DESTINATIONS = 'TRIP_DESTINATIONS'
@@ -81,6 +82,11 @@ class Command(BaseCommand):
         location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
         return location
 
+    def get_gear_instance(self, name):
+        gear_data = {'name': name, 'slug': slugify(name)}
+        gear, __ = Gear.objects.get_or_create(slug=gear_data['slug'], defaults=gear_data)
+        return gear
+
     def get_destination(self):
         name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
         return self.get_location_instance(name)
@@ -146,16 +152,16 @@ class Command(BaseCommand):
             for day in range(1, random.choice(range(5, 20)))
         ]
 
-    def get_random_gear(self):
+    def get_random_gears(self):
         """
         get random number of gears for a trip.
-
-        returns a comma-separated string of gears from a pre-defined
-        list of gears
         """
-        trip_gear = self.get_settings('TRIP_GEARS')
-        selected_gear = random.sample(trip_gear, random.choice(range(1, len(trip_gear))))
-        return ','.join(selected_gear)
+        trip_random_gears = []
+        trip_gears = self.get_settings('TRIP_GEARS')
+        for gear in random.sample(trip_gears, random.choice(range(1, len(trip_gears)))):
+            gear = self.get_gear_instance(gear)
+            trip_random_gears.append(gear)
+        return trip_random_gears
 
     def handle(self, *args, **options):
         """
@@ -180,7 +186,6 @@ class Command(BaseCommand):
 
             trip.age_limit = random.choice(range(20, 40))
             trip.host = self.get_random_host()
-            trip.gear = self.get_random_gear()
             trip.primary_category = self.get_random_category()
             trip.description = "This is the description for trip: {}".format(count)
             trip.created_by = user
@@ -193,6 +198,7 @@ class Command(BaseCommand):
                     'Error Saving Trip {}\n{}'.format(trip.name, e)))
 
             # Adding M2M fields for the trip
+            trip.gear.set(self.get_random_gears())
             trip.locations.set(self.get_random_locations())
             trip.facilities.set(self.get_random_facilities())
             trip.save()

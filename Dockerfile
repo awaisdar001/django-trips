@@ -1,5 +1,7 @@
+# syntax=docker/dockerfile:1
+
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.7-slim
+FROM python:3.8-slim-buster
 
 EXPOSE 8888
 
@@ -26,12 +28,7 @@ RUN apt-get update && apt-get install -y python3-setuptools \
 
 
 RUN pip3 install --upgrade pip
+
 # Install pip requirements
-#ADD requirements.txt .
-RUN python -m pip install -r trips/requirements.txt
-
-
-
-# During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-# File wsgi.py was not found in subfolder:Django-React-Redux-Frontend. Please enter the Python path to wsgi file.
-# CMD ["gunicorn", "--bind", "0.0.0.0:9990", "pythonPath.to.wsgi"]
+ADD requirements.txt .
+RUN python -m pip install -r requirements.txt

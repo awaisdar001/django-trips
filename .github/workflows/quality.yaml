@@ -1,4 +1,4 @@
-name: Django CI
+name: Quality
 
 on:
   pull_request:
@@ -13,10 +13,10 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        python-version: [3.7, 3.8, 3.9]
-        django-version: ["2.2.27", "3.2.12"]
+        python-version: [3.9]
+        django-version: ["3.2.12"]
 
-    name: python-${{ matrix.python-version }},django-${{ matrix.django-version }}
+    name: pylint-python-${{ matrix.python-version }},django-${{ matrix.django-version }}
     steps:
     - name: sync directory owner
       run: sudo chown runner:runner -R .*

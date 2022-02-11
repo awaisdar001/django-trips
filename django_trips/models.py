@@ -20,7 +20,7 @@ class HostType(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return self.name
+        return f'{self.name}'
 
 
 class Host(SlugMixin, models.Model):
@@ -30,6 +30,7 @@ class Host(SlugMixin, models.Model):
     This model contains the information for the trip hosts who are organizing
     trips.
     """
+    objects = models.Manager()
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=70, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -46,7 +47,7 @@ class Host(SlugMixin, models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return self.name
+        return f'{self.name}'
 
     @property
     def cancellation_policy(self):
@@ -111,7 +112,7 @@ class Location(SlugMixin, models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return f"{self.name}"
+        return f'{self.name}'
 
     @property
     def get_coordinates(self):
@@ -130,7 +131,7 @@ class Gear(SlugMixin, models.Model):
     deleted = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.name
+        return f'{self.name}'
 
 
 class Facility(SlugMixin, models.Model):
@@ -140,6 +141,7 @@ class Facility(SlugMixin, models.Model):
     This model contains information all the available facilities that can be
     provided in a trip.
     """
+    objects = models.Manager()
     name = models.CharField(max_length=70, unique=True)
     slug = models.SlugField(max_length=85, null=True, blank=True)
     deleted = models.BooleanField(default=False)
@@ -150,7 +152,7 @@ class Facility(SlugMixin, models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return self.name
+        return f'{self.name}'
 
 
 class Category(SlugMixin, models.Model):
@@ -160,7 +162,7 @@ class Category(SlugMixin, models.Model):
     deleted = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.name
+        return f'{self.name}'
 
 
 class Trip(SlugMixin, models.Model):
@@ -226,7 +228,7 @@ class Trip(SlugMixin, models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return self.name
+        return f'{self.name}'
 
     class Meta:
         ordering = ['-created_at', '-id']
@@ -261,7 +263,6 @@ class Trip(SlugMixin, models.Model):
         Creates schedules from the trip availability options.
         """
         from datetime import datetime
-
         from django.utils import timezone
 
         availability = self.trip_availability
@@ -278,7 +279,7 @@ class Trip(SlugMixin, models.Model):
             if schedule_from < today < schedule_to:
                 for day in range(20):
                     schedule_date = (today + timedelta(days=day))
-                    instance, created = TripSchedule.objects.get_or_create(
+                    __, created = TripSchedule.objects.get_or_create(
                         trip=self,
                         date_from=schedule_date,
                         is_per_person_price=availability['is_per_person_price'],
@@ -339,7 +340,7 @@ class TripItinerary(models.Model):
 
     def __str__(self):
         """String representation of model instance"""
-        return "Day:{0}-{1}".format(self.day, self.trip.name)
+        return f"Day:{self.day}-{self.trip.name}"
 
     class Meta:
         ordering = ['trip', 'day']

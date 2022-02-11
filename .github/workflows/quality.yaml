@@ -26,4 +26,4 @@ jobs:
 
     - name: GitHub Action for pylint
     - run: |
-        pylint --load-plugins pylint_django --django-settings-module=settings.test  **/*.py
+        python -m run_lint.py

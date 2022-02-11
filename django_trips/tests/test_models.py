@@ -119,11 +119,10 @@ class TestFacility(TestCase):
         """
         Test facility object updates are persisted successfully after save.
         """
-        id = self.facility.id
         self.facility.name = "No Food"
         self.facility.save()
-        updated_facility = Facility.objects.filter(id=id)[0]
-        self.assertEqual("No Food", updated_facility.name)
+        self.facility.refresh_from_db()
+        self.assertEqual("No Food", self.facility.name)
 
     def test_delete_facility(self):
         """
@@ -152,7 +151,7 @@ class TestTrip(TestCase):
 
     def test_update(self):
         """Test update trip method."""
-        new_description = u"This is my dummy description"
+        new_description = "This is my dummy description"
         self._update_trip_field("description", new_description)
 
         trip = Trip.objects.get(id=self.trip.id)

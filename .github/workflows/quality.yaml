@@ -23,6 +23,7 @@ jobs:
       run: |
         sudo python -m pip install --upgrade pip
         sudo pip install -r requirements.txt
+        sudo pip install pylint pylint-django
 
     - name: GitHub Action for pylint
       run: |

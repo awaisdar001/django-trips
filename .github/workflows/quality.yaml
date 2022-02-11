@@ -7,34 +7,23 @@ on:
       - master
 
 jobs:
-  build:
-
+  Pylint:
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 3
-      matrix:
-        python-version: [3.9]
-        django-version: ["3.2.12"]
 
-    name: pylint-python-${{ matrix.python-version }},django-${{ matrix.django-version }}
+    name: pylint-python
     steps:
-    - name: sync directory owner
-      run: sudo chown runner:runner -R .*
-
     - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.9
 
     - name: Install Dependencies
       run: |
         sudo python -m pip install --upgrade pip
         sudo pip install -r requirements.txt
-        sudo pip install "django==${{ matrix.django-version }}"
 
     - name: GitHub Action for pylint
-      uses: cclauss/GitHub-Action-for-pylint@0.7.0
     - run: |
         pylint --load-plugins pylint_django --django-settings-module=settings.test  **/*.py

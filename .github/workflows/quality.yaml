@@ -25,5 +25,5 @@ jobs:
         sudo pip install -r requirements.txt
 
     - name: GitHub Action for pylint
-    - run: |
+      run: |
         python -m run_lint.py

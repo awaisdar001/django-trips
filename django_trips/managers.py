@@ -17,9 +17,7 @@ class AvailableTripScheduleManager(models.Manager):
         This method will only return the objects which have date_from defined
         in the future
         """
-        return super(AvailableTripScheduleManager, self).get_queryset().filter(
-            date_from__gt=datetime.now(tz=UTC)
-        )
+        return super().get_queryset().filter(date_from__gt=datetime.now(tz=UTC))
 
 
 class LocationAvailableManager(models.Manager):
@@ -51,9 +49,7 @@ class ActiveModelManager(models.Manager):
         This method will only return the objects which have date_from defined
         in the future
         """
-        return super(ActiveModelManager, self).get_queryset().filter(
-            deleted=False
-        )
+        return super().get_queryset().filter(deleted=False)
 
 
 class LocationDestinationManager(models.Manager):
@@ -89,6 +85,4 @@ class LocationDepartureManager(models.Manager):
         This method will only return the objects which have date_from defined
         in the future
         """
-        return super(LocationDepartureManager, self).get_queryset().filter(
-            is_departure=True
-        )
+        return super().get_queryset().filter(is_departure=True)

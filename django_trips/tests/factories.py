@@ -137,45 +137,34 @@ class TripFactory(DjangoModelFactory):
     created_at = datetime(2012, 1, 1, tzinfo=UTC)
     updated_at = datetime(2013, 1, 1, tzinfo=UTC)
 
-    @staticmethod
-    def get_trip():
-        trip = TripFactory.create(
-            locations=["Lahore", "Gilgit"],
-            facilities=["Transport", "Food"],
-            gear=["Backpack", "Glasses"],
-            categories=["Outdoors", "Hiking"],
-            # trip_schedule=2
-        )
-        return trip
-
     @factory.post_generation
-    def locations(self, create, extracted, **kwargs):
+    def locations(self, create, extracted):
         """The post_generation decorator performs actions once the model object has been generated."""
         for group_name in _as_list(extracted):
             self.locations.add(LocationFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
-    def facilities(self, create, extracted, **kwargs):
+    def facilities(self, create, extracted):
         """The post_generation decorator performs actions once the model object has been generated."""
 
         for group_name in _as_list(extracted):
             self.facilities.add(FacilityFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
-    def gear(self, create, extracted, **kwargs):
+    def gear(self, create, extracted):
         """The post_generation decorator performs actions once the model object has been generated."""
 
         for group_name in _as_list(extracted):
             self.gear.add(GearFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
-    def categories(self, create, extracted, **kwargs):
+    def categories(self, create, extracted):
         """The post_generation decorator performs actions once the model object has been generated."""
         for group_name in _as_list(extracted):
             self.categories.add(CategoryFactory.simple_generate(create, name=group_name))
 
     @factory.post_generation
-    def trip_schedule(self, create, number=1, **kwargs):
+    def trip_schedule(self, create, number=1):
         """The post_generation decorator performs actions once the model object has been generated."""
         if number is None:
             return

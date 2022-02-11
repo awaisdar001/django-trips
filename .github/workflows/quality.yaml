@@ -1,0 +1,31 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  Pylint:
+    runs-on: ubuntu-latest
+
+    name: pylint-python
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Install Dependencies
+      run: |
+        sudo python -m pip install --upgrade pip
+        sudo pip install -r requirements.txt
+#        pip install pylint pylint-django
+
+    - name: GitHub Action for pylint
+      run: |
+        export PYLINTRC=.pylintrc
+        sudo python -m run_lint.py

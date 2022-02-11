@@ -210,17 +210,17 @@ class TripBookingCreateListAPIView(generics.ListCreateAPIView):
     **POST Trip Booking Parameters**:
 
         * name(required): Name of person booking a trip
-        
+
         * trip(required): trip slug to create booking for
-        
+
         * phone_number(required): Person's contact number.
-        
+
         * cnic_number(required): Person's cnic number.
-        
+
         * email(required): Person's email address
-        
+
         * target_date(required): booking date for the trip
-        
+
         * message(optional): any additional information for the trip booking
 
     **GET Trip Booking Parameters**:

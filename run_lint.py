@@ -4,7 +4,7 @@ import pylint.lint
 THRESHOLD = 6
 
 pylint_opts = [
-    '--disable=line-too-long --load-plugins pylint_django --django-settings-module=settings.test',
+    '--disable=line-too-long --load-plugins pylint_django --django-settings-module=settings.test --rcfile=.pylintrc',
     './django_trips'
 ]
 results = pylint.lint.Run(pylint_opts, do_exit=False)

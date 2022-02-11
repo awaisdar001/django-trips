@@ -27,5 +27,5 @@ jobs:
 
     - name: GitHub Action for pylint
       run: |
-        sudo export PYLINTRC=.pylintrc
+        export PYLINTRC=.pylintrc
         sudo python -m run_lint.py

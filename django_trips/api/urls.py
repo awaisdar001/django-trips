@@ -1,13 +1,11 @@
 from django.urls import path
-from django_trips.api.views import trip, booking
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularRedocView,
-    SpectacularSwaggerView,
-)
+from drf_spectacular.views import (SpectacularAPIView, SpectacularRedocView,
+                                   SpectacularSwaggerView)
 from rest_framework.routers import DefaultRouter
 
-from django_trips.api.views.trip import TripViewSet, ActiveDestinationsWithSchedulesView
+from django_trips.api.views import booking, trip
+from django_trips.api.views.trip import (ActiveDestinationsWithSchedulesView,
+                                         TripViewSet)
 
 app_name = "trips-api"
 

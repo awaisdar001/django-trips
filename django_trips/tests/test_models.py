@@ -7,21 +7,20 @@ from django_trips.choices import LocationType, ScheduleStatus
 from django_trips.models import (
     CancellationPolicy,
     Facility,
-    Location,
-    Trip,
-    TripSchedule,
     HostType,
+    Location,
     TripItinerary,
+    TripSchedule,
 )
 from django_trips.tests.factories import (
     FacilityFactory,
     GearFactory,
     HostFactory,
     LocationFactory,
+    TripFactory,
     TripItineraryFactory,
     TripScheduleFactory,
     get_trip,
-    TripFactory,
 )
 
 

@@ -1,7 +1,5 @@
-"""
-Your App description goes here.
-"""
+# pylint: disable=invalid-name
 
-__version__ = '0.2.10'
+__version__ = "0.2.10"
 
-default_app_config = 'django_trips.apps.DjangoTripsConfig'  # pylint: disable=invalid-name
+default_app_config = "django_trips.apps.DjangoTripsConfig"

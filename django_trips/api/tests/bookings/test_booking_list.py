@@ -6,15 +6,11 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 
-from django_trips.choices import ScheduleStatus, BookingStatus
+from django_trips.choices import BookingStatus, ScheduleStatus
 from django_trips.models import TripBooking
-from django_trips.tests.factories import (
-    AuthenticatedUserTestCase,
-    TripFactory,
-    TripScheduleFactory,
-    TripBookingFactory,
-    UserFactory,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          TripBookingFactory, TripFactory,
+                                          TripScheduleFactory, UserFactory)
 
 
 class TripBookingListTestCase(AuthenticatedUserTestCase):

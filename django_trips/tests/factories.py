@@ -2,6 +2,8 @@
 🧪Test Cases for Django Models. 
 """
 
+# pylint:disable=all
+
 import random
 from datetime import timedelta
 
@@ -15,23 +17,23 @@ from faker import Faker
 from rest_framework_simplejwt.tokens import AccessToken
 
 from django_trips.choices import (
+    BookingStatus,
     LocationType,
     ScheduleStatus,
     TripOptions,
-    BookingStatus,
 )
 from django_trips.models import (
     Category,
     Facility,
     Gear,
     Host,
+    HostType,
     Location,
     Trip,
-    TripItinerary,
-    TripSchedule,
-    HostType,
-    TripOption,
     TripBooking,
+    TripItinerary,
+    TripOption,
+    TripSchedule,
 )
 
 USER_PASSWORD = "pswd"
@@ -55,17 +57,17 @@ class AuthenticatedUserTestCase(TestCase):
 class GroupFactory(DjangoModelFactory):
     """Group factory"""
 
-    class Meta(object):
+    class Meta:
         model = Group
         django_get_or_create = ("name",)
 
-    name = factory.Sequence("group - {0}".format)
+    name = factory.Sequence(lambda n: f"group - {n}")
 
 
 class UserFactory(DjangoModelFactory):
     """User factory"""
 
-    username = factory.Sequence("User - {0}".format)
+    username = factory.Sequence(lambda n: f"User - {n}")
     password = factory.PostGenerationMethodCall("set_password", USER_PASSWORD)
 
     class Meta:
@@ -75,11 +77,12 @@ class UserFactory(DjangoModelFactory):
 
 class CategoryFactory(DjangoModelFactory):
 
-    class Meta(object):
+    class Meta:
         model = Category
         django_get_or_create = ("name",)
 
-    name = factory.Sequence("Category - {0}".format)
+    name = factory.Sequence(lambda n: f"Category - {n}")
+
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
     is_active = True
 
@@ -87,11 +90,12 @@ class CategoryFactory(DjangoModelFactory):
 class GearFactory(DjangoModelFactory):
     """Gear factory"""
 
-    class Meta(object):
+    class Meta:
         model = Gear
         django_get_or_create = ("name",)
 
-    name = factory.Sequence("Gear - {0}".format)
+    name = factory.Sequence(lambda n: f"Gear - {n}")
+
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
     is_active = True
 
@@ -101,7 +105,7 @@ class HostTypeFactory(DjangoModelFactory):
         model = HostType
         django_get_or_create = ("name",)
 
-    name = factory.Sequence("HostType - {0}".format)
+    name = factory.Sequence(lambda n: f"HostType - {n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
 
 
@@ -133,20 +137,19 @@ class HostFactory(DjangoModelFactory):
 
 
 class FacilityFactory(DjangoModelFactory):
-    """Facility factory"""
 
-    class Meta(object):
+    class Meta:
         model = Facility
         django_get_or_create = ("name",)
 
-    name = factory.Sequence("Facility - {0}".format)
+    name = factory.Sequence(lambda n: f"Facility - {n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
     is_active = True
 
 
 class LocationFactory(DjangoModelFactory):
 
-    class Meta(object):
+    class Meta:
         model = Location
         django_get_or_create = ("name",)
 
@@ -174,10 +177,6 @@ class TripFactory(DjangoModelFactory):
         lambda: {"policy": "Children must be accompanied by an adult"}
     )
 
-    # Assuming you have a Facility and Gear factory
-    facilities = factory.RelatedFactoryList(FacilityFactory, "trip", size=3)
-    gear = factory.RelatedFactoryList(GearFactory, "trip", size=3)
-
     duration = factory.Faker("time_delta", end_datetime="+30d")
     passenger_limit_min = factory.Faker("random_int", min=1, max=10)
     passenger_limit_max = factory.Faker("random_int", min=10, max=50)
@@ -185,10 +184,7 @@ class TripFactory(DjangoModelFactory):
 
     departure = factory.SubFactory(LocationFactory)
     destination = factory.SubFactory(LocationFactory)
-    locations = factory.RelatedFactoryList(LocationFactory, "trip", size=3)
     country = "PK"  # Use country code, assuming the default is 'PK'
-
-    categories = factory.RelatedFactoryList(CategoryFactory, "trip", size=3)
 
     metadata = factory.LazyFunction(
         lambda: {
@@ -213,39 +209,42 @@ class TripFactory(DjangoModelFactory):
         model = Trip
 
     @factory.post_generation
-    def locations(self, create, extracted):
-        """The post_generation decorator performs actions once the model object has been generated."""
-        for group_name in _as_list(extracted):
-            self.locations.add(LocationFactory.simple_generate(create, name=group_name))
+    def facilities(self, create, extracted, **kwargs):
+        handle_m2m_field(self, "facilities", FacilityFactory, create, extracted)
 
     @factory.post_generation
-    def facilities(self, create, extracted):
-        """The post_generation decorator performs actions once the model object has been generated."""
-        for group_name in _as_list(extracted):
-            self.facilities.add(
-                FacilityFactory.simple_generate(create, name=group_name)
-            )
+    def gear(self, create, extracted, **kwargs):
+        handle_m2m_field(self, "gear", GearFactory, create, extracted)
 
     @factory.post_generation
-    def gear(self, create, extracted):
-        """The post_generation decorator performs actions once the model object has been generated."""
-        for group_name in _as_list(extracted):
-            self.gear.add(GearFactory.simple_generate(create, name=group_name))
+    def locations(self, create, extracted, **kwargs):
+        handle_m2m_field(self, "locations", LocationFactory, create, extracted)
 
     @factory.post_generation
-    def categories(self, create, extracted):
-        """The post_generation decorator performs actions once the model object has been generated."""
-        for group_name in _as_list(extracted):
-            self.categories.add(
-                CategoryFactory.simple_generate(create, name=group_name)
-            )
+    def categories(self, create, extracted, **kwargs):
+        handle_m2m_field(self, "categories", CategoryFactory, create, extracted)
 
     @factory.post_generation
     def trip_schedule(self, create, number=1):
         """The post_generation decorator performs actions once the model object has been generated."""
         if number is None:
             return
-        # TripScheduleFactory.simple_generate_batch(create, trip=self, size=number)
+        TripScheduleFactory.simple_generate_batch(create, trip=self, size=number)
+
+
+def handle_m2m_field(instance, field_name, factory_cls, create, extracted, attr="name"):
+    if not create:
+        return
+    if extracted and isinstance(extracted, list):
+        extracted = [
+            obj if not isinstance(obj, str) else factory_cls(**{attr: obj})
+            for obj in extracted
+        ]
+    if extracted:
+        getattr(instance, field_name).set(extracted)
+    else:
+        items = factory_cls.create_batch(3)
+        getattr(instance, field_name).set(items)
 
 
 class TripItineraryFactory(DjangoModelFactory):
@@ -258,7 +257,7 @@ class TripItineraryFactory(DjangoModelFactory):
     description = factory.Faker("paragraph", nb_sentences=4)
     location = factory.SubFactory(LocationFactory)
     category = factory.SubFactory(CategoryFactory)
-
+    # pylint:disable=unnecessary-lambda
     start_time = factory.LazyFunction(lambda: timezone.now())
     end_time = factory.LazyAttribute(lambda o: o.start_time + timedelta(hours=3))
 

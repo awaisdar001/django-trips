@@ -5,12 +5,11 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.timezone import now
+from django_countries.serializer_fields import CountryField
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
-from taggit.serializers import TagListSerializerField, TaggitSerializer
+from taggit.serializers import TaggitSerializer, TagListSerializerField
 
 from django_trips.models import (
     Category,
@@ -19,13 +18,11 @@ from django_trips.models import (
     Host,
     Location,
     Trip,
-    TripAvailability,
     TripBooking,
     TripItinerary,
-    TripSchedule,
     TripOption,
+    TripSchedule,
 )
-from django_countries.serializer_fields import CountryField
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -251,7 +248,7 @@ class TripCreateSerializer(serializers.ModelSerializer):
         tags = validated_data.pop("tags", [])
 
         # Create trip instance
-        trip = super().create(dict(**validated_data, created_by=user))
+        trip = super().create({"created_by": user, **validated_data})
 
         # Add M2M relationships
         trip.locations.set(locations)

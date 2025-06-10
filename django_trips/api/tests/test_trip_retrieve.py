@@ -1,17 +1,12 @@
+from django.urls import reverse
 from rest_framework import status
 
-from django_trips.tests.factories import (
-    HostFactory,
-    LocationFactory,
-    AuthenticatedUserTestCase,
-    FacilityFactory,
-    GearFactory,
-    CategoryFactory,
-    TripFactory,
-    TripItineraryFactory,
-    TripOptionFactory,
-)
-from django.urls import reverse
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          CategoryFactory, FacilityFactory,
+                                          GearFactory, HostFactory,
+                                          LocationFactory, TripFactory,
+                                          TripItineraryFactory,
+                                          TripOptionFactory)
 
 
 class TripRetrieveTestCase(AuthenticatedUserTestCase):

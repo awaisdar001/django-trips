@@ -1,7 +1,8 @@
-import django_filters as filters
-from django_trips.models import Trip, TripSchedule, TripBooking
-
 from datetime import timedelta
+
+import django_filters as filters
+
+from django_trips.models import Trip, TripBooking, TripSchedule
 
 
 class TimedeltaFromDaysFilter(filters.NumberFilter):

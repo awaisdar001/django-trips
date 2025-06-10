@@ -4,17 +4,11 @@ from django.test import TestCase
 from django.urls import reverse
 
 from django_trips.tests import factories
-from django_trips.tests.factories import (
-    UserFactory,
-    HostFactory,
-    LocationFactory,
-    FacilityFactory,
-    GearFactory,
-    CategoryFactory,
-    AuthenticatedUserTestCase,
-    TripItineraryFactory,
-    TripFactory,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          CategoryFactory, FacilityFactory,
+                                          GearFactory, HostFactory,
+                                          LocationFactory, TripFactory,
+                                          TripItineraryFactory, UserFactory)
 
 
 class TripUpdateTestCase(AuthenticatedUserTestCase):

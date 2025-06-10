@@ -1,27 +1,25 @@
+# pylint:disable=import-error,too-many-ancestors
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django_trips.api.filters import TripBookingFilterSet
-from django_trips.api.paginators import (
-    TripBookingsPagination,
-)
+from django_trips.api.paginators import TripBookingsPagination
 from django_trips.api.schema_meta import (
-    booking_list_schema,
+    booking_cancel_schema,
     booking_create_schema,
+    booking_list_schema,
     booking_retrieve_schema,
     booking_update_schema,
-    booking_cancel_schema,
 )
-from django_trips.api.serializers import (
-    TripBookingSerializer,
-)
+from django_trips.api.serializers import TripBookingSerializer
 from django_trips.choices import BookingStatus
 from django_trips.models import TripBooking
 
@@ -51,7 +49,7 @@ class TripBookingRetrieveUpdateViewSet(GenericViewSet, generics.RetrieveUpdateAP
         return trip_booking
 
     @action(detail=True, methods=["post"], url_path="cancel")
-    def cancel(self, request, *args, **kwargs):
+    def cancel(self, request, *args, **kwargs):  # pylint:disable=unused-argument
         booking = self.get_object()
         if BookingStatus.is_cancelled(booking.status):
             return Response(

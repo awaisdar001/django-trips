@@ -1,24 +1,12 @@
 """Django admin config"""
 
 from django.contrib import admin
-from django_trips.models import (
-    CancellationPolicy,
-    Facility,
-    Host,
-    HostRating,
-    HostType,
-    Location,
-    Trip,
-    TripAvailability,
-    TripBooking,
-    TripItinerary,
-    TripPickupLocation,
-    TripReview,
-    TripReviewSummary,
-    TripSchedule,
-    Category,
-    Gear,
-)
+
+from django_trips.models import (CancellationPolicy, Category, Facility, Gear,
+                                 Host, HostRating, HostType, Location, Trip,
+                                 TripAvailability, TripBooking, TripItinerary,
+                                 TripPickupLocation, TripReview,
+                                 TripReviewSummary, TripSchedule)
 
 
 class TripScheduleAdminInline(admin.TabularInline):

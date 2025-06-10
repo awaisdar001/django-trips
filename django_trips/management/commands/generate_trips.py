@@ -1,19 +1,13 @@
-from datetime import datetime, timedelta, time
-import random
-
-from django.contrib.auth import get_user_model
-from faker import Faker
-
 import random
 import traceback
-from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
-from dateutil.tz import UTC
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from django.utils.text import slugify
+from faker import Faker
 
 from django_trips.choices import ScheduleStatus, TripOptions
 from django_trips.models import (
@@ -21,14 +15,13 @@ from django_trips.models import (
     Facility,
     Gear,
     Host,
+    HostType,
     Location,
     Trip,
     TripItinerary,
-    TripSchedule,
-    HostType,
     TripOption,
+    TripSchedule,
 )
-
 
 fake = Faker()
 User = get_user_model()
@@ -96,9 +89,9 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.SUCCESS(f"Trip Created: <id={trip.pk} name={trip.name}>")
                 )
-            except Exception as e:
+            except Exception as e:  # pylint:disable=broad-except
                 self.stderr.write(traceback.format_exc())
-                raise CommandError(f"Error creating trip: {e}")
+                raise CommandError(f"Error creating trip: {e}") from e
 
     def create_trip(self, user, no_of_days):
         duration = timedelta(days=no_of_days)
@@ -218,7 +211,7 @@ class Command(BaseCommand):
         name = random.choice(self.get_setting("TRIP_HOSTS"))
         host_type = self.get_host_type()
         return Host.objects.get_or_create(
-            name=name, defaults=dict(verified=True, type=host_type)
+            name=name, defaults={"verified": True, "type": host_type}
         )[0]
 
     def get_host_type(self):

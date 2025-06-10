@@ -1,3 +1,4 @@
+# pylint:disable=import-error
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -11,26 +12,24 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django_trips.api.filters import TripFilter, UpcomingTripsFilter
-from django_trips.api.paginators import (
-    CustomLimitOffsetPaginator,
-)
+from django_trips.api.paginators import CustomLimitOffsetPaginator
 from django_trips.api.schema_meta import (
-    trip_create_schema,
-    trip_list_schema,
-    upcoming_trips_list_schema,
-    trip_retrieve_schema,
-    trip_delete_schema,
-    trip_update_schema,
     destinations_list_schema,
+    trip_create_schema,
+    trip_delete_schema,
+    trip_list_schema,
+    trip_retrieve_schema,
+    trip_update_schema,
+    upcoming_trips_list_schema,
 )
 from django_trips.api.serializers import (
-    TripListSerializer,
+    DestinationWithSchedulesSerializer,
     TripCreateSerializer,
     TripDetailSerializer,
+    TripListSerializer,
     UpcomingTripListSerializer,
-    DestinationWithSchedulesSerializer,
 )
-from django_trips.models import Trip, TripSchedule, Location
+from django_trips.models import Location, Trip, TripSchedule
 from django_trips.permissions import IsStaffForDeleteOnly
 
 
@@ -41,7 +40,7 @@ from django_trips.permissions import IsStaffForDeleteOnly
     update=trip_update_schema,
     destroy=trip_delete_schema,
 )
-class TripViewSet(ModelViewSet):
+class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
     """
     ViewSet for managing Trips with standard REST actions.
 
@@ -77,13 +76,13 @@ class TripViewSet(ModelViewSet):
     lookup_field = "identifier"
 
     def get_serializer_class(self):
-        if self.action == "list":
+        if self.action == "list":  # pylint:disable=no-else-return
             return TripListSerializer
         elif self.action == "retrieve":
             return TripDetailSerializer
         elif self.action in ["create", "update"]:
             return TripCreateSerializer
-        return TripListSerializer  # fallback
+        return TripListSerializer
 
     def get_object(self):
         identifier = self.kwargs.get("identifier")

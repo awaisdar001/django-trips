@@ -10,14 +10,15 @@ from drf_spectacular.utils import (
 from rest_framework import serializers
 
 from django_trips.api.serializers import (
-    TripCreateSerializer,
-    TripListSerializer,
-    TripDetailSerializer,
-    TripBookingSerializer,
     DestinationWithSchedulesSerializer,
+    TripBookingSerializer,
+    TripCreateSerializer,
+    TripDetailSerializer,
+    TripListSerializer,
 )
 
 
+# pylint:disable=all
 class SchemaTags(Enum):
     TRIPS = ["Trips"]
     Bookings = ["Bookings"]

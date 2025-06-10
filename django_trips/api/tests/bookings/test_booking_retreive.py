@@ -5,12 +5,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from django_trips.models import TripBooking
-from django_trips.tests.factories import (
-    AuthenticatedUserTestCase,
-    TripFactory,
-    TripScheduleFactory,
-    TripBookingFactory,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          TripBookingFactory, TripFactory,
+                                          TripScheduleFactory)
 
 
 class TripCreateBookingTestCase(AuthenticatedUserTestCase):

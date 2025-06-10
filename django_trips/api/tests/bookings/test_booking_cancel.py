@@ -7,12 +7,9 @@ from django.utils import timezone
 
 from django_trips.choices import BookingStatus
 from django_trips.models import TripBooking
-from django_trips.tests.factories import (
-    AuthenticatedUserTestCase,
-    TripFactory,
-    TripScheduleFactory,
-    TripBookingFactory,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          TripBookingFactory, TripFactory,
+                                          TripScheduleFactory)
 
 
 @ddt.ddt

@@ -1,26 +1,29 @@
-import random
-import uuid
-from datetime import timedelta
+"""Core data models for the app."""
 
-from django.utils import timezone
-from django_extensions.db.models import TimeStampedModel
+import random
+
+# pylint:disable=consider-using-from-import,missing-class-docstring,missing-function-docstring,no-member
+from datetime import datetime
+from datetime import timedelta
 
 from config_models.models import ConfigurationModel
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.timezone import now
 from django_countries.fields import CountryField
+from django_extensions.db.models import TimeStampedModel
 from taggit.managers import TaggableManager
 
 import django_trips.managers as managers
 from django_trips.choices import (
-    TripOptions,
-    LocationType,
     AvailabilityType,
-    ScheduleStatus,
     BookingStatus,
+    LocationType,
+    ScheduleStatus,
+    TripOptions,
 )
 from django_trips.mixins import SlugMixin
 
@@ -35,7 +38,7 @@ class HostType(models.Model):
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<HostType: {self.name} slug: {self.slug}>"
@@ -75,7 +78,7 @@ class Host(SlugMixin, models.Model):
         ordering = ["name", "verified"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<Host: {self.name} slug: {self.slug}>"
@@ -152,7 +155,7 @@ class Location(SlugMixin, models.Model):
         verbose_name_plural = "Trip Locations"
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<Location: {self.name} slug: {self.slug}>"
@@ -177,7 +180,7 @@ class Gear(SlugMixin, models.Model):
     objects = managers.ActiveQuerySet.as_manager()
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<Gear: {self.name} slug: {self.slug}>"
@@ -202,7 +205,7 @@ class Facility(SlugMixin, models.Model):
         verbose_name_plural = "Facilities"
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<Facility: {self.name} slug: {self.slug}>"
@@ -219,7 +222,7 @@ class Category(SlugMixin, models.Model):
         verbose_name_plural = "Categories"
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<Category: {self.name} slug: {self.slug}>"
@@ -260,7 +263,7 @@ class Trip(SlugMixin, models.Model):
     )
     travel_tips = models.JSONField(
         default=dict,
-        help_text="Tips for travelers on this trip, structured as {'section_title': 'content', ...}",
+        help_text="Tips for travelers on this trip, structured as {'section_title': 'content',}",
     )
     requirements = models.JSONField(
         default=dict,
@@ -364,7 +367,7 @@ class Trip(SlugMixin, models.Model):
         ordering = ["-created_at", "-id"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<Trip: {self.name}, {self.departure} > {self.destination}>"
@@ -446,8 +449,6 @@ class Trip(SlugMixin, models.Model):
         Returns:
             int: Number of TripSchedule objects created
         """
-        from datetime import datetime
-        from django.utils import timezone
 
         availability = self.trip_availability
 
@@ -466,14 +467,13 @@ class Trip(SlugMixin, models.Model):
             schedule_end = datetime.fromtimestamp(
                 options["end_date"] / 1000.0, tz=timezone.utc
             )
-        except Exception:
+        except Exception:  # pylint:disable=broad-exception-caught
             return 0
 
-        now = timezone.now()
-        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # We are not within the scheduling window
-        if not (schedule_start <= today <= schedule_end):
+        if not schedule_start <= today <= schedule_end:
             return 0
 
         days_to_generate = min((schedule_end - today).days, 20)
@@ -626,10 +626,10 @@ class TripSchedule(models.Model):
     objects = managers.TripScheduleQuerySet.as_manager()
 
     def __str__(self):
-        return f"{self.trip.host}: {self.trip} - {self.start_date if self.start_date else 'N/A'}"
+        return f"{self.trip} - {self.start_date if self.start_date else 'N/A'}"
 
     def __repr__(self):
-        return f"<TripSchedule host={self.trip.host} trip={self.trip}>"
+        return f"<TripSchedule host={self.start_date} trip={self.trip}>"
 
     @property
     def is_active(self):
@@ -667,7 +667,7 @@ class TripOption(models.Model):
         unique_together = ("trip", "name")
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def __repr__(self):
         return f"<TripOption {self.name}>"
@@ -730,7 +730,7 @@ class CancellationPolicy(ConfigurationModel):
     description = models.TextField()
 
     def __str__(self):
-        return self.description
+        return str(self.description)
 
     def __repr__(self):
         return f"<CancellationPolicy description={self.description}>"
@@ -740,7 +740,7 @@ class RefundPolicy(ConfigurationModel):
     description = models.TextField()
 
     def __str__(self):
-        return self.description
+        return str(self.description)
 
     def __repr__(self):
         return f"<CancellationPolicy description={self.description}>"
@@ -766,10 +766,11 @@ class TripBooking(TimeStampedModel):
     phone_number = models.CharField(
         max_length=30, help_text="Contact phone number with country code"
     )
+    # pylint:disable=fixme
     # TODO: change this to adults/children/infants
     number_of_persons = models.PositiveIntegerField(
         default=1,
-        help_text="Total number of participants (will be replaced with adults/children/infants breakdown)",
+        help_text="Total number of participants",
     )
     target_date = models.DateTimeField(
         null=True,
@@ -858,7 +859,7 @@ class TripPickupLocation(models.Model):
     additional_price = models.SmallIntegerField(default=0)
 
     def __str__(self):
-        return self.location
+        return str(self.location)
 
     def __repr__(self):
         return f"<TripPickupLocation trip={self.trip}-{self.location}>"

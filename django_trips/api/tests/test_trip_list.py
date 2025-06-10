@@ -6,11 +6,8 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from django_trips.tests.factories import (
-    TripFactory,
-    TripScheduleFactory,
-    AuthenticatedUserTestCase,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          TripFactory, TripScheduleFactory)
 
 
 @ddt.ddt

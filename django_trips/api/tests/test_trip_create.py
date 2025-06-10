@@ -2,14 +2,10 @@ from unittest.mock import ANY
 
 from django.urls import reverse
 
-from django_trips.tests.factories import (
-    HostFactory,
-    LocationFactory,
-    FacilityFactory,
-    GearFactory,
-    CategoryFactory,
-    AuthenticatedUserTestCase,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          CategoryFactory, FacilityFactory,
+                                          GearFactory, HostFactory,
+                                          LocationFactory)
 
 
 class TripCreateTestCase(AuthenticatedUserTestCase):

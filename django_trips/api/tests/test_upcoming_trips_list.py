@@ -1,18 +1,16 @@
 from datetime import timedelta
 from unittest.mock import ANY
-import factory
+
 import ddt
+import factory
 import pytest
 from django.urls import reverse
 from django.utils import timezone
 
 from django_trips.models import TripSchedule
-from django_trips.tests.factories import (
-    TripFactory,
-    TripScheduleFactory,
-    AuthenticatedUserTestCase,
-    LocationFactory,
-)
+from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          LocationFactory, TripFactory,
+                                          TripScheduleFactory)
 
 current_time = timezone.now().date()
 seven_days_ago = current_time - timedelta(days=7)

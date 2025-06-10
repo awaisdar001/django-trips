@@ -1,8 +1,9 @@
 """Test management command"""
 from django.core.management import call_command
 from django.test import TestCase
-from django_trips.tests import factories
 from six import StringIO
+
+from django_trips.tests import factories
 
 
 class CommandsTestBase(TestCase):

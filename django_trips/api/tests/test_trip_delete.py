@@ -1,8 +1,8 @@
 from django.urls import reverse
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
 
-from django_trips.models import User, Trip
+from django_trips.models import Trip, User
 from django_trips.tests.factories import AuthenticatedUserTestCase, TripFactory
 
 

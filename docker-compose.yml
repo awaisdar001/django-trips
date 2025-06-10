@@ -1,31 +1,55 @@
-version: "3.4"
-
 services:
-  tripsdb:
-    command: mysqld --character-set-server=utf8 --collation-server=utf8_general_ci
-    container_name: djangotrips.mysql
-    image: mysql:5.6
-    environment:
-      MYSQL_DATABASE: "db"
-      MYSQL_ROOT_PASSWORD: "db"
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-#    ports:
-#      - 3606:3306
-  #    volumes:
-  #      - mysql_data:/var/lib/mysql
-
-  trips:
-    command: bash -c 'while true; do python manage.py runserver 0.0.0.0:8000; sleep 2; done'
-    container_name: djangotrips.django
-    depends_on:
-      - tripsdb
-#    image: awaisdar001/djangotrips:v1.1
-    volumes:
-      - .:/app/dt
+  web:
+    container_name: trips.web
     build:
       context: .
       dockerfile: Dockerfile
+    command: >
+      sh -c "./manage.py migrate &&
+            ./manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
     ports:
-      - 8000:8000
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      DJANGO_SETTINGS_MODULE: settings.common
+    networks:
+      - backend
+    env_file:
+      - .env
     stdin_open: true
     tty: true
+
+  database:
+    container_name: trips.db
+    image: mysql:8.0
+    platform: linux/x86_64
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: db
+      MYSQL_ROOT_PASSWORD: db
+    volumes:
+      - database_data:/var/lib/mysql
+    ports:
+      - "4606:3306"
+    networks:
+      - backend
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1;' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  database_data:
+
+networks:
+  backend:
+    driver: bridge

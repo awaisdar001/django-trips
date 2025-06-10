@@ -186,7 +186,7 @@ This task may take few minutes.
  
 Once the build has been completed, spin up the docker and migrate the database. 
 ```bash
-> make run
+> make dev.up
 > make shell 
 > make update_db
 ```
@@ -211,13 +211,13 @@ make tests
 ```
 ## Docker Commands
 
-| Action                            |  Command          |
-|-----------------------------------|-------------------|
-| Run Server                        | `make run`        |
-| Trail Logs                        | `make logs`       |
-| Attach sever                      | `make attach`     |
-| Stop server                       | `make stop`       |
-| * Destroy docker container.       | `make destory`    |
+| Action                            | Command        |
+|-----------------------------------|----------------|
+| Run Server                        | `make dev.up`  |
+| Trail Logs                        | `make logs`    |
+| Attach sever                      | `make attach`  |
+| Stop server                       | `make stop`    |
+| * Destroy docker container.       | `make destory` |
 
 _* caution, this will remove all your data._
 

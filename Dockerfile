@@ -1,34 +1,39 @@
 # syntax=docker/dockerfile:1
+FROM python:3.11-slim
 
-# For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.8-slim-buster
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-EXPOSE 8888
+# Set work directory
+WORKDIR /app
 
-# Keeps Python from generating .pyc files in the container
-ENV PYTHONDONTWRITEBYTECODE 1
+ADD . /app
 
-# Turns off buffering for easier container logging
-ENV PYTHONUNBUFFERED 1
-
-
-WORKDIR /app/dt
-ADD . /app/dt
-
-WORKDIR /app/dt
-
-RUN apt-get update && apt-get install -y python3-setuptools \
-    python3-pip \
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libmariadb-dev \
+    pkg-config \
+    python3-dev \
+    libssl-dev \
+    libffi-dev\
+    gcc \
+    g++ \
+    build-essential \
     default-libmysqlclient-dev \
-    git \
+    pkg-config \
+    libssl-dev \
     nano \
-    && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-RUN pip3 install --upgrade pip
+# Copy project
+COPY . .
 
-# Install pip requirements
-ADD requirements.txt .
-RUN python -m pip install -r requirements.txt
+EXPOSE 8000

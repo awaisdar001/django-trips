@@ -1,13 +1,17 @@
-# -*- coding: utf-8 -*-
-
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.pagination import LimitOffsetPagination
+
+
+class CustomLimitOffsetPaginator(LimitOffsetPagination):
+    max_limit = 100
 
 
 class TripResponsePagination(PageNumberPagination):
     """
     API Custom paginator for trips listing.
     """
+
     page_size = 10
 
     def get_paginated_response(self, data):
@@ -22,20 +26,23 @@ class TripResponsePagination(PageNumberPagination):
         'data': data returned by API
         }
         """
-        return Response({
-            'next': self.get_next_link(),
-            'previous': self.get_previous_link(),
-            'count': self.page.paginator.count,
-            'current': self.page.number,
-            'pages': self.page.paginator.num_pages,
-            'results': data,
-        })
+        return Response(
+            {
+                "next": self.get_next_link(),
+                "previous": self.get_previous_link(),
+                "count": self.page.paginator.count,
+                "current": self.page.number,
+                "pages": self.page.paginator.num_pages,
+                "results": data,
+            }
+        )
 
 
 class TripBookingsPagination(PageNumberPagination):
     """
     API Custom paginator for trip bookings
     """
+
     page_size = 100
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100

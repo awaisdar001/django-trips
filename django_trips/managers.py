@@ -1,88 +1,34 @@
-from datetime import datetime
-
 from django.db import models
-from pytz import UTC
+from django.utils import timezone
+from django.utils.timezone import now
 
 
-class AvailableTripScheduleManager(models.Manager):
-    """
-    Trip schedule safe queryset manager.
-
-    Usage:
-        >>> TripSchedule.available.all()
-    """
-
-    def get_queryset(self):
-        """
-        This method will only return the objects which have date_from defined
-        in the future
-        """
-        return super().get_queryset().filter(date_from__gt=datetime.now(tz=UTC))
+class ActiveQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
 
 
-class LocationAvailableManager(models.Manager):
-    """
-    Trip schedule safe queryset manager.
-
-    Usage:
-        >>> Location.available.all()
-    """
-
-    def get_queryset(self):
-        """
-        This method will only return the objects which are active.
-        """
-        return super().get_queryset().filter(is_active=True)
+class LocationQuerySet(ActiveQuerySet):
+    pass
 
 
-class ActiveModelManager(models.Manager):
-    """
-    Trip schedule safe queryset manager.
-
-    Usage:
-        >>> Trip.active.all()
-        >>> Trip.trip_schedule(manager='active').all()
-    """
-
-    def get_queryset(self):
-        """
-        This method will only return the objects which have date_from defined
-        in the future
-        """
-        return super().get_queryset().filter(deleted=False)
+class TripQuerySet(ActiveQuerySet):
+    pass
 
 
-class LocationDestinationManager(models.Manager):
-    """
-    Trip schedule safe queryset manager.
+class TripScheduleQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(start_date__lte=now(), end_date__gte=now())
 
-    Usage:
-        >>> Location.destinations.all()
-        >>> Trip.locations(manager='destinations').all()
-    """
-
-    def get_queryset(self):
-        """
-        This method will only return the objects which have date_from defined
-        in the future
-        """
-        return super(LocationDestinationManager, self).get_queryset().filter(
-            is_destination=True
-        )
+    def upcoming(self):
+        return self.filter(start_date__gte=now())
 
 
-class LocationDepartureManager(models.Manager):
-    """
-    Trip schedule safe queryset manager.
+class HostManager(models.QuerySet):
+    def active(self):
+        return self.filter(verified=True)
 
-    Usage:
-        >>> Location.departures.all()
-        >>> Trip.locations(manager='departures').all()
-    """
 
-    def get_queryset(self):
-        """
-        This method will only return the objects which have date_from defined
-        in the future
-        """
-        return super().get_queryset().filter(is_departure=True)
+class TripBookingManager(models.QuerySet):
+    def active(self):
+        return self.filter(target_date__gt=timezone.now())

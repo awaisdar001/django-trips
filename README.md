@@ -1,6 +1,10 @@
 # Django Trips API
 
-This is a Django Rest API for fetching and creating trips and schedules.
+This is a Django REST API for managing and retrieving trips, schedules, bookings, and related travel data.
+
+This service is a core component of the [DestinationPak](https://destinationpak.com) project — a platform designed 
+to make exploring and booking adventures across Pakistan easier and more accessible.
+
 ## Installation
 Simply do:
 ```bash
@@ -45,136 +49,48 @@ python manage.py generate_trips --batch_size=100
 ``` 
 Change the `batch_size` variable to create as much of trips you want. 
 
+## Developer Docs & API Documentation
+You can access the all available API endpoints on the following links.
+* http://localhost:8000/api/v1/schema/redoc
+* http://localhost:8000/api/v1/schema/swagger-ui/
+
 ## API Endpoints
 The following pages are served in the development:
 
-| Page                 |  Method          | URL                                                        |
-|----------------------|------------------|-----------------------------------------------             |
-| Scheduled Trips List | GET              | http://localhost:8000/api/trips/                           |
-| Available Trips List | GET              | http://localhost:8000/api/trips/by/availability/           |
-| Search Trip          | GET              | http://localhost:8000/api/trips?name=Boston/            |
-| Single Trip          | GET              | http://localhost:8000/api/trip/trip-id-or-slug/            |
-| Update Trip          | PUT              | http://localhost:8000/api/trip/trip-id-or-slug/            |
-| Update Trip          | PATCH            | http://localhost:8000/api/trip/trip-id-or-slug/            |
-| Delete Trip          | DELETE           | http://localhost:8000/api/trip/trip-id-or-slug/            |
-| Destination          | GET              | http://localhost:8000/api/destinations/                    |
-| Destination Detail   | GET              | http://localhost:8000/api/destination/location-slug        |
-| All Trip Bookings    | GET              | http://localhost:8000/api/trip/bookings                    |
-| Single Bookings      | GET              | http://localhost:8000/api/trip/booking/id                  |
-| Single Trip Bookings | GET              | http://localhost:8000/api/trip/<trip-slug>/bookings        |       |
+| Page                    | Method | URL                                                          |
+|-------------------------|--------|--------------------------------------------------------------|
+| All Trips List          | GET    | http://localhost:8000/api/v1/trips/                          |
+| Upcoming Trips List     | GET    | http://localhost:8000/api/v1/trips/upcoming/                 |
+| Search Trip             | GET    | http://localhost:8000/api/v1/trips/upcoming/?name=Boston/    |
+| Single Trip             | GET    | http://localhost:8000/api/v1/trips/{identifier}/             |
+| Update Trip             | PUT    | http://localhost:8000/api/v1/trips/{identifier}/             |
+| Delete Trip             | DELETE | http://localhost:8000/api/v1/trips/{identifier}/             |
+| Create Trip             | POST   | http://localhost:8000/api/v1/trips/                          |
+| Destinations List       | GET    | http://localhost:8000/api/v1/destinations/                   |
+| Destinations Detail     | GET    | _TODO_                                                         |
+| All Trip Bookings       | GET    | http://localhost:8000/api/v1/trips/{trip_id}/bookings/       |
+| Book a Trip             | POST   | http://localhost:8000/api/v1/trips/{trip_id}/bookings/create/ |
+| Booking Details         | GET    | http://localhost:8000/api/v1/trips/bookings/{number}/        |
+| Update Booking          | PUT    | http://localhost:8000/api/v1/trips/bookings/{number}/        |
+| Cancel Booking          | POST   | http://localhost:8000/api/v1/trips/bookings/{number}/cancel/ |
+| Review Trip             | GET    | _TODO_                                                         |
+| Trip Reviews & Comments | GET    | _TODO_                                                         |
+
+
 
 
 ### API permissions
-| Authentication            
-|-------------------------- |
-| `SessionAuthentication`   |
-| `BasicAuthentication`     |
-
-| Permissions               |
-|-------------------------  |
-|   `IsAuthenticated`       | 
+| Authentication          | Token Life |   
+|-------------------------|------------|
+| `SessionAuthentication` | UNLIMITED  |
+| `JWTAuthentication`     | 7 Days     |
 
 
-### Trip List
-`http://localhost:8000/api/trips/`
+| Permissions       |
+|-------------------|
+| `IsAuthenticated` |
+| `IsAdminUser`     |
 
-This endpoint is used to list all the trips by schedule using the **GET** request type. These trips have specified 
-(fixed) schedule. These trips use django model `TripSchedule` for creating their schedule. Once the schedule is expired,
-these trips do not renew automatically. 
-These are the trip with "**static**" schedule data.
-
-### Trip List by Availability
-`http://localhost:8000/api/trips/by/availability/`
-
-There is another mechanism which would like you to define dynamic trips schedule. Which is using `TripAvailability` 
-model. In this model you can define the recurrence of any trip, weekly, daily, or monthly and these trip may
-auto-renew themselves. They come handy when you have dynamic trips schedule.    
-
-### Search Trip
-`http://localhost:8000/api/trip/id-or-slug?destination=<destination name, destination name 2,>`
-
-Search specific trips. Here are the params that can be passed while searching. You can also mix the params together to
-narrow down the search. 
-
-| param                 | description                                                           | example                           |
-| ---                   | ---                                                                   |---                                |
-| name (str)               | Find trips that contains specific name.                               | `/api/trips/?name=Boston`
-| destination[]         | Filter trips with specific destinations.                              | `destination=Boston,London`
-| price_from (str)      | Find trips that has price greater than or equal to the given amount   | `/api/trips/?price_from=200`
-| price_to (str)        | Find trips that has price less than or equal to the given amount      | `/api/trips/?price_to=200`
-| duration_from (int)   | Find trips having duration greater than or equal to the given number  | `/api/trips/?duration_from=2`
-| duration_to (int)     | Find trips having duration less  than or equal to the given number    | `/api/trips/?duration_to=10`
-| date_from (date)      | Find trips that are scheduled greater than or specified date `<yyyy-mm-dd>`          | `/api/trips/?date_from=2020-01-02`
-| date_to (date)        | Find trips that are scheduled less than or equal to specified date`<yyyy-mm-dd>`    | `/api/trips/?date_from=2020-01-02`
-
-
-
-### Single Trip
-`http://localhost:8000/api/trip/id-or-slug`
-
-This endpoint is used to fetch a single trip using GET request type.
-
-### Update Trip (using PUT)
-`http://localhost:8000/api/trip/trip-id-or-slug/`
-
-This endpoint is used to update a single trip using PUT request type. You would need to pass the complete trip object. 
-```python
-reset_of_params = {}
-data = {
-    'age_limit': 39,
-    **reset_of_params,
-}
-```
-### Update Trip (using PATCH)
-`http://localhost:8000/api/trip/trip-id-or-slug/`
-```python
-data = {
-    'age_limit': 39,
-}
-```
-### Update Trip (using PUT)
-`http://localhost:8000/api/trip/trip-id-or-slug/`
-
-This endpoint is used to delete a single trip using DELETE request type. 
-
-### Get Destinations List
-`http://localhost:8000/api/destinations/`
-
-This endpoint is used to fetch all destinations available.  
-
-### Get Destination Detail
-`http://localhost:8000/api/destination/destination-slug`
-
-Given a slug, this endpoint provides detail about a single trip.
-
-### Create Trip booking
-`http://localhost:8000/api/trip/bookings`
-
-#### GET:
-Get all the trips list using the `GET` request method. 
-#### POST:
-Create trip booking by giving the following "example" data in the `POST` request.
-```
-{
-    "name": "tom latham",
-    "trip": "5-days-trip-to-city-center",
-    "phone_number": "tom",
-    "cnic_number": "1234234-23423",
-    "email": "a@gmail.com",
-    "target_date": "2021-09-01",
-    "message": "Tom booking# 1"
-}
-```
-
-### Single Trip booking Operations 
-`http://localhost:8000/api/trip/booking/<booking-id>/`
-
-Retrieve, Update & Delete a single trip booking. 
-
-### All Trip Bookings
-`http://localhost:8000/api/trip/<trip-slug>bookings/`
-
-Retrieve all bookings of a single trip.
 
 ## Develop Django Trips
 Kick the docker build using the following command. 
@@ -186,7 +102,7 @@ This task may take few minutes.
  
 Once the build has been completed, spin up the docker and migrate the database. 
 ```bash
-> make run
+> make dev.up
 > make shell 
 > make update_db
 ```
@@ -211,15 +127,31 @@ make tests
 ```
 ## Docker Commands
 
-| Action                            |  Command          |
-|-----------------------------------|-------------------|
-| Run Server                        | `make run`        |
-| Trail Logs                        | `make logs`       |
-| Attach sever                      | `make attach`     |
-| Stop server                       | `make stop`       |
-| * Destroy docker container.       | `make destory`    |
+| Action                            | Command        |
+|-----------------------------------|----------------|
+| Run Server                        | `make dev.up`  |
+| Trail Logs                        | `make logs`    |
+| Attach sever                      | `make attach`  |
+| Stop server                       | `make stop`    |
+| * Destroy docker container.       | `make destory` |
 
 _* caution, this will remove all your data._
 
 ## How to Contribute
-Contributions are welcome!
+
+Contributions are welcome! Whether it's bug fixes, new features, 
+improving documentation, or sharing feedback — we'd love your help.
+
+Please fork the repository, make your changes in a feature branch, 
+and submit a pull request. For major changes, consider opening an issue
+first to discuss what you’d like to work on.
+
+---
+
+Thank you for being a part of the Django Trips journey.  
+Together, we can make travel management smarter, faster, and more delightful.
+
+Reach out in you need further assistance.
+`admin@destinationpak.com`
+
+Happy coding! ✨

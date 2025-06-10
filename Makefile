@@ -22,46 +22,46 @@ help: ## display this help message
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "\033[36m  %-25s\033[0m %s\n", $$1, $$2}'
 
 test: ## Run unit tests for Trips app
-	pytest -v
+	docker compose run --rm web pytest
 
 build: destroy _build
 
 pull:
-	docker-compose pull
+	docker compose pull
 
 _build: 
 	find . -type p -delete
-	docker-compose build
+	docker compose build
 
 stop:  ## Stop all services
-	docker-compose stop
+	docker compose stop
 
-run: # Run the server
-	docker-compose up -d --remove-orphans
+dev.up: # Run the server
+	docker compose up -d --remove-orphans
 
 restart: # Restart the server
-	docker restart djangotrips.django
-	docker restart djangotrips.mysql
+	docker restart trips.web
+	docker restart trips.db
 
 attach: ## Attach to the django container process to use the debugger & see logs.
-	docker attach djangotrips.django
+	docker attach trips.web
 
-logs: trips-logs ## Run a shell on django container
-trips-logs: ## Run a shell on the django service container
-	docker-compose -f docker-compose.yml logs -f --tail=100 trips
+logs: web-logs ## Run a shell on django container
+web-logs: ## Run a shell on the django service container
+	docker compose -f docker-compose.yml logs -f --tail=100 web
 
-mysql-logs: ## Run a shell on the mysql service container
-	docker-compose -f docker-compose.yml logs -f --tail=100 tripsdb
+db-logs: ## Run a shell on the mysql service container
+	docker compose -f docker-compose.yml logs -f --tail=100 database
 
 shell: django-shell ## Run a shell on django container
 django-shell: ## Run django shell
-	docker exec -it djangotrips.django /bin/bash
+	docker exec -it trips.web /bin/bash
 
-mysql-shell: ## Run mysql shell
-	docker exec -it djangotrips.mysql /bin/bash
+db-shell: ## Run mysql shell
+	docker exec -it trips.db /bin/bash
 
 destroy: stop ## Remove all containers, networks, and volumes
-	docker-compose down -v
+	docker compose down -v
 
 _move:
 	mkdir -p src

@@ -1,22 +1,38 @@
-setuptools
-ddt==1.4.2
-Django<2.3 # Stay on the latest LTS release of Django
-django-config-models==2.2.0
-django-cors-headers==3.7.0
-django-extensions==3.1.3
-djangorestframework==3.12.4
-django-filter==2.4.0
-django-tagging==0.5.0
-django-waffle==2.2.1
+# Core
+Django==4.2
+setuptools>=65.0.0
+
+# Django Extensions
+django-crum==0.7.9
+django-config-models==2.7.0
+django-cors-headers==4.0.0
+django-countries==7.6.1
+django-extensions==3.2.3
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.5.0
+django-filter==23.2
+django-taggit==6.1.0
+
+django-waffle
 edx-django-utils==4.2.0
-markdown==3.3.4
-mysqlclient==2.0.3
-factory-boy==3.2.0
-Faker==8.11.0
-pytest==6.2.4
-pytest-django==4.4.0
+
+# Database
+mysqlclient==2.2.1
+
+# Utilities
+markdown==3.5.2
 python-dateutil==2.8.2
-psutil==5.8.0
-path==16.3.0
-pylint==2.12.2
-pylint-django==2.5.0
+psutil==5.9.5
+path==16.3.0  # TODO pathlib
+
+# Testing
+ddt==1.4.2
+factory-boy==3.3.0
+Faker==13.15.0
+pytest==7.4.3
+pytest-django==4.5.2
+drf-spectacular==0.28.0
+
+# Linting
+pylint==2.17.6
+pylint-django==2.5.3

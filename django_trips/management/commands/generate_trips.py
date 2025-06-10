@@ -1,36 +1,41 @@
-# -*- coding: utf-8 -*-
-
 import random
-from collections import namedtuple
-from datetime import datetime, timedelta
+import traceback
+from datetime import datetime, time, timedelta
 
-from dateutil.tz import UTC
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 from django.utils.text import slugify
+from faker import Faker
 
-from django_trips.models import (Category, Facility, Gear, Host, Location, Trip,
-                                 TripItinerary, TripSchedule)
-
-TRIP_DESTINATIONS = 'TRIP_DESTINATIONS'
-TRIP_DEPARTURE_LOCATION = 'TRIP_DEPARTURE_LOCATION'
-TRIP_LOCATIONS = 'TRIP_LOCATIONS'
-TRIP_HOSTS = 'TRIP_HOSTS'
-TRIP_FACILITIES = 'TRIP_FACILITIES'
-TRIP_CATEGORIES = 'TRIP_CATEGORIES'
-TRIP_GEARS = 'TRIP_GEARS'
-
-DEFAULT_SETTINGS = namedtuple(
-    'Settings',
-    [TRIP_DESTINATIONS, TRIP_DEPARTURE_LOCATION, TRIP_LOCATIONS, TRIP_HOSTS, TRIP_FACILITIES,
-     TRIP_CATEGORIES, TRIP_GEARS]
+from django_trips.choices import ScheduleStatus, TripOptions
+from django_trips.models import (
+    Category,
+    Facility,
+    Gear,
+    Host,
+    HostType,
+    Location,
+    Trip,
+    TripItinerary,
+    TripOption,
+    TripSchedule,
 )
 
-LocalSettings = DEFAULT_SETTINGS(
-    ['Boston', 'London'], ['Boston'], ['Boston', 'London', 'Delhi'], ['Django'], ['Bonefire', 'Food', 'Drinks'],
-    ['Honymoon', 'Outdoor'], ['Sun glasses', 'Sun block']
-)
+fake = Faker()
+User = get_user_model()
+
+DEFAULT_SETTINGS = {
+    "TRIP_DESTINATIONS": ["Boston", "London"],
+    "TRIP_DEPARTURE_LOCATION": ["Boston"],
+    "TRIP_LOCATIONS": ["Boston", "London", "Delhi"],
+    "TRIP_HOSTS": ["Django"],
+    "TRIP_HOST_TYPES": ["Tour Operator", "Individual"],
+    "TRIP_FACILITIES": ["Bone-fire", "Food", "Drinks"],
+    "TRIP_CATEGORIES": ["Honymoon", "Outdoor"],
+    "TRIP_GEARS": ["Sun glasses", "Sun block"],
+}
 
 
 class Command(BaseCommand):
@@ -57,167 +62,204 @@ class Command(BaseCommand):
         Defining the arguments to be used by the command.
         """
         parser.add_argument(
-            '--batch_size',
+            "--batch_size",
             type=int,
             default=10,
-            dest='batch_size',
-            help="number to trips to generate"
+            dest="batch_size",
+            help="number to trips to generate",
         )
 
-    def get_settings(self, setting_needed, default=None):
-        value = getattr(settings, setting_needed, getattr(LocalSettings, setting_needed, default))
-        assert value, f'Missing required settings {setting_needed}.'
-        return value
-
-    def get_random_host(self):
-        """
-        Get a random host from a pre-defined list of hosts
-        """
-        hosts = self.get_settings('TRIP_HOSTS')
-        host, __ = Host.objects.get_or_create(name=random.choice(hosts), verified=True)
-        return host
-
-    def get_location_instance(self, name):
-        location_data = {'name': name, 'slug': slugify(name)}
-        location, __ = Location.objects.get_or_create(slug=location_data['slug'], defaults=location_data)
-        return location
-
-    def get_gear_instance(self, name):
-        gear_data = {'name': name, 'slug': slugify(name)}
-        gear, __ = Gear.objects.get_or_create(slug=gear_data['slug'], defaults=gear_data)
-        return gear
-
-    def get_destination(self):
-        name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
-        return self.get_location_instance(name)
-
-    def get_departure(self):
-        name = random.choice(self.get_settings('TRIP_DESTINATIONS'))
-        return self.get_location_instance(name)
-
-    def get_random_locations(self):
-        """
-        Get multiple/single location object from pre-defined list.
-        """
-        trip_random_locations = []
-        locations = self.get_settings('TRIP_LOCATIONS')
-        for location_name in random.sample(locations, random.choice(range(1, len(locations)))):
-            location = self.get_location_instance(location_name)
-            trip_random_locations.append(location)
-        return trip_random_locations
-
-    def get_random_facilities(self):
-        """
-        Get random number of facilities from some pre-defined facilities.
-        """
-        facilities_objects_list = []
-        facilities = self.get_settings('TRIP_FACILITIES')
-        for facility_name in random.sample(facilities, random.choice(range(1, len(facilities)))):
-            facility, __ = Facility.objects.get_or_create(
-                name=facility_name,
-                defaults={'slug': slugify(facility_name)}
-            )
-            facilities_objects_list.append(facility)
-        return facilities_objects_list
-
-    def get_random_category(self):
-        """
-        Get random number of facilities from some pre-defined facilities.
-        """
-        name = random.choice(self.get_settings('TRIP_CATEGORIES'))
-        category, __ = Category.objects.get_or_create(
-            name=name,
-            defaults={'slug': slugify(name)}
-        )
-        return category
-
-    @staticmethod
-    def get_random_schedules(trip_duration):
-        """
-        get random schedules datetime objects separated by appropriate trip duration.
-        """
-        schedules_list = []
-        for data_range in range(1, random.choice(range(3, 6))):
-            schedule = datetime.now(tz=UTC) + timedelta(days=trip_duration + (data_range * 7))
-            schedules_list.append(schedule)
-        return schedules_list
-
-    @staticmethod
-    def get_random_itineraries():
-        """
-        generate random itineraries for a trip with a defined format
-        """
-        return [
-            (day, "Itinerary for Day: {}".format(day))
-            for day in range(1, random.choice(range(5, 20)))
-        ]
-
-    def get_random_gears(self):
-        """
-        get random number of gears for a trip.
-        """
-        trip_random_gears = []
-        trip_gears = self.get_settings('TRIP_GEARS')
-        for gear in random.sample(trip_gears, random.choice(range(1, len(trip_gears)))):
-            gear = self.get_gear_instance(gear)
-            trip_random_gears.append(gear)
-        return trip_random_gears
+    def get_setting(self, key):
+        return getattr(settings, key, DEFAULT_SETTINGS.get(key, []))
 
     def handle(self, *args, **options):
-        """
-        Generating trip based on the input.
-        """
-        batch_size = options['batch_size']
-        # user required to create a trip
-        super_users = User.objects.filter(is_superuser=True)
-        if not super_users.count() > 0:
-            raise CommandError("Superuser doesn't exist. Please create a superuser for the app.")
-        user = super_users.first()
-
-        for count in range(0, batch_size):
-            trip = Trip(
-                destination=self.get_destination(),
-                starting_location=self.get_departure(),
+        user = User.objects.filter(is_superuser=True).first()
+        if not user:
+            raise CommandError(
+                "No superuser found. Create one before generating trips."
             )
-            trip_itineraries = self.get_random_itineraries()
-            trip.duration = len(trip_itineraries)
 
-            trip.name = "{} days trip to {}".format(trip.duration, trip.destination.name)
-
-            trip.age_limit = random.choice(range(20, 40))
-            trip.host = self.get_random_host()
-            trip.primary_category = self.get_random_category()
-            trip.description = "This is the description for trip: {}".format(count)
-            trip.created_by = user
-
-            # Initial Save
+        for _ in range(options["batch_size"]):
+            no_of_days = random.randint(5, 20)
             try:
-                trip.save()
-            except Exception as e:
-                raise CommandError(self.stderr.write(
-                    'Error Saving Trip {}\n{}'.format(trip.name, e)))
-
-            # Adding M2M fields for the trip
-            trip.gear.set(self.get_random_gears())
-            trip.locations.set(self.get_random_locations())
-            trip.facilities.set(self.get_random_facilities())
-            trip.save()
-
-            # Setting Schedule & Itinerary
-            trip_schedules = self.get_random_schedules(trip.duration)
-            price = random.choice([1000, 5000, 6000, 9000])
-            for schedule in trip_schedules:
-                price = random.choice([price - 500, price + 500])
-                trip_schedule = TripSchedule(trip=trip, date_from=schedule, price=price)
-                trip_schedule.save()
-
-            for itinerary in trip_itineraries:
-                trip_itinerary = TripItinerary(
-                    trip=trip,
-                    heading="Day {}".format(itinerary[0]),
-                    description=itinerary[1],
-                    day=itinerary[0],
+                trip = self.create_trip(user, no_of_days)
+                self.create_itineraries(trip, no_of_days)
+                self.create_schedules(trip)
+                self.create_trip_options(trip)
+                self.stdout.write(
+                    self.style.SUCCESS(f"Trip Created: <id={trip.pk} name={trip.name}>")
                 )
-                trip_itinerary.save()
+            except Exception as e:  # pylint:disable=broad-except
+                self.stderr.write(traceback.format_exc())
+                raise CommandError(f"Error creating trip: {e}") from e
 
-            self.stdout.write(self.style.SUCCESS('Trip Created: %s') % trip.name)
+    def create_trip(self, user, no_of_days):
+        duration = timedelta(days=no_of_days)
+        destination = self.get_location("TRIP_DESTINATIONS")
+        departure = self.get_location("TRIP_DEPARTURE_LOCATION")
+        name = f"{duration.days}-day trip to {destination.name}"
+
+        trip = Trip(
+            name=name,
+            description=fake.paragraph(),
+            duration=duration,
+            destination=destination,
+            departure=departure,
+            age_limit=random.randint(20, 40),
+            host=self.get_host(),
+            overview=fake.text(),
+            included=fake.text(),
+            excluded=fake.text(),
+            add_ons=fake.text(),
+            travel_tips=[fake.sentence() for _ in range(3)],
+            requirements=[fake.sentence() for _ in range(3)],
+            child_policy=[fake.sentence() for _ in range(2)],
+            passenger_limit_min=random.randint(1, 4),
+            passenger_limit_max=random.randint(5, 15),
+            created_by=user,
+        )
+
+        trip.save()
+
+        trip.gear.set(self.get_gears())
+        trip.locations.set(self.get_locations())
+        trip.facilities.set(self.get_facilities())
+        trip.categories.set(self.get_categories())
+        trip.options.add()
+
+        trip.tags.add("Adventure", "Group")
+        return trip
+
+    def create_schedules(self, trip):
+        now = timezone.now()
+        duration_days = trip.duration.days
+        price_choices = [1000, 5000, 6000, 9000]
+
+        # 1. Expired schedule
+        TripSchedule.objects.create(
+            trip=trip,
+            start_date=now - timedelta(days=duration_days + 10),
+            end_date=now - timedelta(days=5),
+            price=random.choice(price_choices),
+            status=ScheduleStatus.FULL,
+        )
+        # 2. In-progress schedule
+        TripSchedule.objects.create(
+            trip=trip,
+            start_date=now - timedelta(days=2),
+            end_date=now + timedelta(days=duration_days),
+            price=random.choice(price_choices),
+            status=ScheduleStatus.PUBLISHED,
+        )
+
+        # 3. Upcoming schedule
+        TripSchedule.objects.create(
+            trip=trip,
+            start_date=now + timedelta(days=5),
+            end_date=now + timedelta(days=5 + duration_days),
+            price=random.choice(price_choices),
+            status=ScheduleStatus.PUBLISHED,
+        )
+
+    def get_category(self):
+        name = random.choice(self.get_setting("TRIP_CATEGORIES"))
+        return Category.objects.get_or_create(
+            name=name, defaults={"slug": slugify(name)}
+        )[0]
+
+    def get_categories(self):
+        names = random.sample(self.get_setting("TRIP_CATEGORIES"), random.randint(1, 3))
+        return [
+            Category.objects.get_or_create(slug=slugify(name), defaults={"name": name})[
+                0
+            ]
+            for name in names
+        ]
+
+    def create_trip_options(self, trip):
+        names = random.sample(TripOptions.values, random.randint(1, 3))
+        return [
+            TripOption.objects.get_or_create(
+                trip=trip, name=name, defaults={"description": name}
+            )[0]
+            for name in names
+        ]
+
+    def get_location(self, key):
+        name = random.choice(self.get_setting(key))
+        return self.get_or_create_model(Location, name)
+
+    def get_locations(self):
+        names = random.sample(self.get_setting("TRIP_LOCATIONS"), random.randint(1, 3))
+        return [
+            Location.objects.get_or_create(slug=slugify(name), defaults={"name": name})[
+                0
+            ]
+            for name in names
+        ]
+
+    def get_facilities(self):
+        names = random.sample(self.get_setting("TRIP_FACILITIES"), random.randint(1, 3))
+        return [
+            Facility.objects.get_or_create(name=name, defaults={"slug": slugify(name)})[
+                0
+            ]
+            for name in names
+        ]
+
+    def get_host(self):
+        name = random.choice(self.get_setting("TRIP_HOSTS"))
+        host_type = self.get_host_type()
+        return Host.objects.get_or_create(
+            name=name, defaults={"verified": True, "type": host_type}
+        )[0]
+
+    def get_host_type(self):
+        name = random.choice(self.get_setting("TRIP_HOST_TYPES"))
+        return HostType.objects.get_or_create(
+            name=name, defaults={"slug": slugify(name)}
+        )[0]
+
+    def get_gears(self):
+        names = random.sample(self.get_setting("TRIP_GEARS"), random.randint(1, 3))
+        return [
+            Gear.objects.get_or_create(name=name, defaults={"slug": slugify(name)})[0]
+            for name in names
+        ]
+
+    def get_or_create_model(self, model, name):
+        slug = slugify(name)
+        return model.objects.get_or_create(slug=slug, defaults={"name": name})[0]
+
+    def get_or_create_multiple(self, key, model):
+        names = random.sample(
+            self.get_setting(key), random.randint(1, len(self.get_setting(key)))
+        )
+        return [self.get_or_create_model(model, name) for name in names]
+
+    def create_itineraries(self, trip, no_of_days):
+        for day, itinerary in enumerate(self.generate_itineraries(no_of_days), start=1):
+            TripItinerary.objects.create(trip=trip, day_index=day, **itinerary)
+
+    def generate_itineraries(self, no_of_days=None):
+        days = no_of_days or random.randint(5, 20)
+        base_date = datetime.now().date()
+
+        itineraries = []
+        for day in range(days):
+            start_time = datetime.combine(
+                base_date + timedelta(days=day),
+                time(hour=random.randint(9, 12), minute=random.choice([0, 15, 30, 45])),
+            )
+            end_time = start_time + timedelta(hours=random.randint(1, 4))
+            itineraries.append(
+                {
+                    "title": f"Day {day + 1}",
+                    "description": fake.sentence(),
+                    "location": self.get_location("TRIP_LOCATIONS"),
+                    "category": self.get_category(),
+                    "start_time": timezone.make_aware(start_time),
+                    "end_time": timezone.make_aware(end_time),
+                }
+            )
+        return itineraries

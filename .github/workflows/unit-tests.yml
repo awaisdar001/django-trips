@@ -1,4 +1,4 @@
-name: Unit test
+name: Unit Tests
 
 on:
   pull_request:
@@ -8,19 +8,17 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: [3.11, 3.12]
         django-version: ["4.2.22"]
 
     name: python-${{ matrix.python-version }},django-${{ matrix.django-version }}
     steps:
-    - name: sync directory owner
-      run: sudo chown runner:runner -R .*
     - uses: actions/checkout@v4
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:

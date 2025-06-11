@@ -31,5 +31,6 @@ jobs:
 
     - name: run tests
       run: |
-        sudo python -Wd -m pytest -p no:randomly
+        export PYLINTRC=.pylintrc
+        sudo python -m run_lint.py
 

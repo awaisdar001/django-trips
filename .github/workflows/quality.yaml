@@ -12,18 +12,15 @@ jobs:
 
     name: pylint-python
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: '3.11'
 
     - name: Install Dependencies
-      run: |
-        sudo python -m pip install --upgrade pip
-        sudo pip install -r requirements.txt
-#        pip install pylint pylint-django
+      run: sudo pip install -r requirements.txt
 
     - name: GitHub Action for pylint
       run: |

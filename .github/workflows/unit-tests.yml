@@ -12,8 +12,8 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        python-version: [3.11, 3.12]
-        django-version: ["4.2.22"]
+        python-version: [3.11.13, 3.12.10] # https://www.python.org/doc/versions/
+        django-version: ["4.2.23"] # https://pypi.org/project/Django/#history
 
     name: python-${{ matrix.python-version }},django-${{ matrix.django-version }}
     steps:

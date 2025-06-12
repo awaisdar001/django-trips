@@ -36,3 +36,7 @@ drf-spectacular==0.28.0
 # Linting
 pylint==2.17.6
 pylint-django==2.5.3
+
+# Setuptools
+setuptools==80.9.0
+twine==6.1.0

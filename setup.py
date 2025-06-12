@@ -47,8 +47,9 @@ def is_requirement(line):
 def load_requirements(*requirements_paths):
     """Load all requirements from the specified requirements files."""
     requirements = set()
-    for path in requirements_paths:
-        with open(path, encoding="utf-8") as req_file:
+    for file_path in requirements_paths:
+        file_path = os.path.join(os.path.dirname(__file__), file_path)
+        with open(file_path, encoding="utf-8") as req_file:
             requirements.update(
                 line.split("#")[0].strip()
                 for line in req_file
@@ -60,32 +61,25 @@ def load_requirements(*requirements_paths):
 VERSION = get_version("django_trips", "__init__.py")
 setup(
     name="django-trips",
+    version=VERSION,
     description="A Django Rest API for fetching and creating trips and their schedules.",
     long_description=README,
     long_description_content_type="text/markdown",
-    version=VERSION,
     url="https://github.com/awaisdar001/django-trips",
     author="Awais Jibran",
     author_email="awaisdar001@gmail.com",
     license="MIT",
-    license_files=("LICENSE",),
     keywords="Django trips",
     packages=["django_trips"],
     install_requires=load_requirements("requirements.txt"),
+    extras_require={"dev": ["wheel", "twine", "pytest"]},
     python_requires=">=3.11",
     classifiers=[
-        "Environment :: Web Environment",
-        "Framework :: Django",
-        "Framework :: Django :: 4.2",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
-        "Topic :: Internet :: WWW/HTTP",
-        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     ],
     include_package_data=True,
     package_data=package_data("django_trips", ["static"]),

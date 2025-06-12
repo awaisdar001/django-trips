@@ -66,17 +66,22 @@ destroy: stop ## Remove all containers, networks, and volumes
 _move:
 	mkdir -p src
 	rm -rf src/django_trips
-	cp {setup.py,setup.cfg,README.md,MANIFEST.in,LICENSE} src/
+	cp {setup.py,setup.cfg,README.md,MANIFEST.in,LICENSE,requirements.txt} src/
 	cp -R ./django_trips src/
-
-publish: _move
+_make_dist:
 	python3 -m pip install --user twine
-	cd src/; python3 setup.py sdist bdist_wheel; python3 -m twine upload --skip-existing --repository pypi dist/* --verbose
+	cd src/;
+	python3 setup.py sdist bdist_wheel
+	twine check dist/*
+_clean_up:
 	@echo Warning: Do you want to delete src/ directory? [Y/n]
 	@read line; if [ $$line = "n" ]; then echo aborting; exit 1 ; fi
-	rm -rf src/
-
-
-
+	rm -rf src/ dist/ build/ django_trips.egg-info
+publish.test: _make_dist _move
+	python3 -m twine upload -r testpypi dist/* --verbose
+	make _clean_up
+publish.prod: _make_dist _move
+	python3 -m twine upload --skip-existing --r pypi dist/* --verbose
+	make _clean_up
 
 

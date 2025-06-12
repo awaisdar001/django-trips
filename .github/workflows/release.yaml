@@ -73,21 +73,22 @@ jobs:
           with:
             python-version: "3.12"
 
-        - name: Install Poetry
+        - name: Install build tools
           run: |
-            curl -sSL https://install.python-poetry.org | python3 -
-            echo "$HOME/.local/bin" >> $GITHUB_PATH
+            python -m pip install --upgrade pip
+            pip install setuptools wheel build
 
-        - name: Set project version with Poetry
+        - name: Update version in package
           run: |
-            poetry version ${{ needs.details.outputs.new_version }}
+            # Update __version__ in your package's __init__.py
+            sed -i "s/^__version__ = .*/__version__ = \"${{ needs.details.outputs.new_version }}\"/" django_trips/__init__.py
 
-        - name: Install dependencies
-          run: poetry install --sync --no-interaction
+        - name: Build source and wheel distributions
+          run: python -m build --sdist --wheel --outdir dist/
 
-        - name: Build source and wheel distribution
+        - name: Verify distributions
           run: |
-            poetry build
+            twine check dist/*
 
         - name: Upload artifacts
           uses: actions/upload-artifact@v4

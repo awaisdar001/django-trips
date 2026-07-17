@@ -12,7 +12,7 @@ pylint_opts = [
 
 sys.stdout.write(f"Running... {pylint_opts}")
 
-results = pylint.lint.Run(pylint_opts, do_exit=False)
+results = pylint.lint.Run(pylint_opts, exit=False)
 score = round(results.linter.stats.global_note, 2)
 
 if score < THRESHOLD:

@@ -9,12 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 1
+      # Single entry, kept as a matrix only so the job name below can show it.
       matrix:
-        python-version: [3.11.13, 3.12.10] # https://www.python.org/doc/versions/
-        django-version: ["4.2.23"] # https://pypi.org/project/Django/#history
+        python-version: ["3.11.2"] # matches destipak's Dockerfile
 
-    name: python-${{ matrix.python-version }},django-${{ matrix.django-version }}
+    name: python-${{ matrix.python-version }}
     steps:
     - uses: actions/checkout@v4
 
@@ -24,12 +23,16 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Dependencies
+      run: pip install -r requirements.txt -r requirements-dev.txt
+
+    - name: Show resolved versions
       run: |
-        sudo pip install -r requirements.txt
-        sudo pip install "django==${{ matrix.django-version }}"
+        python --version
+        python -c "import django; print('Django', django.get_version())"
+        python -c "import rest_framework; print('djangorestframework', rest_framework.VERSION)"
 
     - name: run tests
       run: |
         export PYLINTRC=.pylintrc
-        sudo python -m run_lint.py
+        python -m run_lint.py
 

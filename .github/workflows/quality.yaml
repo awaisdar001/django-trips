@@ -13,13 +13,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.11.2
       uses: actions/setup-python@v5
       with:
         python-version: '3.11.2' # Kept in sync with destipak's Dockerfile
 
     - name: Install Dependencies
       run: pip install -r requirements.txt -r requirements-dev.txt
+
+    - name: Show resolved versions
+      run: |
+        python --version
+        python -c "import django; print('Django', django.get_version())"
 
     - name: GitHub Action for pylint
       run: |

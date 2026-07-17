@@ -5,27 +5,17 @@ setuptools>=80.9.0
 # Django Extensions
 django-crum>=0.7.9
 django-config-models>=2.7.0
-django-cors-headers>=4.0.0
 django-countries>=7.6.1
 django-extensions>=3.2.3
 django-filter>=23.2
 django-taggit>=6.1.0
-django-waffle>=4.2.0
 djangorestframework>=3.15,<3.16
 djangorestframework_simplejwt>=5.5.0
 drf-spectacular>=0.28.0
-edx-django-utils>=4.2.0
-sqlparse>=0.5.3
 
 # Database
 mysqlclient>=2.2.1
 
 # Utilities
-markdown>=3.5.2
-python-dateutil>=2.8.2
-pytz>=2025.2
 PyJWT>=2.9.0
 PyYAML>=6.0.2
-psutil>=5.9.5
-requests>=2.32.4
-path>=16.3.0  # TODO: replace with pathlib

@@ -25,11 +25,11 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        sudo pip install -r requirements.txt -r requirements-dev.txt
-        sudo pip install "django==${{ matrix.django-version }}"
+        pip install -r requirements.txt -r requirements-dev.txt
+        pip install "django==${{ matrix.django-version }}"
 
     - name: run tests
       run: |
         export PYLINTRC=.pylintrc
-        sudo python -m run_lint.py
+        python -m run_lint.py
 

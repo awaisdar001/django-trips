@@ -25,7 +25,7 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        sudo pip install -r requirements.txt
+        sudo pip install -r requirements.txt -r requirements-dev.txt
         sudo pip install "django==${{ matrix.django-version }}"
 
     - name: run tests

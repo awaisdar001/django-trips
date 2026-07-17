@@ -6,7 +6,7 @@ MANAGE_PY_PATH = python manage.py
 		_build stop run restart attach shell destroy
 
 requirements: ## install development environment requirements
-	pip install -qr requirements.txt --exists-action w
+	pip install -qr requirements.txt -qr requirements-dev.txt --exists-action w
 
 update_db: ## Install migrations
 	$(MANAGE_PY_PATH) migrate
@@ -66,7 +66,7 @@ destroy: stop ## Remove all containers, networks, and volumes
 _move:
 	mkdir -p src
 	rm -rf src/django_trips
-	cp {setup.py,setup.cfg,README.md,MANIFEST.in,LICENSE,requirements.txt} src/
+	cp {setup.py,setup.cfg,README.md,MANIFEST.in,LICENSE,requirements.txt,requirements-dev.txt} src/
 	cp -R ./django_trips src/
 _make_dist:
 	python3 -m pip install --user twine

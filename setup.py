@@ -72,7 +72,7 @@ setup(
     keywords="Django trips",
     packages=["django_trips"],
     install_requires=load_requirements("requirements.txt"),
-    extras_require={"dev": ["wheel", "twine", "pytest"]},
+    extras_require={"dev": load_requirements("requirements-dev.txt")},
     python_requires=">=3.11",
     classifiers=[
         "Intended Audience :: Developers",

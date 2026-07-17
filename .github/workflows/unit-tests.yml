@@ -9,11 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # Kept in sync with destipak: Dockerfile pins Python, requirements/base.txt pins Django.
+      # Kept in sync with destipak's Dockerfile. Django version comes from
+      # requirements.txt itself, not hardcoded here.
       PYTHON_VERSION: "3.11.2"
-      DJANGO_VERSION: "4.2.26"
 
-    name: python-${{ env.PYTHON_VERSION }},django-${{ env.DJANGO_VERSION }}
+    name: python-${{ env.PYTHON_VERSION }}
     steps:
     - uses: actions/checkout@v4
 
@@ -23,9 +23,7 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Install Dependencies
-      run: |
-        pip install -r requirements.txt -r requirements-dev.txt
-        pip install "django==${{ env.DJANGO_VERSION }}"
+      run: pip install -r requirements.txt -r requirements-dev.txt
 
     - name: run tests
       run: |

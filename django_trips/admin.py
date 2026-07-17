@@ -93,8 +93,12 @@ class LocationAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
+        "type",
+        "parent",
     )
-    list_filter = ("is_active",)
+    list_filter = ("is_active", "type")
+    search_fields = ["name", "slug"]
+    autocomplete_fields = ["parent"]
 
 
 @admin.register(TripItinerary)

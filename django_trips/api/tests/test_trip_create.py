@@ -87,6 +87,7 @@ class TripCreateTestCase(AuthenticatedUserTestCase):
                 "travel_tips": ANY,
                 "lat": ANY,
                 "lon": ANY,
+                "region": ANY,
                 "importance": ANY,
             },
         )

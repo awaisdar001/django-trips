@@ -8,8 +8,10 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from django_trips.choices import LocationType
 from django_trips.tests.factories import (
     AuthenticatedUserTestCase,
+    LocationFactory,
     TripFactory,
     TripReviewFactory,
     TripReviewSummaryFactory,
@@ -150,3 +152,23 @@ class TestTripCardFields(AuthenticatedUserTestCase):
         TripReviewFactory(trip=trip, is_verified=True)
         summary = self.get_list_item(trip)["review_summary"]
         self.assertEqual(summary["reviews_count"], 1)
+
+    # -- destination.region (Location hierarchy) ----------------------
+
+    def test_destination_region_from_parent(self):
+        province = LocationFactory(name="Gilgit-Baltistan", type=LocationType.PROVINCE)
+        destination = LocationFactory(
+            name="Hunza", type=LocationType.TOWN, parent=province
+        )
+        trip = TripFactory(destination=destination, trip_schedule=None)
+        self.assertEqual(
+            self.get_detail(trip)["destination"]["region"], "Gilgit-Baltistan"
+        )
+        self.assertEqual(
+            self.get_list_item(trip)["destination"]["region"], "Gilgit-Baltistan"
+        )
+
+    def test_destination_region_none_when_unlinked(self):
+        destination = LocationFactory(type=LocationType.TOWN, parent=None)
+        trip = TripFactory(destination=destination, trip_schedule=None)
+        self.assertIsNone(self.get_detail(trip)["destination"]["region"])

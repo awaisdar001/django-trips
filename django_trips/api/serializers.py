@@ -21,8 +21,10 @@ from django_trips.models import (
     TripBooking,
     TripItinerary,
     TripOption,
+    TripReviewSummary,
     TripSchedule,
 )
+from django_trips.utils import format_trip_duration
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -295,9 +297,48 @@ class TripCreateSerializer(serializers.ModelSerializer):
         return instance
 
 
+class TripReviewSummarySerializer(serializers.ModelSerializer):
+    """Aggregate rating breakdown for a trip (curated, not auto-computed)."""
+
+    class Meta:
+        model = TripReviewSummary
+        fields = ("meals", "accommodation", "transport", "value_for_money", "overall")
+
+
+def get_trip_review_summary_data(trip):
+    """
+    Build the review_summary dict for a trip: its curated rating breakdown
+    (or all-zero defaults if none has been curated yet) plus a count of its
+    verified reviews.
+
+    Shared by TripListSerializer and TripDetailSerializer - not a
+    SerializerMethodField on a mixin, since DRF's ModelSerializer silently
+    falls back to auto-building a field from the model/relation when a
+    same-named field is declared on a plain (non-Serializer) base class
+    instead of directly on the serializer itself.
+    """
+    summary = getattr(trip, "review_summary", None)
+    data = (
+        TripReviewSummarySerializer(summary).data
+        if summary
+        else {
+            "meals": 0,
+            "accommodation": 0,
+            "transport": 0,
+            "value_for_money": 0,
+            "overall": 0,
+        }
+    )
+    data["reviews_count"] = trip.reviews.filter(is_verified=True).count()
+    return data
+
+
 class TripListSerializer(serializers.ModelSerializer):
     destination = LocationSerializer()
     duration = serializers.SerializerMethodField()
+    poster = serializers.ReadOnlyField()
+    starting_price = serializers.ReadOnlyField()
+    review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
     country = CountryField()
     categories = CategorySerializer(many=True)
@@ -311,6 +352,9 @@ class TripListSerializer(serializers.ModelSerializer):
             "description",
             "destination",
             "duration",
+            "poster",
+            "starting_price",
+            "review_summary",
             "country",
             "categories",
             "is_featured",
@@ -318,9 +362,13 @@ class TripListSerializer(serializers.ModelSerializer):
             "host",
         )
 
-    @extend_schema_field({"type": "string", "example": "1 week 5 days"})
+    @extend_schema_field({"type": "string", "example": "7 Days 6 Nights"})
     def get_duration(self, obj):
-        return str(obj.duration) if obj.duration else None
+        return format_trip_duration(obj.duration)
+
+    @extend_schema_field(TripReviewSummarySerializer)
+    def get_review_summary(self, obj):
+        return get_trip_review_summary_data(obj)
 
     @extend_schema_field(
         {"type": "string", "example": "api/v1/trips/2-days-trip-to-isb"}
@@ -346,6 +394,9 @@ class TripOptionSerializer(serializers.ModelSerializer):
 class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     cancellation_policy = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
+    poster = serializers.ReadOnlyField()
+    starting_price = serializers.ReadOnlyField()
+    review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
     facilities = FacilitySerializer(many=True)
     gear = GearSerializer(many=True)
@@ -378,7 +429,9 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "child_policy",
             "facilities",
             "gear",
-            "duration",
+            "poster",
+            "starting_price",
+            "review_summary",
             "passenger_limit_min",
             "passenger_limit_max",
             "age_limit",
@@ -403,9 +456,13 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "options",
         )
 
-    @extend_schema_field({"type": "string", "example": "1 week 5 days"})
+    @extend_schema_field({"type": "string", "example": "7 Days 6 Nights"})
     def get_duration(self, obj):
-        return str(obj.duration) if obj.duration else None
+        return format_trip_duration(obj.duration)
+
+    @extend_schema_field(TripReviewSummarySerializer)
+    def get_review_summary(self, obj):
+        return get_trip_review_summary_data(obj)
 
     @extend_schema_field(
         {"type": "string", "example": "api/v1/trips/2-days-trip-to-isb"}

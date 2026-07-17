@@ -382,7 +382,21 @@ class Trip(SlugMixin, models.Model):
 
     @property
     def poster(self):
-        return ""
+        """Primary listing image URL, stored under metadata['poster']."""
+        return self.metadata.get("poster", "") if self.metadata else ""
+
+    @property
+    def starting_price(self):
+        """
+        Cheapest price among this trip's currently bookable (active or
+        upcoming) schedules. Returns None if no such schedule exists.
+        """
+        schedule = (
+            (self.schedules.active() | self.schedules.upcoming())
+            .order_by("price")
+            .first()
+        )
+        return schedule.price if schedule else None
 
     def get_absolute_url(self):
         return reverse("trips-api:trip-detail", kwargs={"identifier": self.slug})

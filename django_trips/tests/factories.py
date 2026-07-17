@@ -33,6 +33,8 @@ from django_trips.models import (
     TripBooking,
     TripItinerary,
     TripOption,
+    TripReview,
+    TripReviewSummary,
     TripSchedule,
 )
 
@@ -304,6 +306,36 @@ class TripBookingFactory(DjangoModelFactory):
     target_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=10))
     status = BookingStatus.PENDING  # Adjust based on your Enum/Choices
     created_by = factory.SubFactory(UserFactory)
+
+
+class TripReviewFactory(DjangoModelFactory):
+    class Meta:
+        model = TripReview
+
+    trip = factory.SubFactory(TripFactory)
+    meals = factory.Faker("random_int", min=1, max=5)
+    accommodation = factory.Faker("random_int", min=1, max=5)
+    transport = factory.Faker("random_int", min=1, max=5)
+    value_for_money = factory.Faker("random_int", min=1, max=5)
+    overall = factory.Faker("random_int", min=1, max=5)
+    comment = factory.Faker("paragraph", nb_sentences=2)
+    name = factory.Faker("name")
+    email = factory.Faker("email")
+    is_verified = True
+
+
+class TripReviewSummaryFactory(DjangoModelFactory):
+    class Meta:
+        model = TripReviewSummary
+
+    trip = factory.SubFactory(TripFactory)
+    meals = factory.Faker("pyfloat", min_value=1, max_value=5, right_digits=1)
+    accommodation = factory.Faker("pyfloat", min_value=1, max_value=5, right_digits=1)
+    transport = factory.Faker("pyfloat", min_value=1, max_value=5, right_digits=1)
+    value_for_money = factory.Faker(
+        "pyfloat", min_value=1, max_value=5, right_digits=1
+    )
+    overall = factory.Faker("pyfloat", min_value=1, max_value=5, right_digits=1)
 
 
 def _as_list(extracted):

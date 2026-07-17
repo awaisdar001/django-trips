@@ -48,10 +48,27 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ("name", "slug")
 
 
+class CategoryListSerializer(CategorySerializer):
+    """
+    Category serializer for the public category/activities listing.
+
+    trips_count must come from an annotated queryset (see
+    ActiveCategoriesListAPIView) - it's kept off the base CategorySerializer
+    because that one is also used to nest categories inside Trip
+    serializers, where no such annotation exists.
+    """
+
+    trips_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta(CategorySerializer.Meta):
+        fields = CategorySerializer.Meta.fields + ("trips_count",)
+
+
 class LocationSerializer(serializers.ModelSerializer):
     """Location Modal Serializer"""
 
     type = serializers.SerializerMethodField()
+    region = serializers.ReadOnlyField()
 
     class Meta:
         model = Location
@@ -62,6 +79,7 @@ class LocationSerializer(serializers.ModelSerializer):
             "lat",
             "lon",
             "type",
+            "region",
             "importance",
         )
 
@@ -521,10 +539,11 @@ class UpcomingTripListSerializer(serializers.ModelSerializer):
 
 class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
     schedules = serializers.SerializerMethodField()
+    region = serializers.ReadOnlyField()
 
     class Meta:
         model = Location
-        fields = ["id", "name", "slug", "schedules"]
+        fields = ["id", "name", "slug", "region", "schedules"]
 
     @extend_schema_field(UpcomingTripListSerializer(many=True))
     def get_schedules(self, obj: "Location"):

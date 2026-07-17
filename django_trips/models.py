@@ -146,6 +146,15 @@ class Location(SlugMixin, models.Model):
         default=True,
         help_text="Designates whether this location should be shown publicly",
     )
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        related_name="children",
+        on_delete=models.SET_NULL,
+        help_text="The broader location this belongs to, e.g. a TOWN's parent "
+        "PROVINCE. Used to derive `region` for display/grouping.",
+    )
 
     objects = managers.LocationQuerySet.as_manager()
 
@@ -164,6 +173,22 @@ class Location(SlugMixin, models.Model):
     def coordinates(self):
         """Returns lat/lng in list."""
         return [self.lat, self.lon]
+
+    @property
+    def region(self):
+        """
+        The broader region/province name this location belongs to, for
+        display and grouping (e.g. "Gilgit-Baltistan" for Hunza).
+
+        Returns the parent's name if one is set, this location's own name
+        if it is itself a PROVINCE-level location, or None if neither
+        applies (e.g. a TOWN with no parent linked yet).
+        """
+        if self.parent:
+            return self.parent.name
+        if self.type == LocationType.PROVINCE:
+            return self.name
+        return None
 
 
 class Gear(SlugMixin, models.Model):

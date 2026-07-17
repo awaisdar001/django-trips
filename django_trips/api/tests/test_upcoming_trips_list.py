@@ -7,6 +7,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from django_trips.choices import LocationType
 from django_trips.models import TripSchedule
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           LocationFactory, TripFactory,
@@ -284,3 +285,13 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         url = reverse("trips-api:destinations")
         response = self.client.get(url, {}, headers={})
         self.assertEqual(response.status_code, 200)
+
+    def test_destinations_include_region(self):
+        """Each destination should report its region, derived from its parent."""
+        province = LocationFactory(name="Sindh Region", type=LocationType.PROVINCE)
+        LocationFactory(name="Karachi Beach", type=LocationType.CITY, parent=province)
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        destinations = {d["name"]: d for d in response.json()["results"]}
+        self.assertEqual(destinations["Karachi Beach"]["region"], "Sindh Region")

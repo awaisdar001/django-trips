@@ -10,6 +10,7 @@ from drf_spectacular.utils import (
 from rest_framework import serializers
 
 from django_trips.api.serializers import (
+    CategoryListSerializer,
     DestinationWithSchedulesSerializer,
     TripBookingSerializer,
     TripCreateSerializer,
@@ -22,6 +23,7 @@ from django_trips.api.serializers import (
 class SchemaTags(Enum):
     TRIPS = ["Trips"]
     Bookings = ["Bookings"]
+    CATEGORIES = ["Categories"]
 
 
 error_response_serializer = inline_serializer(
@@ -136,6 +138,15 @@ destinations_list_schema = extend_schema(
     description="List all trip destinations.",
     responses={200: DestinationWithSchedulesSerializer},
     tags=SchemaTags.TRIPS.value,
+)
+
+categories_list_schema = extend_schema(
+    summary="Get Trip Categories",
+    description="List all active trip categories, each annotated with a "
+    "count of its currently active trips. Ordered by trip count "
+    "descending.",
+    responses={200: CategoryListSerializer},
+    tags=SchemaTags.CATEGORIES.value,
 )
 
 booking_create_schema = extend_schema(

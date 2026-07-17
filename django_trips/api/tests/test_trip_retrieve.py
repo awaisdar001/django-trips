@@ -74,3 +74,10 @@ class TripRetrieveTestCase(AuthenticatedUserTestCase):
 
     def test_retrieve_nonexistent_trip_returns_404(self):
         self.make_api_call("non-existent-slug", status.HTTP_404_NOT_FOUND)
+
+    def test_retrieve_without_authentication(self):
+        """Verify trip retrieval is public - no authentication required."""
+        url = reverse("trips-api:trip-detail", kwargs={"identifier": self.trip.slug})
+        response = self.client.get(url, headers={})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["slug"], self.trip.slug)

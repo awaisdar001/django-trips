@@ -35,10 +35,11 @@ class TestTripListAPI(AuthenticatedUserTestCase):
 
     def test_without_authentication(self):
         """
-        Verify that we have access to all the data w/o authentication.
+        Verify that trip listing is public - no authentication required.
         """
         response = self.client.get(self.url, {}, headers={})
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["results"]), 1)
 
     def test_trip_list_pagination(self):
         """

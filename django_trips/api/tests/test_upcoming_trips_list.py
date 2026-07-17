@@ -273,7 +273,14 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
             f"Ordering by {field} (reverse={is_reverse}) failed! Result: {field_data}",
         )
 
-    def test_me(self):
-        """Test ordering by trip_duration field."""
+    def test_without_authentication(self):
+        """Verify upcoming trips listing is public - no authentication required."""
+        response = self.client.get(self.url, {}, headers={})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["results"]), 6)
+
+    def test_destinations_without_authentication(self):
+        """Verify the destinations endpoint is public - no authentication required."""
         url = reverse("trips-api:destinations")
-        response = self.client.get(self.url, {}, headers=self.headers)
+        response = self.client.get(url, {}, headers={})
+        self.assertEqual(response.status_code, 200)

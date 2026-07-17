@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -57,13 +57,14 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
     Notes:
     - Partial updates (PATCH) are **not supported**.
     - Lookup field supports ID or slug as `{id}`.
-    - Staff-only permission applies to DELETE method.
+    - List/retrieve (GET) are public; create/update require authentication;
+      delete requires staff.
 
     Authentication: Session and JWT
     """
 
     authentication_classes = [SessionAuthentication, JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsStaffForDeleteOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsStaffForDeleteOnly]
     http_method_names = ["get", "post", "put", "delete"]
     pagination_class = CustomLimitOffsetPaginator
 
@@ -121,7 +122,7 @@ class UpcomingTripsListAPIView(ListAPIView):
     Supports filtering trips by name, price range, date range, destination slug,
     and trip duration. Returns paginated list of trips with their schedule details.
 
-    Authentication is required to access this endpoint.
+    Public endpoint - no authentication required.
 
     Query parameters:
       - name: partial trip name (case-insensitive)
@@ -136,7 +137,7 @@ class UpcomingTripsListAPIView(ListAPIView):
 
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     pagination_class = CustomLimitOffsetPaginator
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = UpcomingTripsFilter
@@ -153,6 +154,9 @@ class UpcomingTripsListAPIView(ListAPIView):
 
 @extend_schema_view(get=destinations_list_schema)
 class ActiveDestinationsWithSchedulesView(ListAPIView):
+    """Public endpoint - no authentication required."""
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
     serializer_class = DestinationWithSchedulesSerializer
 
     def get_queryset(self):

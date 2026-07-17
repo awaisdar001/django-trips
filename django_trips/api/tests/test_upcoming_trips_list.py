@@ -209,7 +209,7 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         }
         data = self.get_trips_list_result(query)
         self.assertTrue(all(13000 <= int(t["price"]) <= 17000 for t in data))
-        expected_durations = [f"{d} days, 0:00:00" for d in range(6, 10)]
+        expected_durations = [f"{d} Days {d - 1} Nights" for d in range(6, 10)]
         actual_durations = [t["trip"]["duration"] for t in data]
         self.assertEqual(actual_durations, expected_durations)
 

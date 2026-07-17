@@ -8,25 +8,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 1
-      matrix:
-        python-version: [3.11.13, 3.12.10] # https://www.python.org/doc/versions/
-        django-version: ["4.2.23"] # https://pypi.org/project/Django/#history
+    env:
+      # Kept in sync with destipak: Dockerfile pins Python, requirements/base.txt pins Django.
+      PYTHON_VERSION: "3.11.2"
+      DJANGO_VERSION: "4.2.26"
 
-    name: python-${{ matrix.python-version }},django-${{ matrix.django-version }}
+    name: python-${{ env.PYTHON_VERSION }},django-${{ env.DJANGO_VERSION }}
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Install Dependencies
       run: |
         pip install -r requirements.txt -r requirements-dev.txt
-        pip install "django==${{ matrix.django-version }}"
+        pip install "django==${{ env.DJANGO_VERSION }}"
 
     - name: run tests
       run: |

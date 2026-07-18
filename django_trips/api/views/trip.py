@@ -1,4 +1,5 @@
 # pylint:disable=import-error
+from django.db.models import Min, Q
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -29,6 +30,7 @@ from django_trips.api.serializers import (
     TripListSerializer,
     UpcomingTripListSerializer,
 )
+from django_trips.choices import ScheduleStatus
 from django_trips.models import Location, Trip, TripSchedule
 from django_trips.permissions import IsStaffForDeleteOnly
 
@@ -68,13 +70,28 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
     http_method_names = ["get", "post", "put", "delete"]
     pagination_class = CustomLimitOffsetPaginator
 
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = TripFilter
+    ordering_fields = ["name", "duration", ("annotated_starting_price", "price")]
     queryset = Trip.objects.active()
 
     serializer_class = TripDetailSerializer
 
     lookup_field = "identifier"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action == "list":
+            # Named distinctly from the `starting_price` model property: annotating
+            # under that same name would make Django try to setattr() a value onto
+            # a property with no setter, raising AttributeError per row.
+            queryset = queryset.annotate(
+                annotated_starting_price=Min(
+                    "schedules__price",
+                    filter=Q(schedules__status=ScheduleStatus.PUBLISHED),
+                )
+            ).distinct()
+        return queryset
 
     def get_serializer_class(self):
         if self.action == "list":  # pylint:disable=no-else-return
@@ -117,7 +134,7 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
 @extend_schema_view(get=upcoming_trips_list_schema)
 class UpcomingTripsListAPIView(ListAPIView):
     """
-    API view to list upcoming trips with optional filtering.
+    API view to list upcoming (not-yet-started) trip schedules with optional filtering.
 
     Supports filtering trips by name, price range, date range, destination slug,
     and trip duration. Returns paginated list of trips with their schedule details.
@@ -149,7 +166,7 @@ class UpcomingTripsListAPIView(ListAPIView):
     ]
 
     serializer_class = UpcomingTripListSerializer
-    queryset = TripSchedule.objects.active()
+    queryset = TripSchedule.objects.upcoming()
 
 
 @extend_schema_view(get=destinations_list_schema)
@@ -161,5 +178,8 @@ class ActiveDestinationsWithSchedulesView(ListAPIView):
 
     def get_queryset(self):
         return (
-            Location.objects.active().prefetch_related("destination_trips").distinct()
+            Location.objects.active()
+            .filter(destination_trips__isnull=False)
+            .distinct()
+            .prefetch_related("destination_trips")
         )

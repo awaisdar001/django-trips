@@ -1,7 +1,9 @@
 from datetime import timedelta
 
 import django_filters as filters
+from django.db.models import Q
 
+from django_trips.choices import ScheduleStatus
 from django_trips.models import Trip, TripBooking, TripSchedule
 
 
@@ -22,12 +24,12 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
 class TripBaseFilter(filters.FilterSet):
     name = filters.CharFilter(field_name="name", lookup_expr="icontains")
     destination = CharInFilter(
-        field_name="trip__destination__slug",
+        field_name="destination__slug",
         lookup_expr="in",
         help_text="Filter trips by a list of destination slugs, e.g. ?destination=hunza,skardu",
     )
-    duration_from = filters.NumberFilter(field_name="duration", lookup_expr="gte")
-    duration_to = filters.NumberFilter(field_name="duration", lookup_expr="lte")
+    duration_from = TimedeltaFromDaysFilter(field_name="duration", lookup_expr="gte")
+    duration_to = TimedeltaFromDaysFilter(field_name="duration", lookup_expr="lte")
 
     class Meta:
         model = Trip
@@ -35,10 +37,71 @@ class TripBaseFilter(filters.FilterSet):
 
 
 class TripFilter(TripBaseFilter):
+    """
+    Filter trips by name, destination, duration, category, and whether they
+    have a published schedule matching a price range and/or date range.
+
+    price_from/price_to/date_from/date_to are intentionally NOT independent
+    per-field filters: since a trip can have many schedules, filtering each
+    condition separately (as django-filter would by default) can match a
+    trip via two *different* schedules (e.g. a cheap-but-past one and an
+    expensive-but-future one) even though no single schedule satisfies both.
+    filter_queryset() below combines them into one query against
+    TripSchedule so only trips with one schedule satisfying all supplied
+    constraints match.
+    """
+
+    category = CharInFilter(
+        field_name="categories__slug",
+        lookup_expr="in",
+        help_text="Filter trips by a list of category slugs, e.g. ?category=hiking,camping",
+    )
+    price_from = filters.NumberFilter(
+        method="filter_noop",
+        help_text="Filter trips with a published schedule priced at or above this value.",
+    )
+    price_to = filters.NumberFilter(
+        method="filter_noop",
+        help_text="Filter trips with a published schedule priced at or below this value.",
+    )
+    date_from = filters.DateFilter(
+        method="filter_noop",
+        help_text="Filter trips with a published schedule starting on or after this date (YYYY-MM-DD).",
+    )
+    date_to = filters.DateFilter(
+        method="filter_noop",
+        help_text="Filter trips with a published schedule ending on or before this date (YYYY-MM-DD).",
+    )
 
     class Meta(TripBaseFilter.Meta):
         model = Trip
         fields = []
+
+    def filter_noop(self, queryset, name, value):
+        """Actual filtering for these fields happens once, combined, in filter_queryset()."""
+        return queryset
+
+    def filter_queryset(self, queryset):
+        schedule_constraints = Q(status=ScheduleStatus.PUBLISHED)
+        has_constraint = False
+        for field_name, lookup in (
+            ("price_from", "price__gte"),
+            ("price_to", "price__lte"),
+            ("date_from", "start_date__gte"),
+            ("date_to", "end_date__lte"),
+        ):
+            value = self.form.cleaned_data.get(field_name)
+            if value not in (None, ""):
+                schedule_constraints &= Q(**{lookup: value})
+                has_constraint = True
+
+        if has_constraint:
+            matching_trip_ids = TripSchedule.objects.filter(
+                schedule_constraints
+            ).values_list("trip_id", flat=True)
+            queryset = queryset.filter(pk__in=matching_trip_ids)
+
+        return super().filter_queryset(queryset)
 
 
 class UpcomingTripsFilter(filters.FilterSet):

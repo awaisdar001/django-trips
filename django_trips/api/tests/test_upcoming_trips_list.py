@@ -41,47 +41,49 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
             size=10,
             # Trip 1, Trip 2, Trip 10.
             name=factory.Iterator([f"Trip {i}" for i in range(1, 11)]),
-            # 3 days -- 13 days
+            # 4 days -- 13 days
             duration=factory.Iterator([timedelta(days=i + 3) for i in range(1, 11)]),
             destination=factory.Iterator(destinations),
             departure=factory.Iterator(departure_locations),
         )
 
-        cls.past_dates = [  # [-7 -6 -5 -4 -3 -2 -1 today 1 2]
-            seven_days_ago + timedelta(days=i) for i in range(len(cls.trips))
-        ]
-        cls.future_dates = [  # [1 2 3 4 5 6 7 8 9 10]
-            current_time + timedelta(days=i + 1) for i in range(len(cls.trips))
-        ]
-
-        base_price = 10000
-        for trip in cls.trips[:2]:
-            base_price += 1500
+        # Trip 1, Trip 2: schedule fully in the past -> never "upcoming".
+        for i, trip in enumerate(cls.trips[:2]):
             TripScheduleFactory(
                 trip=trip,
-                start_date=factory.Iterator(cls.past_dates[:2]),
-                end_date=factory.Iterator(cls.past_dates[:2][::-1]),
-                price=base_price,
+                start_date=seven_days_ago + timedelta(days=i),
+                end_date=seven_days_ago + timedelta(days=i + 3),
+                price=10000,
             )
 
-        # Create 6 active trip schedules (start in-past, end in future)
-        for trip in cls.trips[2:8]:
+        # Trip 3, Trip 4: already started (start in the past, end in the
+        # future) -- "in progress today", but NOT "upcoming" since it has
+        # already started.
+        for i, trip in enumerate(cls.trips[2:4]):
+            TripScheduleFactory(
+                trip=trip,
+                start_date=current_time - timedelta(days=i + 1),
+                end_date=current_time + timedelta(days=10 + i),
+                price=12000,
+            )
+
+        # Trip 5 -- Trip 10: genuinely upcoming (start AND end in the
+        # future) -- the 6 trips returned by an empty/default query, with a
+        # price gradient (14,000 -- 19,000) for the price_from/price_to
+        # assertions below.
+        cls.upcoming_start_dates = [
+            current_time + timedelta(days=i + 1) for i in range(6)
+        ]
+        cls.upcoming_end_dates = [
+            current_time + timedelta(days=i + 10) for i in range(6)
+        ]
+        base_price = 13000
+        for i, trip in enumerate(cls.trips[4:]):
             base_price += 1000
             TripScheduleFactory(
-                trip=trip,  # Trip 3 -- Trip 9
-                start_date=factory.Iterator(cls.past_dates[2:8]),
-                end_date=factory.Iterator(cls.future_dates[2:8]),
-                # 13,000 -- 19,000
-                price=base_price,
-            )
-
-        # Create 2 future trip schedules (start and end in the future)
-        for trip in cls.trips[8:]:
-            base_price += 5000
-            TripScheduleFactory(
-                trip=trip,
-                start_date=factory.Iterator(cls.future_dates[:2]),
-                end_date=factory.Iterator(cls.future_dates[8:]),
+                trip=trip,  # Trip 5 -- Trip 10
+                start_date=cls.upcoming_start_dates[i],
+                end_date=cls.upcoming_end_dates[i],
                 price=base_price,
             )
 
@@ -93,16 +95,16 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
 
     @ddt.data(
         *(
-            ("Trip 1", 0),
+            ("Trip 1", 1),  # substring-matches both "Trip 1" (excluded) and "Trip 10" (included)
             ("Trip 2", 0),
-            ("Trip 3", 1),
-            ("Trip 4", 1),
+            ("Trip 3", 0),
+            ("Trip 4", 0),
             ("Trip 5", 1),
             ("Trip 6", 1),
             ("Trip 7", 1),
             ("Trip 8", 1),
-            ("Trip 9", 0),
-            ("Trip 10", 0),
+            ("Trip 9", 1),
+            ("Trip 10", 1),
             ("Trip", 6),  # partial match
             ("trip", 6),  # case-insensitive
             ("Invalid", 0),  # no match
@@ -166,7 +168,7 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         """Should return trips starting on/after the given date"""
         expected_slugs = {
             s.trip.slug
-            for s in TripSchedule.objects.active().filter(start_date__gte=date)
+            for s in TripSchedule.objects.upcoming().filter(start_date__gte=date)
         }
         data = self.get_trips_list_result({"date_from": date.isoformat()})
         response_slugs = {t["trip"]["slug"] for t in data}
@@ -174,11 +176,11 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
 
     @ddt.data(
         ("past-limit", current_time - timedelta(days=10), 0),
-        ("future-limit", current_time + timedelta(days=10), 6),
+        ("far-future-limit", current_time + timedelta(days=20), 6),
     )
     @ddt.unpack
     def test_filter_by_date_to(self, label, date, expected_count):
-        """Should return trips starting before/equal to date_to"""
+        """Should return trips ending before/equal to date_to"""
         data = self.get_trips_list_result({"date_to": date.isoformat()})
         self.assertEqual(len(data), expected_count, msg=f"{label=} {date=}")
 
@@ -210,7 +212,7 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         }
         data = self.get_trips_list_result(query)
         self.assertTrue(all(13000 <= int(t["price"]) <= 17000 for t in data))
-        expected_durations = [f"{d} Days {d - 1} Nights" for d in range(6, 10)]
+        expected_durations = [f"{d} Days {d - 1} Nights" for d in range(8, 11)]
         actual_durations = [t["trip"]["duration"] for t in data]
         self.assertEqual(actual_durations, expected_durations)
 
@@ -289,9 +291,21 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
     def test_destinations_include_region(self):
         """Each destination should report its region, derived from its parent."""
         province = LocationFactory(name="Sindh Region", type=LocationType.PROVINCE)
-        LocationFactory(name="Karachi Beach", type=LocationType.CITY, parent=province)
+        karachi_beach = LocationFactory(
+            name="Karachi Beach", type=LocationType.CITY, parent=province
+        )
+        TripFactory(destination=karachi_beach)
 
         url = reverse("trips-api:destinations")
         response = self.client.get(url, {}, headers=self.headers)
         destinations = {d["name"]: d for d in response.json()["results"]}
         self.assertEqual(destinations["Karachi Beach"]["region"], "Sindh Region")
+
+    def test_destinations_exclude_locations_with_no_trips(self):
+        """A location that is never a trip's destination shouldn't appear in the dropdown."""
+        LocationFactory(name="Unused Waypoint")
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        names = {d["name"] for d in response.json()["results"]}
+        self.assertNotIn("Unused Waypoint", names)

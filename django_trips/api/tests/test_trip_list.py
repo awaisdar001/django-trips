@@ -6,7 +6,10 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from django_trips.choices import ScheduleStatus
+from django_trips.models import Trip
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
+                                          CategoryFactory, LocationFactory,
                                           TripFactory, TripScheduleFactory)
 
 
@@ -182,3 +185,130 @@ class TestTripListAPI(AuthenticatedUserTestCase):
         # Remaining related fields
         self.assertIsNotNone(trip_data["trip_itinerary"])
         self.assertIsNotNone(trip_data["cancellation_policy"])
+
+
+@ddt.ddt
+@pytest.mark.django_db
+class TestTripListFiltersAPI(AuthenticatedUserTestCase):
+    """Covers the destination/duration/category/price/date filters and ordering on /trips/."""
+
+    maxDiff = None
+    url = reverse("trips-api:trip-list")
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.hunza = LocationFactory(name="Hunza")
+        cls.skardu = LocationFactory(name="Skardu")
+        cls.hiking = CategoryFactory(name="Hiking")
+        cls.honeymoon = CategoryFactory(name="Honeymoon")
+
+        cls.trip_hunza = TripFactory(
+            name="Hunza Adventure",
+            destination=cls.hunza,
+            duration=timedelta(days=5),
+            categories=[cls.hiking],
+        )
+        cls.trip_skardu = TripFactory(
+            name="Skardu Explorer",
+            destination=cls.skardu,
+            duration=timedelta(days=10),
+            categories=[cls.honeymoon],
+        )
+
+        cls.now = timezone.now().date()
+        TripScheduleFactory(
+            trip=cls.trip_hunza,
+            price=15000,
+            start_date=cls.now + timedelta(days=5),
+            end_date=cls.now + timedelta(days=10),
+            status=ScheduleStatus.PUBLISHED,
+        )
+        TripScheduleFactory(
+            trip=cls.trip_skardu,
+            price=30000,
+            start_date=cls.now + timedelta(days=15),
+            end_date=cls.now + timedelta(days=25),
+            status=ScheduleStatus.PUBLISHED,
+        )
+
+    def get_results(self, params=None):
+        response = self.client.get(self.url, params, headers=self.headers)
+        self.assertEqual(response.status_code, 200, response.json())
+        return response.json()["results"]
+
+    def test_filter_by_destination(self):
+        """Previously broken/untested: field_name pointed at a non-existent `trip` relation."""
+        data = self.get_results({"destination": self.hunza.slug})
+        self.assertEqual({t["name"] for t in data}, {"Hunza Adventure"})
+
+    def test_filter_by_duration_range(self):
+        """Previously broken/untested: NumberFilter can't compare against a DurationField."""
+        data = self.get_results({"duration_from": 8, "duration_to": 12})
+        self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
+
+    def test_filter_by_category(self):
+        data = self.get_results({"category": self.honeymoon.slug})
+        self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
+
+    def test_filter_by_price_range(self):
+        data = self.get_results({"price_from": 20000})
+        self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
+
+    def test_filter_by_date_from(self):
+        data = self.get_results(
+            {"date_from": (self.now + timedelta(days=14)).isoformat()}
+        )
+        self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
+
+    def test_ordering_by_price_ascending(self):
+        data = self.get_results({"ordering": "price"})
+        names = [t["name"] for t in data]
+        self.assertEqual(names, ["Hunza Adventure", "Skardu Explorer"])
+
+    def test_ordering_by_price_descending(self):
+        data = self.get_results({"ordering": "-price"})
+        names = [t["name"] for t in data]
+        self.assertEqual(names, ["Skardu Explorer", "Hunza Adventure"])
+
+    def test_no_duplicate_rows_from_multi_category_join(self):
+        """A trip matching >1 filtered category shouldn't be duplicated by the join fan-out."""
+        TripFactory(name="Multi Category Trip", categories=[self.hiking, self.honeymoon])
+        data = self.get_results(
+            {"category": f"{self.hiking.slug},{self.honeymoon.slug}"}
+        )
+        matched = [t for t in data if t["name"] == "Multi Category Trip"]
+        self.assertEqual(len(matched), 1)
+
+    def test_cross_schedule_conditions_must_be_satisfied_by_one_schedule(self):
+        """
+        A trip whose only cheap schedule is in the past and whose only future
+        schedule is expensive should NOT match price_to=cheap & date_from=future,
+        since no single schedule satisfies both constraints.
+        """
+        trip = TripFactory(name="Mismatched Schedule Trip", destination=self.hunza)
+        TripScheduleFactory(
+            trip=trip,
+            price=5000,
+            start_date=self.now - timedelta(days=30),
+            end_date=self.now - timedelta(days=20),
+            status=ScheduleStatus.PUBLISHED,
+        )
+        TripScheduleFactory(
+            trip=trip,
+            price=50000,
+            start_date=self.now + timedelta(days=30),
+            end_date=self.now + timedelta(days=40),
+            status=ScheduleStatus.PUBLISHED,
+        )
+        data = self.get_results(
+            {
+                "price_to": 10000,
+                "date_from": (self.now + timedelta(days=1)).isoformat(),
+            }
+        )
+        self.assertNotIn("Mismatched Schedule Trip", {t["name"] for t in data})
+
+    def test_empty_query_returns_all_active_trips(self):
+        data = self.get_results()
+        self.assertEqual(len(data), Trip.objects.active().count())

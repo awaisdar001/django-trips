@@ -68,6 +68,49 @@ trip_list_schema = extend_schema(
     description="Retrieve a paginated list of all available trips with summary information.",
     responses={200: TripListSerializer},
     tags=SchemaTags.TRIPS.value,
+    parameters=[
+        OpenApiParameter(
+            name="date_from",
+            description="Filter trips with a published schedule starting on or "
+            "after this date (YYYY-MM-DD).",
+            required=False,
+            type=OpenApiTypes.DATE,
+        ),
+        OpenApiParameter(
+            name="date_to",
+            description="Filter trips with a published schedule ending on or "
+            "before this date (YYYY-MM-DD).",
+            required=False,
+            type=OpenApiTypes.DATE,
+        ),
+        OpenApiParameter(
+            name="price_from",
+            description="Filter trips with a published schedule priced at or "
+            "above this value.",
+            required=False,
+            type=OpenApiTypes.NUMBER,
+        ),
+        OpenApiParameter(
+            name="price_to",
+            description="Filter trips with a published schedule priced at or "
+            "below this value.",
+            required=False,
+            type=OpenApiTypes.NUMBER,
+        ),
+        OpenApiParameter(
+            name="category",
+            description="Filter trips by a list of category slugs, e.g. "
+            "?category=hiking,camping",
+            required=False,
+            type=OpenApiTypes.STR,
+        ),
+        OpenApiParameter(
+            name="ordering",
+            description="Ordering of results. Example: `name`, `-duration`, `price`, `-price`",
+            required=False,
+            type=OpenApiTypes.STR,
+        ),
+    ],
 )
 
 

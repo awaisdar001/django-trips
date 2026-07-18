@@ -3,9 +3,9 @@
 from django.contrib import admin
 
 from django_trips.models import (CancellationPolicy, Category, Facility, Gear,
-                                 Host, HostRating, HostType, Location, Trip,
-                                 TripAvailability, TripBooking, TripItinerary,
-                                 TripPickupLocation, TripReview,
+                                 Host, HostRating, HostType, Location, Testimonial,
+                                 Trip, TripAvailability, TripBooking,
+                                 TripItinerary, TripPickupLocation, TripReview,
                                  TripReviewSummary, TripSchedule)
 
 
@@ -147,11 +147,13 @@ class TripReviewAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "trip",
+        "location",
         "meals",
         "accommodation",
         "transport",
         "value_for_money",
         "overall",
+        "is_verified",
     )
     list_filter = ("is_verified", "trip", "overall")
     search_fields = ["trip__name", "name"]
@@ -170,6 +172,13 @@ class TripReviewSummaryAdmin(admin.ModelAdmin):
     )
     list_filter = ("overall",)
     search_fields = ["trip__name"]
+
+
+@admin.register(Testimonial)
+class TestimonialAdmin(admin.ModelAdmin):
+    list_display = ("name", "location", "is_verified", "is_active", "created_at")
+    list_filter = ("is_verified", "is_active")
+    search_fields = ["name", "quote"]
 
 
 @admin.register(TripPickupLocation)

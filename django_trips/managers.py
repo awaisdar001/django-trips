@@ -16,6 +16,11 @@ class TripQuerySet(ActiveQuerySet):
     pass
 
 
+class TestimonialQuerySet(ActiveQuerySet):
+    def verified(self):
+        return self.filter(is_verified=True)
+
+
 class TripScheduleQuerySet(models.QuerySet):
     def active(self):
         return self.filter(start_date__lte=now(), end_date__gte=now())

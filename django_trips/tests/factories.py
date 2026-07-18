@@ -29,6 +29,7 @@ from django_trips.models import (
     Host,
     HostType,
     Location,
+    Testimonial,
     Trip,
     TripBooking,
     TripItinerary,
@@ -336,6 +337,17 @@ class TripReviewSummaryFactory(DjangoModelFactory):
         "pyfloat", min_value=1, max_value=5, right_digits=1
     )
     overall = factory.Faker("pyfloat", min_value=1, max_value=5, right_digits=1)
+
+
+class TestimonialFactory(DjangoModelFactory):
+    class Meta:
+        model = Testimonial
+
+    quote = factory.Faker("paragraph", nb_sentences=2)
+    name = factory.Faker("name")
+    location = factory.SubFactory(LocationFactory)
+    is_verified = True
+    is_active = True
 
 
 def _as_list(extracted):

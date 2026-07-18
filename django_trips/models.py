@@ -725,6 +725,15 @@ class TripReview(models.Model):
     # User details
     name = models.CharField(max_length=50)
     email = models.EmailField()
+    location = models.ForeignKey(
+        Location,
+        null=True,
+        blank=True,
+        related_name="trip_reviews",
+        on_delete=models.SET_NULL,
+        help_text="Reviewer's home location, e.g. for display as 'Lahore' "
+        "alongside their review.",
+    )
     is_verified = models.BooleanField(default=False)
     # timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -763,6 +772,48 @@ class TripReviewSummary(models.Model):
 
     def __repr__(self):
         return f"<TripReviewSummary trip={self.trip}-{self.meals}-{self.accommodation}"
+
+
+class Testimonial(models.Model):
+    """
+    Curated, site-wide testimonial for marketing/landing-page display.
+
+    Unlike TripReview (a rating breakdown tied to one specific trip),
+    testimonials are freeform quotes used for general social proof and
+    aren't required to reference any particular trip.
+    """
+
+    quote = models.TextField()
+    name = models.CharField(max_length=100)
+    location = models.ForeignKey(
+        Location,
+        null=True,
+        blank=True,
+        related_name="testimonials",
+        on_delete=models.SET_NULL,
+        help_text="Where the person is from, e.g. 'Lahore'.",
+    )
+    is_verified = models.BooleanField(
+        default=False,
+        help_text="Only verified testimonials should be shown publicly.",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Designates whether this testimonial should be shown publicly.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = managers.TestimonialQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name}: {self.quote[:50]}"  # pylint:disable=unsubscriptable-object
+
+    def __repr__(self):
+        return f"<Testimonial name={self.name} verified={self.is_verified}>"
 
 
 class CancellationPolicy(ConfigurationModel):

@@ -9,7 +9,9 @@ from django_trips.models import (
     Facility,
     HostType,
     Location,
+    Testimonial,
     TripItinerary,
+    TripReview,
     TripSchedule,
 )
 from django_trips.tests.factories import (
@@ -17,8 +19,10 @@ from django_trips.tests.factories import (
     GearFactory,
     HostFactory,
     LocationFactory,
+    TestimonialFactory,
     TripFactory,
     TripItineraryFactory,
+    TripReviewFactory,
     TripScheduleFactory,
     get_trip,
 )
@@ -318,3 +322,67 @@ class TripItineraryTestCase(TestCase):
     def test_location_and_category(self):
         self.assertIsNotNone(self.itinerary.location)
         self.assertIsNotNone(self.itinerary.category)
+
+
+class TripReviewLocationTestCase(TestCase):
+    def test_location_defaults_to_none(self):
+        """TripReview.location should be optional, defaulting to None."""
+        review = TripReviewFactory(location=None)
+        self.assertIsNone(review.location)
+
+    def test_location_can_be_set(self):
+        """TripReview.location should accept a Location instance."""
+        location = LocationFactory(name="Lahore")
+        review = TripReviewFactory(location=location)
+        self.assertEqual(review.location, location)
+
+    def test_location_set_null_on_delete(self):
+        """Deleting a Location should null out any TripReview.location referencing it."""
+        location = LocationFactory(name="Hunza")
+        review = TripReviewFactory(location=location)
+        location.delete()
+        review.refresh_from_db()
+        self.assertIsNone(review.location)
+
+
+class TestimonialTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.testimonial = TestimonialFactory()
+
+    def test_create(self):
+        self.assertIsInstance(self.testimonial, Testimonial)
+        self.assertIsNotNone(self.testimonial.id)
+        self.assertTrue(self.testimonial.is_verified)
+        self.assertTrue(self.testimonial.is_active)
+
+    def test_location_optional(self):
+        testimonial = TestimonialFactory(location=None)
+        self.assertIsNone(testimonial.location)
+
+    def test_location_set_null_on_delete(self):
+        location = LocationFactory(name="Skardu")
+        testimonial = TestimonialFactory(location=location)
+        location.delete()
+        testimonial.refresh_from_db()
+        self.assertIsNone(testimonial.location)
+
+    def test_verified_manager_filters_unverified(self):
+        TestimonialFactory(is_verified=True)
+        TestimonialFactory(is_verified=False)
+        verified = Testimonial.objects.verified()
+        self.assertTrue(all(t.is_verified for t in verified))
+        self.assertFalse(any(not t.is_verified for t in verified))
+
+    def test_active_manager_filters_inactive(self):
+        TestimonialFactory(is_active=True)
+        TestimonialFactory(is_active=False)
+        active = Testimonial.objects.active()
+        self.assertTrue(all(t.is_active for t in active))
+
+    def test_ordering_is_newest_first(self):
+        older = TestimonialFactory()
+        newer = TestimonialFactory()
+        testimonials = list(Testimonial.objects.filter(id__in=[older.id, newer.id]))
+        self.assertEqual(testimonials[0], newer)
+        self.assertEqual(testimonials[1], older)

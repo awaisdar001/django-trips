@@ -142,6 +142,18 @@ REST_FRAMEWORK = {
 # # # # # # # # # # # # # # # # # # # # # # #
 USE_DEFAULT_TRIPS = False
 
+# Maps a region/province name to the location names within it. Used by
+# generate_trips to link each seeded Location to a PROVINCE-level parent,
+# so generated destinations have a working `region` instead of None.
+TRIP_LOCATIONS_BY_REGION = {
+    "Gilgit-Baltistan": ("Fairy Meadows", "Hunza", "Gilgit", "Skardu"),
+    "Khyber Pakhtunkhwa": ("Swat", "Kaghan"),
+    "Azad Kashmir": ("Kashmir",),
+    "Punjab": ("Lahore", "Murree"),
+    "Sindh": ("Karachi",),
+    "Islamabad Capital Territory": ("Islamabad",),
+}
+
 TRIP_DESTINATIONS = (
     "Fairy Meadows",
     "Hunza",

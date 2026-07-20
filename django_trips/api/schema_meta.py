@@ -16,6 +16,7 @@ from django_trips.api.serializers import (
     TripCreateSerializer,
     TripDetailSerializer,
     TripListSerializer,
+    TripWishlistToggleSerializer,
 )
 
 
@@ -159,6 +160,27 @@ trip_delete_schema = extend_schema(
         403: OpenApiResponse(description="Permission denied"),
         404: OpenApiResponse(description="Trip not found"),
     },
+    tags=SchemaTags.TRIPS.value,
+)
+
+trip_wishlist_toggle_schema = extend_schema(
+    summary="Toggle trip wishlist",
+    description="Add the trip to the current user's wishlist if it isn't already "
+    "wishlisted, otherwise remove it. Requires authentication.",
+    request=None,
+    responses={
+        200: TripWishlistToggleSerializer,
+        403: OpenApiResponse(description="Authentication required"),
+        404: OpenApiResponse(description="Trip not found"),
+    },
+    parameters=[
+        OpenApiParameter(
+            "identifier",
+            OpenApiTypes.STR,
+            OpenApiParameter.PATH,
+            description="Unique trip ID or slug to identify the trip.",
+        )
+    ],
     tags=SchemaTags.TRIPS.value,
 )
 

@@ -360,6 +360,32 @@ class TripImageSerializer(serializers.ModelSerializer):
         fields = ("id", "image", "alt_text", "order")
 
 
+def get_is_wished(trip, context):
+    """
+    Whether the current authenticated request user has wishlisted this trip.
+
+    Prefers the `wished_trip_ids` set precomputed once per request by
+    TripViewSet.get_serializer_context (avoids an `exists()` query per trip
+    on list endpoints); falls back to a direct query when that context isn't
+    present, e.g. TripDetailSerializer nested inside TripBookingSerializer.
+    """
+    wished_trip_ids = context.get("wished_trip_ids")
+    if wished_trip_ids is not None:
+        return trip.id in wished_trip_ids
+
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return False
+    return trip.wishlisted_by.filter(user=user).exists()
+
+
+class TripWishlistToggleSerializer(serializers.Serializer):  # pylint:disable=abstract-method
+    """Response body for the trip wishlist toggle action."""
+
+    is_wished = serializers.BooleanField(read_only=True)
+
+
 class TripListSerializer(serializers.ModelSerializer):
     destination = LocationSerializer()
     duration = serializers.SerializerMethodField()
@@ -368,6 +394,7 @@ class TripListSerializer(serializers.ModelSerializer):
     starting_price = serializers.ReadOnlyField()
     review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
+    is_wished = serializers.SerializerMethodField()
     country = CountryField()
     categories = CategorySerializer(many=True)
     facilities = FacilitySerializer(many=True)
@@ -392,6 +419,7 @@ class TripListSerializer(serializers.ModelSerializer):
             "passenger_limit_max",
             "featured",
             "trip_url",
+            "is_wished",
             "host",
         )
 
@@ -408,6 +436,10 @@ class TripListSerializer(serializers.ModelSerializer):
     )
     def get_trip_url(self, trip):
         return reverse("trips-api:trip-detail", kwargs={"identifier": trip.slug})
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_is_wished(self, trip):
+        return get_is_wished(trip, self.context)
 
 
 class TripItineraryReadSerializer(BaseTripItinerarySerializer):
@@ -432,6 +464,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     starting_price = serializers.ReadOnlyField()
     review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
+    is_wished = serializers.SerializerMethodField()
     facilities = FacilitySerializer(many=True)
     gear = GearSerializer(many=True)
     departure = LocationSerializer()
@@ -485,6 +518,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "created_by",
             "host",
             "tags",
+            "is_wished",
             # Additional Model relations.
             "trip_url",
             "trip_itinerary",
@@ -504,6 +538,10 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     )
     def get_trip_url(self, trip):
         return reverse("trips-api:trip-detail", kwargs={"identifier": trip.slug})
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_is_wished(self, trip):
+        return get_is_wished(trip, self.context)
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_cancellation_policy(self, obj: "Trip") -> str:

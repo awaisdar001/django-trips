@@ -987,6 +987,30 @@ class TripBooking(TimeStampedModel):
         return f"{prefix}{padded_number}{suffix}"
 
 
+class TripWishlist(models.Model):
+    """
+    A user's saved/wishlisted trip (e.g. a "heart" toggle in a trip listing).
+    """
+
+    user = models.ForeignKey(
+        User, related_name="wishlisted_trips", on_delete=models.CASCADE
+    )
+    trip = models.ForeignKey(
+        Trip, related_name="wishlisted_by", on_delete=models.CASCADE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "trip")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} - {self.trip}"
+
+    def __repr__(self):
+        return f"<TripWishlist user={self.user} trip={self.trip}>"
+
+
 class TripPickupLocation(models.Model):
     """Trip pickup locations"""
 

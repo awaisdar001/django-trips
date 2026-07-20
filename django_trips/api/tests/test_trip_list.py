@@ -65,7 +65,7 @@ class TestTripListAPI(AuthenticatedUserTestCase):
             "duration",
             "country",
             "categories",
-            "is_featured",
+            "featured",
             "trip_url",
             "host",
         ]
@@ -161,7 +161,7 @@ class TestTripListAPI(AuthenticatedUserTestCase):
 
         # Misc fields
         self.assertEqual(trip_data["metadata"], trip_obj.metadata)
-        self.assertEqual(trip_data["is_featured"], trip_obj.is_featured)
+        self.assertEqual(trip_data["featured"], trip_obj.featured)
         self.assertEqual(trip_data["is_pax_required"], trip_obj.is_pax_required)
         self.assertEqual(trip_data["is_active"], trip_obj.is_active)
 

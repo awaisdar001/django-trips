@@ -21,6 +21,7 @@ import django_trips.managers as managers
 from django_trips.choices import (
     AvailabilityType,
     BookingStatus,
+    FeaturedType,
     LocationType,
     ScheduleStatus,
     TripOptions,
@@ -358,8 +359,12 @@ class Trip(SlugMixin, models.Model):
     # meta includes tinyurl, poster
     metadata = models.JSONField(default=dict, blank=True)
 
-    is_featured = models.BooleanField(
-        default=False, help_text="Display in featured/promoted sections"
+    featured = models.CharField(
+        max_length=20,
+        choices=FeaturedType.choices,
+        null=True,
+        blank=True,
+        help_text="Promotional badge shown on the trip (e.g. Bestseller, Popular); left blank if not featured",
     )
     is_pax_required = models.BooleanField(
         default=True, help_text="Whether passenger count must be specified"
@@ -387,7 +392,7 @@ class Trip(SlugMixin, models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["is_active"]),
-            models.Index(fields=["is_featured"]),
+            models.Index(fields=["featured"]),
         ]
         ordering = ["-created_at", "-id"]
 

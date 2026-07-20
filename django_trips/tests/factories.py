@@ -196,7 +196,7 @@ class TripFactory(DjangoModelFactory):
         }
     )
 
-    is_featured = factory.Faker("boolean")
+    featured = None
     is_pax_required = factory.Faker("boolean")
     is_active = True
 

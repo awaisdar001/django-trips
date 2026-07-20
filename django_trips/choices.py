@@ -7,6 +7,14 @@ class TripOptions(models.TextChoices):
     PREMIUM = "PREMIUM", "Premium Package"
 
 
+class FeaturedType(models.TextChoices):
+    BESTSELLER = "BESTSELLER", "Bestseller"
+    POPULAR = "POPULAR", "Popular"
+    TOP_RATED = "TOP_RATED", "Top Rated"
+    TRENDING = "TRENDING", "Trending"
+    NEW = "NEW", "New"
+
+
 class LocationType(models.TextChoices):
     TOWN = "TOWN", "Town"
     CITY = "CITY", "City"

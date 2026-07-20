@@ -32,6 +32,7 @@ from django_trips.models import (
     Testimonial,
     Trip,
     TripBooking,
+    TripImage,
     TripItinerary,
     TripOption,
     TripReview,
@@ -263,6 +264,16 @@ class TripItineraryFactory(DjangoModelFactory):
     # pylint:disable=unnecessary-lambda
     start_time = factory.LazyFunction(lambda: timezone.now())
     end_time = factory.LazyAttribute(lambda o: o.start_time + timedelta(hours=3))
+
+
+class TripImageFactory(DjangoModelFactory):
+    class Meta:
+        model = TripImage
+
+    trip = factory.SubFactory(TripFactory)
+    image = factory.Faker("image_url")
+    alt_text = factory.Faker("sentence", nb_words=4)
+    order = factory.Sequence(lambda n: n)
 
 
 class TripOptionFactory(DjangoModelFactory):

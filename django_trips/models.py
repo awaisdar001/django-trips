@@ -222,6 +222,11 @@ class Facility(SlugMixin, models.Model):
 
     name = models.CharField(max_length=70, unique=True)
     slug = models.SlugField(max_length=85, unique=True, null=True, blank=True)
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Icon identifier for frontend rendering (e.g. a lucide icon name)",
+    )
     is_active = models.BooleanField(default=True)
 
     objects = managers.ActiveQuerySet.as_manager()
@@ -240,6 +245,11 @@ class Facility(SlugMixin, models.Model):
 class Category(SlugMixin, models.Model):
     name = models.CharField(max_length=70)
     slug = models.SlugField(max_length=85, unique=True, null=True, blank=True)
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Icon identifier for frontend rendering (e.g. a lucide icon name)",
+    )
     is_active = models.BooleanField(default=True)
 
     objects = managers.ActiveQuerySet.as_manager()
@@ -412,7 +422,14 @@ class Trip(SlugMixin, models.Model):
 
     @property
     def poster(self):
-        """Primary listing image URL, stored under metadata['poster']."""
+        """
+        Primary listing image URL: the first `TripImage` (by `order`), or
+        the legacy `metadata['poster']` string for trips that predate the
+        image gallery.
+        """
+        first_image = self.images.first()
+        if first_image:
+            return first_image.image
         return self.metadata.get("poster", "") if self.metadata else ""
 
     @property
@@ -541,6 +558,32 @@ class Trip(SlugMixin, models.Model):
                     total_created += 1
 
         return total_created
+
+
+class TripImage(models.Model):
+    """
+    A single photo in a Trip's gallery/carousel.
+
+    Ordered by `order` (ascending, ties broken by `id`); `Trip.poster` uses
+    the first one as the primary/listing image, falling back to the legacy
+    `metadata['poster']` string for trips that predate this gallery.
+    """
+
+    trip = models.ForeignKey(Trip, related_name="images", on_delete=models.CASCADE)
+    image = models.URLField(help_text="URL of the photo")
+    alt_text = models.CharField(max_length=255, blank=True)
+    order = models.PositiveSmallIntegerField(
+        default=0, help_text="Display order within the trip's gallery (ascending)"
+    )
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.trip}: image #{self.order}"
+
+    def __repr__(self):
+        return f"<TripImage trip={self.trip} order={self.order}>"
 
 
 class TripItinerary(models.Model):

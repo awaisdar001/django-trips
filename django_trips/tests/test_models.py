@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 
@@ -13,6 +14,7 @@ from django_trips.models import (
     TripItinerary,
     TripReview,
     TripSchedule,
+    TripWishlist,
 )
 from django_trips.tests.factories import (
     FacilityFactory,
@@ -25,6 +27,8 @@ from django_trips.tests.factories import (
     TripItineraryFactory,
     TripReviewFactory,
     TripScheduleFactory,
+    TripWishlistFactory,
+    UserFactory,
     get_trip,
 )
 
@@ -414,3 +418,43 @@ class TestimonialTestCase(TestCase):
         testimonials = list(Testimonial.objects.filter(id__in=[older.id, newer.id]))
         self.assertEqual(testimonials[0], newer)
         self.assertEqual(testimonials[1], older)
+
+
+class TripWishlistTestCase(TestCase):
+    def test_create(self):
+        wishlist_entry = TripWishlistFactory()
+        self.assertIsInstance(wishlist_entry, TripWishlist)
+        self.assertIsNotNone(wishlist_entry.id)
+        self.assertIsNotNone(wishlist_entry.created_at)
+
+    def test_user_trip_pair_is_unique(self):
+        """A user can't wishlist the same trip twice."""
+        user = UserFactory()
+        trip = TripFactory(trip_schedule=None)
+        TripWishlistFactory(user=user, trip=trip)
+        with self.assertRaises(IntegrityError):
+            TripWishlistFactory(user=user, trip=trip)
+
+    def test_same_trip_wishlisted_by_different_users(self):
+        trip = TripFactory(trip_schedule=None)
+        first = TripWishlistFactory(trip=trip)
+        second = TripWishlistFactory(trip=trip)
+        self.assertEqual(trip.wishlisted_by.count(), 2)
+        self.assertIn(first, trip.wishlisted_by.all())
+        self.assertIn(second, trip.wishlisted_by.all())
+
+    def test_deleting_trip_removes_wishlist_entry(self):
+        trip = TripFactory(trip_schedule=None)
+        wishlist_entry = TripWishlistFactory(trip=trip)
+        trip.delete()
+        self.assertFalse(
+            TripWishlist.objects.filter(id=wishlist_entry.id).exists()
+        )
+
+    def test_deleting_user_removes_wishlist_entry(self):
+        user = UserFactory()
+        wishlist_entry = TripWishlistFactory(user=user)
+        user.delete()
+        self.assertFalse(
+            TripWishlist.objects.filter(id=wishlist_entry.id).exists()
+        )

@@ -66,6 +66,7 @@ The following pages are served in the development:
 | Update Trip             | PUT    | http://localhost:8000/api/v1/trips/{identifier}/             |
 | Delete Trip             | DELETE | http://localhost:8000/api/v1/trips/{identifier}/             |
 | Create Trip             | POST   | http://localhost:8000/api/v1/trips/                          |
+| Toggle Trip Wishlist    | POST   | http://localhost:8000/api/v1/trips/{identifier}/wishlist/     |
 | Destinations List       | GET    | http://localhost:8000/api/v1/destinations/                   |
 | Destinations Detail     | GET    | _TODO_                                                         |
 | All Trip Bookings       | GET    | http://localhost:8000/api/v1/trips/{trip_id}/bookings/       |

@@ -6,7 +6,8 @@ from django_trips.models import (CancellationPolicy, Category, Facility, Gear,
                                  Host, HostRating, HostType, Location, Testimonial,
                                  Trip, TripAvailability, TripBooking,
                                  TripImage, TripItinerary, TripPickupLocation,
-                                 TripReview, TripReviewSummary, TripSchedule)
+                                 TripReview, TripReviewSummary, TripSchedule,
+                                 TripWishlist)
 
 
 class TripScheduleAdminInline(admin.TabularInline):
@@ -204,6 +205,13 @@ class TripBookingSummaryAdmin(admin.ModelAdmin):
     list_display = ("full_name", "schedule", "phone_number", "message")
     search_fields = ["schedule__trip__name", "name"]
     list_filter = ("schedule__trip__name", "target_date")
+
+
+@admin.register(TripWishlist)
+class TripWishlistAdmin(admin.ModelAdmin):
+    list_display = ("user", "trip", "created_at")
+    search_fields = ["user__username", "trip__name"]
+    list_filter = ("created_at",)
 
 
 @admin.register(HostType)

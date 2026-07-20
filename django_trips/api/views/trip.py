@@ -5,9 +5,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -21,6 +22,7 @@ from django_trips.api.schema_meta import (
     trip_list_schema,
     trip_retrieve_schema,
     trip_update_schema,
+    trip_wishlist_toggle_schema,
     upcoming_trips_list_schema,
 )
 from django_trips.api.serializers import (
@@ -28,10 +30,11 @@ from django_trips.api.serializers import (
     TripCreateSerializer,
     TripDetailSerializer,
     TripListSerializer,
+    TripWishlistToggleSerializer,
     UpcomingTripListSerializer,
 )
 from django_trips.choices import ScheduleStatus
-from django_trips.models import Location, Trip, TripSchedule
+from django_trips.models import Location, Trip, TripSchedule, TripWishlist
 from django_trips.permissions import IsStaffForDeleteOnly
 
 
@@ -41,6 +44,7 @@ from django_trips.permissions import IsStaffForDeleteOnly
     create=trip_create_schema,
     update=trip_update_schema,
     destroy=trip_delete_schema,
+    wishlist=trip_wishlist_toggle_schema,
 )
 class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
     """
@@ -110,6 +114,34 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
         if identifier.isdigit():
             return get_object_or_404(Trip, pk=int(identifier))
         return get_object_or_404(Trip, slug=identifier)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = self.request.user
+        context["wished_trip_ids"] = (
+            set(TripWishlist.objects.filter(user=user).values_list("trip_id", flat=True))
+            if user.is_authenticated
+            else set()
+        )
+        return context
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="wishlist",
+        permission_classes=[IsAuthenticated],
+    )
+    def wishlist(self, request, *args, **kwargs):  # pylint:disable=unused-argument
+        """Toggle the current user's wishlist membership for this trip."""
+        trip = self.get_object()
+        wishlist_entry, created = TripWishlist.objects.get_or_create(
+            user=request.user, trip=trip
+        )
+        if not created:
+            wishlist_entry.delete()
+
+        serializer = TripWishlistToggleSerializer({"is_wished": created})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

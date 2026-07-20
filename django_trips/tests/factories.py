@@ -38,6 +38,7 @@ from django_trips.models import (
     TripReview,
     TripReviewSummary,
     TripSchedule,
+    TripWishlist,
 )
 
 USER_PASSWORD = "pswd"
@@ -348,6 +349,14 @@ class TripReviewSummaryFactory(DjangoModelFactory):
         "pyfloat", min_value=1, max_value=5, right_digits=1
     )
     overall = factory.Faker("pyfloat", min_value=1, max_value=5, right_digits=1)
+
+
+class TripWishlistFactory(DjangoModelFactory):
+    class Meta:
+        model = TripWishlist
+
+    user = factory.SubFactory(UserFactory)
+    trip = factory.SubFactory(TripFactory)
 
 
 class TestimonialFactory(DjangoModelFactory):

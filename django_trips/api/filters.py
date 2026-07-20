@@ -66,18 +66,20 @@ class TripFilter(TripBaseFilter):
     )
     date_from = filters.DateFilter(
         method="filter_noop",
-        help_text="Filter trips with a published schedule starting on or after this date (YYYY-MM-DD).",
+        help_text="Filter trips with a published schedule starting on or "
+        "after this date (YYYY-MM-DD).",
     )
     date_to = filters.DateFilter(
         method="filter_noop",
-        help_text="Filter trips with a published schedule ending on or before this date (YYYY-MM-DD).",
+        help_text="Filter trips with a published schedule ending on or "
+        "before this date (YYYY-MM-DD).",
     )
 
     class Meta(TripBaseFilter.Meta):
         model = Trip
         fields = []
 
-    def filter_noop(self, queryset, name, value):
+    def filter_noop(self, queryset, _name, _value):
         """Actual filtering for these fields happens once, combined, in filter_queryset()."""
         return queryset
 

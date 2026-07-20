@@ -72,7 +72,13 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = TripFilter
-    ordering_fields = ["name", "duration", ("annotated_starting_price", "price")]
+    # DRF's OrderingFilter validates/orders by the literal client-supplied term
+    # (a 2-tuple only supplies a display label, it isn't an alias) so the
+    # annotation below must be named exactly `price` to make `?ordering=price`
+    # work. It's still distinct from the `starting_price` model property:
+    # annotating under that name would make Django try to setattr() a value
+    # onto a property with no setter, raising AttributeError per row.
+    ordering_fields = ["name", "duration", "price"]
     queryset = Trip.objects.active()
 
     serializer_class = TripDetailSerializer
@@ -82,11 +88,8 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.action == "list":
-            # Named distinctly from the `starting_price` model property: annotating
-            # under that same name would make Django try to setattr() a value onto
-            # a property with no setter, raising AttributeError per row.
             queryset = queryset.annotate(
-                annotated_starting_price=Min(
+                price=Min(
                     "schedules__price",
                     filter=Q(schedules__status=ScheduleStatus.PUBLISHED),
                 )

@@ -65,11 +65,13 @@ class TripAdmin(admin.ModelAdmin):
         "host",
         "departure",
         "destination",
+        "featured",
         "get_date",
     )
     list_filter = (
         "availabilities__type",
         "destination",
+        "featured",
     )
     search_fields = ["name", "description", "slug", "locations__name"]
 

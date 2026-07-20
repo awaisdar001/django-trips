@@ -19,6 +19,7 @@ from django_trips.models import (
     Location,
     Trip,
     TripBooking,
+    TripImage,
     TripItinerary,
     TripOption,
     TripReviewSummary,
@@ -45,7 +46,7 @@ class UserSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ("name", "slug")
+        fields = ("name", "slug", "icon")
 
 
 class CategoryListSerializer(CategorySerializer):
@@ -94,7 +95,7 @@ class FacilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Facility
-        fields = ("id", "name", "slug", "is_active")
+        fields = ("id", "name", "slug", "icon", "is_active")
 
 
 class GearSerializer(serializers.ModelSerializer):
@@ -351,15 +352,25 @@ def get_trip_review_summary_data(trip):
     return data
 
 
+class TripImageSerializer(serializers.ModelSerializer):
+    """A single photo in a trip's gallery/carousel."""
+
+    class Meta:
+        model = TripImage
+        fields = ("id", "image", "alt_text", "order")
+
+
 class TripListSerializer(serializers.ModelSerializer):
     destination = LocationSerializer()
     duration = serializers.SerializerMethodField()
     poster = serializers.ReadOnlyField()
+    images = TripImageSerializer(many=True, read_only=True)
     starting_price = serializers.ReadOnlyField()
     review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
     country = CountryField()
     categories = CategorySerializer(many=True)
+    facilities = FacilitySerializer(many=True)
     host = HostSerializer()
 
     class Meta:
@@ -371,10 +382,14 @@ class TripListSerializer(serializers.ModelSerializer):
             "destination",
             "duration",
             "poster",
+            "images",
             "starting_price",
             "review_summary",
             "country",
             "categories",
+            "facilities",
+            "passenger_limit_min",
+            "passenger_limit_max",
             "featured",
             "trip_url",
             "host",
@@ -413,6 +428,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     cancellation_policy = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
     poster = serializers.ReadOnlyField()
+    images = TripImageSerializer(many=True, read_only=True)
     starting_price = serializers.ReadOnlyField()
     review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
@@ -448,6 +464,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "facilities",
             "gear",
             "poster",
+            "images",
             "starting_price",
             "review_summary",
             "passenger_limit_min",

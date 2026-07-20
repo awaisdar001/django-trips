@@ -40,6 +40,16 @@ class TestCategoriesListAPI(AuthenticatedUserTestCase):
         categories = self.get_categories()
         self.assertEqual(categories["Aerial Adventures"]["trips_count"], 0)
 
+    def test_category_icon_exposed(self):
+        CategoryFactory(name="Hiking & Camping", icon="mountain")
+        categories = self.get_categories()
+        self.assertEqual(categories["Hiking & Camping"]["icon"], "mountain")
+
+    def test_category_icon_defaults_to_empty_string(self):
+        CategoryFactory(name="No Icon Category")
+        categories = self.get_categories()
+        self.assertEqual(categories["No Icon Category"]["icon"], "")
+
     def test_inactive_category_excluded(self):
         CategoryFactory(name="Retired Category", is_active=False)
         categories = self.get_categories()

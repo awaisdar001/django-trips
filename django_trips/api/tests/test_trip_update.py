@@ -127,7 +127,7 @@ class TripUpdateTestCase(AuthenticatedUserTestCase):
         )
         self.assertEqual(
             trip_itinerary["category"],
-            {"name": self.category.name, "slug": ANY},
+            {"name": self.category.name, "slug": ANY, "icon": ANY},
         )
 
     def test_trip_update_missing_required_field(self):

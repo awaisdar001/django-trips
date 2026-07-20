@@ -5,8 +5,8 @@ from django.contrib import admin
 from django_trips.models import (CancellationPolicy, Category, Facility, Gear,
                                  Host, HostRating, HostType, Location, Testimonial,
                                  Trip, TripAvailability, TripBooking,
-                                 TripItinerary, TripPickupLocation, TripReview,
-                                 TripReviewSummary, TripSchedule)
+                                 TripImage, TripItinerary, TripPickupLocation,
+                                 TripReview, TripReviewSummary, TripSchedule)
 
 
 class TripScheduleAdminInline(admin.TabularInline):
@@ -40,6 +40,13 @@ class TripItineraryAdminInline(admin.StackedInline):
     extra = 0
 
 
+class TripImageAdminInline(admin.TabularInline):
+    """Trip photo gallery inline modal admin"""
+
+    model = TripImage
+    extra = 1
+
+
 admin.register(CancellationPolicy)
 
 
@@ -49,6 +56,7 @@ class TripAdmin(admin.ModelAdmin):
 
     inlines = [
         TripAvailabilityAdminInline,
+        TripImageAdminInline,
         TripItineraryAdminInline,
         TripScheduleAdminInline,
         TripReviewSummaryInline,
@@ -84,6 +92,7 @@ class FacilityAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
+        "icon",
     )
 
 
@@ -221,7 +230,7 @@ class TripAvailabilityAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name",)
+    list_display = ("name", "icon")
     search_fields = ["name"]
     prepopulated_fields = {"slug": ("name",)}
 

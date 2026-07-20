@@ -21,6 +21,7 @@ from django_trips.tests.factories import (
     LocationFactory,
     TestimonialFactory,
     TripFactory,
+    TripImageFactory,
     TripItineraryFactory,
     TripReviewFactory,
     TripScheduleFactory,
@@ -213,6 +214,33 @@ class TestTrip(TestCase):
         TripItineraryFactory(trip=self.trip, day_index=1)
         TripItineraryFactory(trip=self.trip, day_index=2)
         self.assertEqual(self.trip.itinerary_days.all().count(), 2)
+
+    def test_trip_images_ordering(self):
+        """Images should come back ordered by `order`, regardless of creation order."""
+        second = TripImageFactory(trip=self.trip, order=2)
+        first = TripImageFactory(trip=self.trip, order=1)
+        third = TripImageFactory(trip=self.trip, order=3)
+
+        self.assertEqual(list(self.trip.images.all()), [first, second, third])
+
+    def test_poster_prefers_first_trip_image_over_metadata(self):
+        """Trip.poster should use the first TripImage (by order) when one exists."""
+        trip = TripFactory(
+            metadata={"poster": "https://example.com/legacy-poster.jpg"},
+            trip_schedule=None,
+        )
+        TripImageFactory(trip=trip, order=2, image="https://example.com/second.jpg")
+        TripImageFactory(trip=trip, order=1, image="https://example.com/first.jpg")
+
+        self.assertEqual(trip.poster, "https://example.com/first.jpg")
+
+    def test_poster_falls_back_to_metadata_without_trip_images(self):
+        """Trip.poster should fall back to legacy metadata['poster'] when there's no TripImage."""
+        trip = TripFactory(
+            metadata={"poster": "https://example.com/legacy-poster.jpg"},
+            trip_schedule=None,
+        )
+        self.assertEqual(trip.poster, "https://example.com/legacy-poster.jpg")
 
     def test_trip_schedule(self):
         """Test Trip schedule update."""

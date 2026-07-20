@@ -80,6 +80,12 @@ Everything hangs off `Trip` (`django_trips/models.py`). Key relationships:
 - `CancellationPolicy`/`RefundPolicy` are `ConfigurationModel` (django-config-models) singletons for the
   host-wide default; `Trip.cancellation_policy`/`refund_policy` properties prefer the host's own policy over these
   defaults when set.
+- `TripWishlist` is a simple `(user, trip)` join (unique together) for a user's saved/wishlisted trips, toggled via
+  `TripViewSet.wishlist` (`POST /trips/<identifier>/wishlist/`). The `is_wished` field on
+  `TripListSerializer`/`TripDetailSerializer` is backed by a `wished_trip_ids` set precomputed once per request in
+  `TripViewSet.get_serializer_context` (avoids an `exists()` query per trip on `/trips/`); `get_is_wished()` in
+  `api/serializers.py` falls back to a direct per-object query when that context key is absent, e.g. when
+  `TripDetailSerializer` is rendered nested inside `TripBookingSerializer`.
 
 ### API layer
 

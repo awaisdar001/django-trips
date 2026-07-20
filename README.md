@@ -61,7 +61,7 @@ The following pages are served in the development:
 |-------------------------|--------|--------------------------------------------------------------|
 | All Trips List          | GET    | http://localhost:8000/api/v1/trips/                          |
 | Upcoming Trips List     | GET    | http://localhost:8000/api/v1/trips/upcoming/                 |
-| Search Trip             | GET    | http://localhost:8000/api/v1/trips/upcoming/?name=Boston/    |
+| Search Trip             | GET    | http://localhost:8000/api/v1/trips/upcoming/?name=Boston      |
 | Single Trip             | GET    | http://localhost:8000/api/v1/trips/{identifier}/             |
 | Update Trip             | PUT    | http://localhost:8000/api/v1/trips/{identifier}/             |
 | Delete Trip             | DELETE | http://localhost:8000/api/v1/trips/{identifier}/             |
@@ -76,8 +76,23 @@ The following pages are served in the development:
 | Review Trip             | GET    | _TODO_                                                         |
 | Trip Reviews & Comments | GET    | _TODO_                                                         |
 
+### Filtering & ordering
 
+`GET /trips/` supports the following query parameters (see `TripFilter` in `api/filters.py`):
 
+| Param                          | Description                                                    |
+|---------------------------------|------------------------------------------------------------------|
+| `name`                          | Case-insensitive partial match on trip name                     |
+| `destination`                    | Comma-separated destination slugs, e.g. `?destination=hunza,skardu` |
+| `category`                       | Comma-separated category slugs, e.g. `?category=hiking,camping` |
+| `duration_from` / `duration_to`  | Trip duration in days (inclusive)                                |
+| `price_from` / `price_to`        | Only matches trips with a single published schedule in this price range |
+| `date_from` / `date_to`          | Only matches trips with a single published schedule in this date range (`YYYY-MM-DD`) |
+| `ordering`                       | One of `name`, `duration`, `price`; prefix with `-` for descending, e.g. `?ordering=-price` |
+
+`GET /trips/upcoming/` supports its own equivalent set of filters (`name`, `price_from`/`price_to`,
+`date_from`/`date_to`, `destination`, `duration_from`/`duration_to`) plus
+`?ordering=` on `trip__name`, `price`, `start_date`, or `trip__duration`.
 
 ### API permissions
 | Authentication          | Token Life |   
@@ -123,7 +138,7 @@ OR
 ## Test
 Run tests using the following command.
 ```
-make tests
+make test
 ```
 ## Docker Commands
 
@@ -133,7 +148,7 @@ make tests
 | Trail Logs                        | `make logs`    |
 | Attach sever                      | `make attach`  |
 | Stop server                       | `make stop`    |
-| * Destroy docker container.       | `make destory` |
+| * Destroy docker container.       | `make destroy` |
 
 _* caution, this will remove all your data._
 

@@ -142,7 +142,17 @@ class Command(BaseCommand):
     def create_schedules(self, trip):
         now = timezone.now()
         duration_days = trip.duration.days
-        price_choices = [1000, 5000, 6000, 9000]
+
+        # Per-day rate in PKR, scaled by duration so price reflects trip
+        # length instead of being picked from a flat, duration-independent
+        # pool (that produced unrealistic outliers like a 12-day trip
+        # priced at PKR 5,000). Schedules still vary a bit around that
+        # base to reflect early-bird/last-minute pricing.
+        per_day_rate = random.randint(7000, 9500)
+        base_price = per_day_rate * duration_days
+        price_choices = [
+            round(base_price * factor / 10000) * 100 for factor in (90, 100, 110, 125)
+        ]
 
         # 1. Expired schedule
         TripSchedule.objects.create(

@@ -7,7 +7,7 @@ from django_trips.models import (CancellationPolicy, Category, Facility, Gear,
                                  Trip, TripAvailability, TripBooking,
                                  TripImage, TripItinerary, TripPickupLocation,
                                  TripReview, TripReviewSummary, TripSchedule,
-                                 TripWishlist)
+                                 TripWishlist, TrustBadge)
 
 
 class TripScheduleAdminInline(admin.TabularInline):
@@ -81,6 +81,7 @@ class TripAdmin(admin.ModelAdmin):
         "availabilities__type",
         "destination",
         "featured",
+        "host",
     )
     search_fields = ["name", "description", "slug", "locations__name"]
 
@@ -90,6 +91,20 @@ class FacilityAdmin(admin.ModelAdmin):
     """Facility modal admin configuration"""
 
     prepopulated_fields = {"slug": ("name",)}
+    search_fields = ["name", "slug"]
+    list_display = (
+        "name",
+        "slug",
+        "icon",
+    )
+
+
+@admin.register(TrustBadge)
+class TrustBadgeAdmin(admin.ModelAdmin):
+    """Trust badge modal admin configuration"""
+
+    prepopulated_fields = {"slug": ("name",)}
+    search_fields = ["name", "slug"]
     list_display = (
         "name",
         "slug",
@@ -143,13 +158,23 @@ class TripScheduleAdmin(admin.ModelAdmin):
     raw_id_fields = ("trip",)
 
 
+@admin.action(description="Mark selected hosts as inactive (and deactivate their trips)")
+def deactivate_hosts(modeladmin, request, queryset):
+    trips_updated = Trip.objects.filter(host__in=queryset).update(is_active=False)
+    hosts_updated = queryset.update(is_active=False)
+    modeladmin.message_user(
+        request, f"Deactivated {hosts_updated} host(s) and {trips_updated} of their trip(s)."
+    )
+
+
 @admin.register(Host)
 class HostAdmin(admin.ModelAdmin):
     """Host modal admin configuration"""
 
     inlines = [HostRatingInline]
-    list_display = ("name", "description", "verified")
-    list_filter = ("verified",)
+    actions = [deactivate_hosts]
+    list_display = ("name", "description", "verified", "is_active")
+    list_filter = ("verified", "is_active")
     search_fields = ["name", "description"]
     prepopulated_fields = {"slug": ("name",)}
 

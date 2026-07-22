@@ -185,8 +185,8 @@ TRIP_FACILITIES = (
 TRIP_CATEGORIES = (
     "Long Drive",
     "Honeymoon",
-    "Rode Trip",
-    "Bone fire",
+    "Road Trip",
+    "Bonfire",
     "Hiking",
 )
 TRIP_GEARS = (

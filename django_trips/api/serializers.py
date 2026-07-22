@@ -24,6 +24,7 @@ from django_trips.models import (
     TripOption,
     TripReviewSummary,
     TripSchedule,
+    TrustBadge,
 )
 from django_trips.utils import format_trip_duration
 
@@ -95,6 +96,14 @@ class FacilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Facility
+        fields = ("id", "name", "slug", "icon", "is_active")
+
+
+class TrustBadgeSerializer(serializers.ModelSerializer):
+    """Trust Badge Modal Serializer"""
+
+    class Meta:
+        model = TrustBadge
         fields = ("id", "name", "slug", "icon", "is_active")
 
 
@@ -204,6 +213,12 @@ class TripCreateSerializer(serializers.ModelSerializer):
         queryset=Facility.objects.active(),
         help_text="Facilities identifiers included in the trip (e.g. transport, meals).",
     )
+    trust_badges = serializers.PrimaryKeyRelatedField(
+        many=True,
+        required=False,
+        queryset=TrustBadge.objects.active(),
+        help_text="Trust badge identifiers for this trip (e.g. certified guide, free cancellation).",
+    )
     gear = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Gear.objects.active(),
@@ -233,6 +248,7 @@ class TripCreateSerializer(serializers.ModelSerializer):
             "requirements",
             "child_policy",
             "facilities",
+            "trust_badges",
             "gear",
             "duration",
             "passenger_limit_min",
@@ -264,6 +280,7 @@ class TripCreateSerializer(serializers.ModelSerializer):
         itinerary_data = validated_data.pop("trip_itinerary", [])
         locations = validated_data.pop("locations", [])
         facilities = validated_data.pop("facilities", [])
+        trust_badges = validated_data.pop("trust_badges", [])
         gear = validated_data.pop("gear", [])
         categories = validated_data.pop("categories", [])
         tags = validated_data.pop("tags", [])
@@ -274,6 +291,7 @@ class TripCreateSerializer(serializers.ModelSerializer):
         # Add M2M relationships
         trip.locations.set(locations)
         trip.facilities.set(facilities)
+        trip.trust_badges.set(trust_badges)
         trip.gear.set(gear)
         trip.categories.set(categories)
         trip.tags.set(tags)
@@ -288,6 +306,7 @@ class TripCreateSerializer(serializers.ModelSerializer):
         itinerary_data = validated_data.pop("trip_itinerary", None)
         locations = validated_data.pop("locations", None)
         facilities = validated_data.pop("facilities", None)
+        trust_badges = validated_data.pop("trust_badges", None)
         gear = validated_data.pop("gear", None)
         categories = validated_data.pop("categories", None)
         tags = validated_data.pop("tags", None)
@@ -300,6 +319,8 @@ class TripCreateSerializer(serializers.ModelSerializer):
             instance.locations.set(locations)
         if facilities is not None:
             instance.facilities.set(facilities)
+        if trust_badges is not None:
+            instance.trust_badges.set(trust_badges)
         if gear is not None:
             instance.gear.set(gear)
         if categories is not None:
@@ -398,6 +419,7 @@ class TripListSerializer(serializers.ModelSerializer):
     country = CountryField()
     categories = CategorySerializer(many=True)
     facilities = FacilitySerializer(many=True)
+    trust_badges = TrustBadgeSerializer(many=True)
     host = HostSerializer()
 
     class Meta:
@@ -415,6 +437,7 @@ class TripListSerializer(serializers.ModelSerializer):
             "country",
             "categories",
             "facilities",
+            "trust_badges",
             "passenger_limit_min",
             "passenger_limit_max",
             "featured",
@@ -466,6 +489,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     trip_url = serializers.SerializerMethodField()
     is_wished = serializers.SerializerMethodField()
     facilities = FacilitySerializer(many=True)
+    trust_badges = TrustBadgeSerializer(many=True)
     gear = GearSerializer(many=True)
     departure = LocationSerializer()
     destination = LocationSerializer()
@@ -495,6 +519,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "requirements",
             "child_policy",
             "facilities",
+            "trust_badges",
             "gear",
             "poster",
             "images",

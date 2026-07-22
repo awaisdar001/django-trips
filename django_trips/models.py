@@ -72,6 +72,11 @@ class Host(SlugMixin, models.Model):
     refund_policy = models.JSONField(default=list, blank=True, null=True)
 
     verified = models.BooleanField(default=False)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Deactivating a host (via the admin action) also deactivates all "
+        "of their trips, hiding them from the public API.",
+    )
 
     objects = managers.HostManager.as_manager()
 
@@ -242,6 +247,38 @@ class Facility(SlugMixin, models.Model):
         return f"<Facility: {self.name} slug: {self.slug}>"
 
 
+class TrustBadge(SlugMixin, models.Model):
+    """
+    Trip Trust Badge model
+
+    Verifiable credibility signals shown on a trip card (e.g. certified
+    guide, free cancellation) — distinct from Facility, which lists what's
+    included/provided on the trip rather than making a trust claim about it.
+    Optional per trip, same M2M-lookup shape as Facility/Category.
+    """
+
+    name = models.CharField(max_length=70, unique=True)
+    slug = models.SlugField(max_length=85, unique=True, null=True, blank=True)
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Icon identifier for frontend rendering (e.g. a lucide icon name)",
+    )
+    is_active = models.BooleanField(default=True)
+
+    objects = managers.ActiveQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "Trust Badges"
+
+    def __str__(self):
+        return str(self.name)
+
+    def __repr__(self):
+        return f"<TrustBadge: {self.name} slug: {self.slug}>"
+
+
 class Category(SlugMixin, models.Model):
     name = models.CharField(max_length=70)
     slug = models.SlugField(max_length=85, unique=True, null=True, blank=True)
@@ -308,6 +345,12 @@ class Trip(SlugMixin, models.Model):
     child_policy = models.JSONField(default=dict, help_text="Child policy on this trip")
     facilities = models.ManyToManyField(
         Facility, related_name="trips", help_text="Amenities available during the trip"
+    )
+    trust_badges = models.ManyToManyField(
+        TrustBadge,
+        related_name="trips",
+        blank=True,
+        help_text="Verifiable credibility signals for this trip (e.g. certified guide, free cancellation)",
     )
     gear = models.ManyToManyField(
         Gear,

@@ -1,7 +1,10 @@
+from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from django_trips.api.serializers import TripListSerializer
+from django_trips.api.views.trip import TripViewSet
 from django_trips.models import Trip, User
 from django_trips.tests.factories import AuthenticatedUserTestCase, TripFactory
 
@@ -37,3 +40,13 @@ class TripDeletePermissionTests(AuthenticatedUserTestCase):
             response.status_code, status.HTTP_403_FORBIDDEN
         )  # or 401 if auth required
         self.assertTrue(Trip.objects.filter(pk=self.trip.pk).exists())
+
+
+class TripViewSetSerializerClassTestCase(TestCase):
+    """get_serializer_class() only special-cases list/retrieve/create/update;
+    any other action (e.g. destroy) should default to TripListSerializer."""
+
+    def test_defaults_to_list_serializer_for_other_actions(self):
+        view = TripViewSet()
+        view.action = "destroy"
+        self.assertIs(view.get_serializer_class(), TripListSerializer)

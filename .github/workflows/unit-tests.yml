@@ -11,7 +11,7 @@ jobs:
     strategy:
       # Single entry, kept as a matrix only so the job name below can show it.
       matrix:
-        python-version: ["3.11.2"] # matches destipak's Dockerfile
+        python-version: ["3.13"]
 
     name: python-${{ matrix.python-version }}
     steps:

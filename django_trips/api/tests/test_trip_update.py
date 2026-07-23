@@ -3,6 +3,7 @@ from unittest.mock import ANY
 from django.test import TestCase
 from django.urls import reverse
 
+from django_trips.models import TrustBadge
 from django_trips.tests import factories
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           CategoryFactory, FacilityFactory,
@@ -151,3 +152,8 @@ class TripUpdateTestCase(AuthenticatedUserTestCase):
 
     def test_trip_update_empty_payload(self):
         self.make_update_trip_request({}, 400)
+
+    def test_trip_update_trust_badges(self):
+        badge = TrustBadge.objects.create(name="Certified Guide", slug="certified-guide")
+        data = self.make_update_trip_request({**self.payload, "trust_badges": [badge.id]})
+        self.assertEqual([b["id"] for b in data["trust_badges"]], [badge.id])

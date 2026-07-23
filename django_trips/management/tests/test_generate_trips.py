@@ -1,12 +1,13 @@
 """Test management command"""
 from io import StringIO
+from unittest.mock import patch
 
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.utils.text import slugify
 
 from django_trips.management.commands.generate_trips import Command
-from django_trips.models import Location, Trip
+from django_trips.models import Location, Trip, User
 from django_trips.tests import factories
 
 
@@ -75,3 +76,34 @@ class CommandsTestBase(TestCase):
         preexisting.refresh_from_db()
         self.assertIsNotNone(preexisting.parent)
         self.assertEqual(preexisting.region, "Sindh")
+
+    def test_raises_without_a_superuser(self):
+        """The command requires a superuser to attribute generated trips to."""
+        User.objects.filter(is_superuser=True).delete()
+        with self.assertRaises(CommandError) as ctx:
+            call_command("generate_trips", batch_size=1)
+        self.assertIn("No superuser found", str(ctx.exception))
+
+    def test_wraps_unexpected_errors_in_command_error(self):
+        """An error mid-generation should surface as a CommandError, not crash."""
+        with patch.object(
+            Command, "create_trip", side_effect=ValueError("boom")
+        ):
+            with self.assertRaises(CommandError) as ctx:
+                self.run_generate_trips_command(batch_size=1)
+        self.assertIn("Error creating trip", str(ctx.exception))
+
+    def test_get_region_for_location_returns_none_when_unmapped(self):
+        """A location name not present in TRIP_LOCATIONS_BY_REGION has no region."""
+        self.assertIsNone(Command().get_region_for_location("Nowhereville"))
+
+    def test_create_reviews_returns_none_without_verified_reviews(self):
+        """create_reviews() should skip building a TripReviewSummary when
+        every generated review happens to be unverified."""
+        trip = factories.TripFactory(trip_schedule=None)
+        with patch("django_trips.management.commands.generate_trips.random") as mock_random:
+            mock_random.randint.return_value = 3
+            mock_random.random.return_value = 1.0  # is_verified = random() < 0.8 -> False
+            result = Command().create_reviews(trip)
+        self.assertIsNone(result)
+        self.assertFalse(trip.reviews.filter(is_verified=True).exists())

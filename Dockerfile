@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -8,30 +8,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set work directory
 WORKDIR /app
 
-ADD . /app
-
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     libmariadb-dev \
+    default-libmysqlclient-dev \
     pkg-config \
     python3-dev \
     libssl-dev \
-    libffi-dev\
+    libffi-dev \
     gcc \
     g++ \
-    build-essential \
-    default-libmysqlclient-dev \
-    pkg-config \
-    libssl-dev \
     nano \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt requirements-dev.txt .
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt -r requirements-dev.txt
+# Install Python dependencies (kept above the project copy so this layer only
+# rebuilds when requirements change, not on every code change)
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
 
 # Copy project
 COPY . .

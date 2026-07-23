@@ -42,21 +42,6 @@ app_urlpatterns = [
         booking.TripBookingCreateView.as_view(),
         name="trip-bookings-create",
     ),
-    # path(
-    #     "trips/bookings/<str:number>/",
-    #     booking.TripBookingRetrieveUpdateAPIView.as_view(),
-    #     name="booking-detail",
-    # ),
-    # path(
-    #     "trip/bookings/",
-    #     booking.TripBookingListCreateView.as_view(),
-    #     name="create-booking",
-    # ),
-    # path(
-    #     "trip/<slug:slug>/bookings/",
-    #     booking.TripBookingsRetrieveAPIView.as_view(),
-    #     name="trip-bookings",
-    # ),
     *router.urls,
 ]
 
@@ -75,5 +60,3 @@ schema_urls = [
 ]
 
 urlpatterns = [*app_urlpatterns, *schema_urls]
-
-# NEXT:TripBookingRetrieveUpdateDestroyAPIView, action, tests

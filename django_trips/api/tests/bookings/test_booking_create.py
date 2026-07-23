@@ -75,3 +75,12 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
                 "schedule_details": mock.ANY,
             },
         )
+
+    def test_booking_create_rejects_schedule_from_another_trip(self):
+        other_trip = TripFactory.create(trip_schedule=None)
+        other_schedule = TripScheduleFactory(trip=other_trip)
+
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "schedule": other_schedule.id}, expected_response=400
+        )
+        self.assertIn("schedule", data)

@@ -108,13 +108,15 @@ Everything hangs off `Trip` (`django_trips/models.py`). Key relationships:
   the literal client-supplied term, not an alias — and must not collide with an existing model property name (see
   the comment above `TripViewSet.ordering_fields`, and `get_queryset()`'s `Min("schedules__price", ...)`
   annotation, both scoped to `status=ScheduleStatus.PUBLISHED`).
-- `api/paginators.py` has two active styles plus one unused one: `CustomLimitOffsetPaginator` (limit/offset, used
-  by `TripViewSet`/`UpcomingTripsListAPIView`) vs `TripBookingsPagination` (page-number style, default DRF
-  envelope, used by the booking list/create views in `api/views/booking.py`). `TripResponsePagination` (a
-  page-number paginator with a custom `{next, previous, count, current, pages, results}` envelope) is defined but
-  not currently wired to any view — don't assume it's live on an endpoint just because it exists. Match whichever
-  style the endpoint you're touching already uses; they are not interchangeable response shapes for existing
-  clients.
+- `api/paginators.py` has three styles, none of which is set explicitly on the *most* views: `CustomLimitOffsetPaginator`
+  (limit/offset, used by `TripViewSet`/`UpcomingTripsListAPIView`) and `TripBookingsPagination` (page-number style,
+  default DRF envelope, used by the booking list/create views in `api/views/booking.py`) are both explicitly set as
+  `pagination_class` on their views. `TripResponsePagination` (a page-number paginator with a custom
+  `{next, previous, count, current, pages, results}` envelope) is `REST_FRAMEWORK["DEFAULT_PAGINATION_CLASS"]` in
+  `settings/common.py` — no view sets it explicitly, but it's still live as the fallback on any view that doesn't
+  override `pagination_class` (currently `ActiveCategoriesListAPIView` and `ActiveDestinationsWithSchedulesView`).
+  Match whichever style the endpoint you're touching already uses; they are not interchangeable response shapes for
+  existing clients.
 - Auth is dual: `SessionAuthentication` (browsable API) and JWT (`rest_framework_simplejwt`, 7-day access /
   15-day refresh, see `SIMPLE_JWT` in `settings/common.py`).
 

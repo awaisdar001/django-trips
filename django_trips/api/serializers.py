@@ -148,7 +148,7 @@ class HostSerializer(serializers.ModelSerializer):
     )
     def get_rating(self, host):
         rating = {"rating_count": 0, "rated_by": 0}
-        host_rating = getattr(host, "host_rating", None)
+        host_rating = getattr(host, "ratings", None)
         if host_rating:
             rating["rating_count"] = host_rating.rating_count
             rating["rated_by"] = host_rating.rated_by
@@ -703,39 +703,3 @@ class TripBookingSerializer(serializers.ModelSerializer):
             if key not in self.RESTRICTED_FIELDS:
                 setattr(instance, key, value)
         return instance
-
-
-class TripBookingDetailSerializer(serializers.ModelSerializer):
-    schedule = UpcomingTripListSerializer()
-    trip = TripDetailSerializer(read_only=True)
-    target_date = serializers.DateTimeField()
-    number_of_persons = serializers.IntegerField()
-
-    class Meta:
-        model = TripBooking
-        fields = (
-            "trip",
-            "schedule",
-            "number",
-            "status",
-            "full_name",
-            "email",
-            "phone_number",
-            "number_of_persons",
-            "target_date",
-            "message",
-        )
-        read_only_fields = ["number", "status", "created", "modified"]
-
-    def validate(self, attrs):
-        validated_data = super().validate(attrs)
-        trip = get_object_or_404(Trip.objects.active(), pk=self.context["trip_id"])
-        if validated_data["schedule"].trip.pk != trip.pk:
-            raise serializers.ValidationError(
-                {"schedule": "The schedule must be the same as provided trip"}
-            )
-        return validated_data
-
-    def create(self, validated_data):
-        trip_schedule = super().create(validated_data)
-        return trip_schedule

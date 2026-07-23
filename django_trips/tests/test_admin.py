@@ -1,9 +1,12 @@
+from datetime import timedelta
 from unittest.mock import MagicMock
 
+from django.contrib import admin
 from django.test import TestCase
+from django.utils import timezone
 
-from django_trips.admin import deactivate_hosts
-from django_trips.models import Host
+from django_trips.admin import TripAdmin, deactivate_hosts
+from django_trips.models import Host, Trip, TripAvailability
 from django_trips.tests.factories import HostFactory, TripFactory
 
 
@@ -49,3 +52,25 @@ class DeactivateHostsActionTestCase(TestCase):
         message = modeladmin.message_user.call_args[0][1]
         self.assertIn("1 host", message)
         self.assertIn("2", message)
+
+
+class TripAdminGetDateTestCase(TestCase):
+    """TripAdmin.get_date() feeds the 'Availability Up to' admin list column."""
+
+    def test_returns_end_dates_of_all_availabilities(self):
+        trip = TripFactory(trip_schedule=None)
+        first_end_date = (timezone.now() + timedelta(days=5)).date()
+        second_end_date = (timezone.now() + timedelta(days=10)).date()
+        TripAvailability.objects.create(trip=trip, end_date=first_end_date)
+        TripAvailability.objects.create(trip=trip, end_date=second_end_date)
+
+        modeladmin = TripAdmin(Trip, admin.site)
+
+        self.assertEqual(
+            modeladmin.get_date(trip), [first_end_date, second_end_date]
+        )
+
+    def test_returns_empty_list_without_availabilities(self):
+        trip = TripFactory(trip_schedule=None)
+        modeladmin = TripAdmin(Trip, admin.site)
+        self.assertEqual(modeladmin.get_date(trip), [])

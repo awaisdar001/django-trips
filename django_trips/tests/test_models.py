@@ -4,28 +4,40 @@ from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 
-from django_trips.choices import LocationType, ScheduleStatus
+from django_trips.choices import AvailabilityType, LocationType, ScheduleStatus
 from django_trips.models import (
     CancellationPolicy,
     Facility,
+    Host,
+    HostRating,
     HostType,
     Location,
+    RefundPolicy,
     Testimonial,
+    TripAvailability,
+    TripBooking,
     TripItinerary,
+    TripPickupLocation,
     TripReview,
     TripSchedule,
     TripWishlist,
+    TrustBadge,
 )
 from django_trips.tests.factories import (
+    CategoryFactory,
     FacilityFactory,
     GearFactory,
     HostFactory,
+    HostTypeFactory,
     LocationFactory,
     TestimonialFactory,
+    TripBookingFactory,
     TripFactory,
     TripImageFactory,
     TripItineraryFactory,
+    TripOptionFactory,
     TripReviewFactory,
+    TripReviewSummaryFactory,
     TripScheduleFactory,
     TripWishlistFactory,
     UserFactory,
@@ -107,6 +119,23 @@ class LocationFactoryTestCase(TestCase):
         town = LocationFactory(type=LocationType.TOWN, parent=None)
         self.assertIsNone(town.region)
 
+    def test_repr(self):
+        self.assertIn(self.location.name, repr(self.location))
+
+
+class SlugMixinTestCase(TestCase):
+    """SlugMixin.save() (django_trips/mixins.py) auto-generates a unique slug,
+    appending a numeric suffix on collision."""
+
+    def test_appends_numeric_suffix_on_slug_collision(self):
+        first = Location.objects.create(name="Hunza Valley")
+        second = Location.objects.create(name="Hunza Valley")
+        third = Location.objects.create(name="Hunza Valley")
+
+        self.assertEqual(first.slug, "hunza-valley")
+        self.assertEqual(second.slug, "hunza-valley-2")
+        self.assertEqual(third.slug, "hunza-valley-3")
+
 
 class HostFactoryTestCase(TestCase):
     @classmethod
@@ -157,6 +186,27 @@ class HostFactoryTestCase(TestCase):
         """Test the __str__ method if implemented."""
         self.assertIn("Test Host", str(self.host))
 
+    def test_host_repr_representation(self):
+        self.assertIn("Test Host", repr(self.host))
+
+
+class HostTypeTestCase(TestCase):
+    def test_str_and_repr(self):
+        host_type = HostTypeFactory(name="Adventure Tours")
+        self.assertEqual(str(host_type), "Adventure Tours")
+        self.assertIn("Adventure Tours", repr(host_type))
+
+
+class HostRatingTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.host = HostFactory()
+
+    def test_str_and_repr(self):
+        rating = HostRating.objects.create(host=self.host, rating_count=10, rated_by=5)
+        self.assertIn(str(rating.rating_count), str(rating))
+        self.assertIn("HostRating", repr(rating))
+
 
 class TestFacility(TestCase):
     """
@@ -180,6 +230,31 @@ class TestFacility(TestCase):
         self.assertEqual(1, len(Facility.objects.all()))
         self.facility.delete()
         self.assertEqual(0, len(Facility.objects.all()))
+
+    def test_str(self):
+        self.assertEqual(str(self.facility), self.facility.name)
+
+    def test_repr(self):
+        self.assertIn(self.facility.name, repr(self.facility))
+
+
+class LookupModelStrReprTestCase(TestCase):
+    """__str__/__repr__ for the remaining simple M2M lookup-style models."""
+
+    def test_gear(self):
+        gear = GearFactory(name="Compass")
+        self.assertEqual(str(gear), "Compass")
+        self.assertIn("Compass", repr(gear))
+
+    def test_category(self):
+        category = CategoryFactory(name="Hiking")
+        self.assertEqual(str(category), "Hiking")
+        self.assertIn("Hiking", repr(category))
+
+    def test_trust_badge(self):
+        badge = TrustBadge.objects.create(name="Certified Guide", slug="certified-guide")
+        self.assertEqual(str(badge), "Certified Guide")
+        self.assertIn("Certified Guide", repr(badge))
 
 
 class TestTrip(TestCase):
@@ -259,16 +334,22 @@ class TestTrip(TestCase):
         self.assertEqual(trip_schedules.all().count(), 1)
         self.assertEqual(trip_schedules.get().start_date, today_date.date())
 
-    def stest_trip_availability(self):
-        """Test available manager of trip schedule"""
-        future_trip_date = timezone.now() + timedelta(days=7)
-        past_trip_date = timezone.now() - timedelta(days=7)
+    def test_trip_availability(self):
+        """Test the active() manager filters by the active date window."""
         trip = get_trip(trip_schedules=None)
 
-        __ = TripScheduleFactory(trip=trip, date_from=past_trip_date)
+        TripScheduleFactory(
+            trip=trip,
+            start_date=timezone.now() - timedelta(days=10),
+            end_date=timezone.now() - timedelta(days=7),
+        )
         self.assertEqual(TripSchedule.objects.active().filter(trip=trip).count(), 0)
 
-        __ = TripScheduleFactory(trip=trip, date_from=future_trip_date)
+        TripScheduleFactory(
+            trip=trip,
+            start_date=timezone.now() - timedelta(days=1),
+            end_date=timezone.now() + timedelta(days=7),
+        )
         self.assertEqual(TripSchedule.objects.active().filter(trip=trip).count(), 1)
 
     def test_cancellation_policy(self):
@@ -293,6 +374,150 @@ class TestTrip(TestCase):
         self.trip.host.cancellation_policy = new_cancellation_policy
         self.trip.host.save()
         self.assertEqual(self.trip.cancellation_policy, new_cancellation_policy)
+
+    def test_refund_policy(self):
+        """
+        Tests refund policy override.
+
+        When trip's host has its own refund policy, it should be given
+        preference over the generic host-wide RefundPolicy default.
+        """
+        self.trip.host.refund_policy = {}
+        self.trip.host.save()
+
+        common_policy = "Common trip RefundPolicy"
+        RefundPolicy(description=common_policy).save()
+
+        self.assertEqual(self.trip.refund_policy, RefundPolicy.current().description)
+
+        new_refund_policy = "new refund policy"
+        self.trip.host.refund_policy = new_refund_policy
+        self.trip.host.save()
+        self.assertEqual(self.trip.refund_policy, new_refund_policy)
+
+    def test_repr(self):
+        self.assertIn(self.trip.name, repr(self.trip))
+
+    def test_get_absolute_url(self):
+        self.assertIn(self.trip.slug, self.trip.get_absolute_url())
+
+
+class TripImageStrReprTestCase(TestCase):
+    def test_str_and_repr(self):
+        image = TripImageFactory(order=1)
+        self.assertIn(f"image #{image.order}", str(image))
+        self.assertIn("TripImage", repr(image))
+
+
+class TripCreateSchedulesTestCase(TestCase):
+    """Trip.create_schedules() expands a DAILY TripAvailability into concrete
+    TripSchedule rows - see the method's docstring in models.py for the full
+    expansion flow this covers."""
+
+    def make_trip(self):
+        return TripFactory(trip_schedule=None)
+
+    def test_no_availability_returns_zero(self):
+        trip = self.make_trip()
+        self.assertEqual(trip.create_schedules(), 0)
+
+    def test_non_daily_availability_returns_zero(self):
+        trip = self.make_trip()
+        TripAvailability.objects.create(trip=trip, type=AvailabilityType.WEEKLY)
+        self.assertEqual(trip.create_schedules(), 0)
+
+    def test_missing_required_options_returns_zero(self):
+        trip = self.make_trip()
+        TripAvailability.objects.create(
+            trip=trip, type=AvailabilityType.DAILY, options={"date_from": 1}
+        )
+        self.assertEqual(trip.create_schedules(), 0)
+
+    def test_unparseable_option_timestamps_returns_zero(self):
+        trip = self.make_trip()
+        TripAvailability.objects.create(
+            trip=trip,
+            type=AvailabilityType.DAILY,
+            options={
+                "date_from": "not-a-timestamp",
+                "end_date": "not-a-timestamp",
+                "is_per_person_price": True,
+            },
+        )
+        self.assertEqual(trip.create_schedules(), 0)
+
+    def test_outside_scheduling_window_returns_zero(self):
+        trip = self.make_trip()
+        past_start = timezone.now() - timedelta(days=30)
+        past_end = timezone.now() - timedelta(days=20)
+        TripAvailability.objects.create(
+            trip=trip,
+            type=AvailabilityType.DAILY,
+            options={
+                "date_from": int(past_start.timestamp() * 1000),
+                "end_date": int(past_end.timestamp() * 1000),
+                "is_per_person_price": True,
+            },
+        )
+        self.assertEqual(trip.create_schedules(), 0)
+
+    def test_creates_schedule_for_each_day_within_window(self):
+        trip = self.make_trip()
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=4)
+        availability = TripAvailability.objects.create(
+            trip=trip,
+            price=5000,
+            available_seats=10,
+            type=AvailabilityType.DAILY,
+            options={
+                "date_from": int(start.timestamp() * 1000),
+                "end_date": int(end.timestamp() * 1000),
+                "is_per_person_price": True,
+            },
+        )
+        created_count = trip.create_schedules()
+        self.assertEqual(created_count, trip.schedules.count())
+        self.assertGreater(created_count, 0)
+        for schedule in trip.schedules.all():
+            self.assertEqual(schedule.price, availability.price)
+            self.assertEqual(schedule.available_seats, availability.available_seats)
+            self.assertEqual(schedule.booked_seats, 0)
+
+    def test_capped_at_twenty_days(self):
+        trip = self.make_trip()
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=60)
+        TripAvailability.objects.create(
+            trip=trip,
+            type=AvailabilityType.DAILY,
+            options={
+                "date_from": int(start.timestamp() * 1000),
+                "end_date": int(end.timestamp() * 1000),
+                "is_per_person_price": True,
+            },
+        )
+        created_count = trip.create_schedules()
+        self.assertEqual(created_count, 20)
+
+    def test_second_call_is_idempotent(self):
+        """Re-running create_schedules() shouldn't duplicate already-created days."""
+        trip = self.make_trip()
+        start = timezone.now() - timedelta(days=1)
+        end = timezone.now() + timedelta(days=4)
+        TripAvailability.objects.create(
+            trip=trip,
+            type=AvailabilityType.DAILY,
+            options={
+                "date_from": int(start.timestamp() * 1000),
+                "end_date": int(end.timestamp() * 1000),
+                "is_per_person_price": True,
+            },
+        )
+        first_run = trip.create_schedules()
+        second_run = trip.create_schedules()
+        self.assertGreater(first_run, 0)
+        self.assertEqual(second_run, 0)
 
 
 class TripScheduleFactoryTestCase(TestCase):
@@ -331,6 +556,62 @@ class TripScheduleFactoryTestCase(TestCase):
         self.assertEqual(confirmed_schedule.status, ScheduleStatus.PUBLISHED)
         self.assertEqual(cancelled_schedule.status, ScheduleStatus.CANCELLED)
 
+    def test_str_and_repr(self):
+        schedule = TripScheduleFactory()
+        self.assertIn(str(schedule.start_date), str(schedule))
+        self.assertIn("TripSchedule", repr(schedule))
+
+    def test_is_active_true_within_window(self):
+        schedule = TripScheduleFactory(
+            start_date=(timezone.now() - timedelta(days=1)).date(),
+            end_date=(timezone.now() + timedelta(days=1)).date(),
+        )
+        self.assertTrue(schedule.is_active)
+
+    def test_is_active_false_outside_window(self):
+        schedule = TripScheduleFactory(
+            start_date=(timezone.now() + timedelta(days=1)).date(),
+            end_date=(timezone.now() + timedelta(days=2)).date(),
+        )
+        self.assertFalse(schedule.is_active)
+
+    def test_is_active_false_without_dates(self):
+        schedule = TripScheduleFactory(start_date=None, end_date=None)
+        self.assertFalse(schedule.is_active)
+
+
+class TripAvailabilityTestCase(TestCase):
+    def test_str(self):
+        availability = TripAvailability.objects.create(
+            trip=TripFactory(trip_schedule=None),
+            price=1500,
+            start_date=timezone.now().date(),
+            end_date=(timezone.now() + timedelta(days=5)).date(),
+        )
+        self.assertIn(str(availability.price), str(availability))
+
+    def test_is_active_true_within_window(self):
+        availability = TripAvailability.objects.create(
+            trip=TripFactory(trip_schedule=None),
+            start_date=(timezone.now() - timedelta(days=1)).date(),
+            end_date=(timezone.now() + timedelta(days=1)).date(),
+        )
+        self.assertTrue(availability.is_active)
+
+    def test_is_active_false_outside_window(self):
+        availability = TripAvailability.objects.create(
+            trip=TripFactory(trip_schedule=None),
+            start_date=(timezone.now() + timedelta(days=1)).date(),
+            end_date=(timezone.now() + timedelta(days=2)).date(),
+        )
+        self.assertFalse(availability.is_active)
+
+    def test_is_active_false_without_dates(self):
+        availability = TripAvailability.objects.create(
+            trip=TripFactory(trip_schedule=None)
+        )
+        self.assertFalse(availability.is_active)
+
 
 class TripItineraryTestCase(TestCase):
     @classmethod
@@ -355,6 +636,14 @@ class TripItineraryTestCase(TestCase):
         self.assertIsNotNone(self.itinerary.location)
         self.assertIsNotNone(self.itinerary.category)
 
+    def test_str_and_repr(self):
+        self.assertIn(str(self.itinerary.day_index), str(self.itinerary))
+        self.assertIn("TripItinerary", repr(self.itinerary))
+
+    def test_duration_property(self):
+        expected = self.itinerary.end_time - self.itinerary.start_time
+        self.assertEqual(self.itinerary.duration, expected)
+
 
 class TripReviewLocationTestCase(TestCase):
     def test_location_defaults_to_none(self):
@@ -375,6 +664,25 @@ class TripReviewLocationTestCase(TestCase):
         location.delete()
         review.refresh_from_db()
         self.assertIsNone(review.location)
+
+    def test_str_and_repr(self):
+        review = TripReviewFactory(name="Ali", overall=5)
+        self.assertIn("Ali", str(review))
+        self.assertIn("TripReview", repr(review))
+
+
+class TripReviewSummaryTestCase(TestCase):
+    def test_str_and_repr(self):
+        summary = TripReviewSummaryFactory()
+        self.assertIn(str(summary.meals), str(summary))
+        self.assertIn("TripReviewSummary", repr(summary))
+
+
+class TripOptionTestCase(TestCase):
+    def test_str_and_repr(self):
+        option = TripOptionFactory()
+        self.assertEqual(str(option), option.name)
+        self.assertIn(option.name, repr(option))
 
 
 class TestimonialTestCase(TestCase):
@@ -419,6 +727,54 @@ class TestimonialTestCase(TestCase):
         self.assertEqual(testimonials[0], newer)
         self.assertEqual(testimonials[1], older)
 
+    def test_str_and_repr(self):
+        testimonial = TestimonialFactory(name="Sara", quote="Loved the trip")
+        self.assertIn("Sara", str(testimonial))
+        self.assertIn("Sara", repr(testimonial))
+
+
+class PolicyStrReprTestCase(TestCase):
+    def test_cancellation_policy(self):
+        policy = CancellationPolicy(description="No refunds after 7 days")
+        policy.save()
+        self.assertEqual(str(policy), "No refunds after 7 days")
+        self.assertIn("No refunds after 7 days", repr(policy))
+
+    def test_refund_policy(self):
+        policy = RefundPolicy(description="Full refund within 7 days")
+        policy.save()
+        self.assertEqual(str(policy), "Full refund within 7 days")
+        self.assertIn("Full refund within 7 days", repr(policy))
+
+
+class TripBookingModelTestCase(TestCase):
+    def test_str_and_repr(self):
+        booking = TripBookingFactory(full_name="Jane Doe")
+        self.assertIn("Jane Doe", str(booking))
+        self.assertIn("Jane Doe", repr(booking))
+
+    def test_manager_active_excludes_past_target_dates(self):
+        past_booking = TripBookingFactory(
+            target_date=timezone.now() - timedelta(days=1)
+        )
+        future_booking = TripBookingFactory(
+            target_date=timezone.now() + timedelta(days=1)
+        )
+        active_ids = set(TripBooking.objects.active().values_list("id", flat=True))
+        self.assertIn(future_booking.id, active_ids)
+        self.assertNotIn(past_booking.id, active_ids)
+
+
+class TripPickupLocationTestCase(TestCase):
+    def test_str_and_repr(self):
+        schedule = TripScheduleFactory()
+        location = LocationFactory(name="Naran")
+        pickup = TripPickupLocation.objects.create(
+            trip=schedule, location=location, additional_price=100
+        )
+        self.assertEqual(str(pickup), str(location))
+        self.assertIn("TripPickupLocation", repr(pickup))
+
 
 class TripWishlistTestCase(TestCase):
     def test_create(self):
@@ -426,6 +782,11 @@ class TripWishlistTestCase(TestCase):
         self.assertIsInstance(wishlist_entry, TripWishlist)
         self.assertIsNotNone(wishlist_entry.id)
         self.assertIsNotNone(wishlist_entry.created_at)
+
+    def test_str_and_repr(self):
+        wishlist_entry = TripWishlistFactory()
+        self.assertIn(str(wishlist_entry.trip), str(wishlist_entry))
+        self.assertIn("TripWishlist", repr(wishlist_entry))
 
     def test_user_trip_pair_is_unique(self):
         """A user can't wishlist the same trip twice."""

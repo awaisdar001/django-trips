@@ -1,5 +1,5 @@
 # Core
-Django>=5.1,<5.2
+Django>=5.2,<6.0
 setuptools>=80.9.0
 
 # Django Extensions
@@ -9,7 +9,7 @@ django-countries>=7.6.1
 django-extensions>=3.2.3
 django-filter>=23.2
 django-taggit>=6.1.0
-djangorestframework>=3.15,<3.16
+djangorestframework>=3.16,<3.17
 djangorestframework_simplejwt>=5.5.0
 drf-spectacular>=0.28.0
 

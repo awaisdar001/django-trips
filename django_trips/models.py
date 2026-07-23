@@ -3,7 +3,7 @@
 import random
 
 # pylint:disable=consider-using-from-import,missing-class-docstring,missing-function-docstring,no-member
-from datetime import datetime
+from datetime import UTC, datetime
 from datetime import timedelta
 
 from config_models.models import ConfigurationModel
@@ -107,11 +107,6 @@ class HostRating(models.Model):
     def __repr__(self):
         return f"<HostRating: {self.rating_count} / {self.rated_by}"
 
-    @property
-    def average_rating(self):
-        """Returns calculated rating."""
-        return float(self.rating_count / self.rated_by) if self.rated_by else 0
-
 
 class Location(SlugMixin, models.Model):
     """
@@ -174,11 +169,6 @@ class Location(SlugMixin, models.Model):
 
     def __repr__(self):
         return f"<Location: {self.name} slug: {self.slug}>"
-
-    @property
-    def coordinates(self):
-        """Returns lat/lng in list."""
-        return [self.lat, self.lon]
 
     @property
     def region(self):
@@ -456,14 +446,6 @@ class Trip(SlugMixin, models.Model):
         return f"<Trip: {self.name}, {self.departure} > {self.destination}>"
 
     @property
-    def passenger_limit(self):
-        return self.passenger_limit_min if self.passenger_limit_min is not None else 0
-
-    @property
-    def primary_category(self):
-        return self.categories.first()
-
-    @property
     def poster(self):
         """
         Primary listing image URL: the first `TripImage` (by `order`), or
@@ -554,7 +536,7 @@ class Trip(SlugMixin, models.Model):
             int: Number of TripSchedule objects created
         """
 
-        availability = self.trip_availability
+        availability = self.availabilities.first()
 
         if not availability or availability.type != AvailabilityType.DAILY:
             return 0
@@ -566,10 +548,10 @@ class Trip(SlugMixin, models.Model):
 
         try:
             schedule_start = datetime.fromtimestamp(
-                options["date_from"] / 1000.0, tz=timezone.utc
+                options["date_from"] / 1000.0, tz=UTC
             )
             schedule_end = datetime.fromtimestamp(
-                options["end_date"] / 1000.0, tz=timezone.utc
+                options["end_date"] / 1000.0, tz=UTC
             )
         except Exception:  # pylint:disable=broad-exception-caught
             return 0
@@ -589,7 +571,7 @@ class Trip(SlugMixin, models.Model):
 
                 _, created = TripSchedule.objects.get_or_create(
                     trip=self,
-                    date_from=schedule_date,
+                    start_date=schedule_date,
                     is_per_person_price=options["is_per_person_price"],
                     defaults={
                         "price": availability.price,
@@ -724,7 +706,8 @@ class TripAvailability(models.Model):
     @property
     def is_active(self):
         if self.start_date and self.end_date:
-            return self.start_date <= now() < self.end_date
+            today = now().date()
+            return self.start_date <= today < self.end_date
         return False
 
 
@@ -764,7 +747,8 @@ class TripSchedule(models.Model):
     @property
     def is_active(self):
         if self.start_date and self.end_date:
-            return self.start_date <= now() < self.end_date
+            today = now().date()
+            return self.start_date <= today < self.end_date
         return False
 
 

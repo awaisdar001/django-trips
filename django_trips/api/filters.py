@@ -168,28 +168,6 @@ class UpcomingTripsFilter(filters.FilterSet):
         ]
 
 
-class TripScheduleFilter(TripBaseFilter):
-    price_from = filters.NumberFilter(
-        label="Price From", field_name="trip_schedule__price", lookup_expr=("gte")
-    )
-    price_to = filters.NumberFilter(
-        label="Price To", field_name="trip_schedule__price", lookup_expr=("lte")
-    )
-
-    date_from = filters.DateFilter(
-        label="Trip Date From",
-        field_name="trip_schedule__date_from",
-        lookup_expr=("gte"),
-    )
-    end_date = filters.DateFilter(
-        label="Trip Date To", field_name="trip_schedule__date_from", lookup_expr=("lte")
-    )
-
-    class Meta:
-        model = TripBaseFilter.Meta.model
-        fields = TripBaseFilter.Meta.fields
-
-
 class TripBookingFilterSet(filters.FilterSet):
     target_date_after = filters.DateTimeFilter(
         field_name="target_date",

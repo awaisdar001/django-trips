@@ -9,8 +9,9 @@ from django.utils import timezone
 from django_trips.choices import ScheduleStatus
 from django_trips.models import Trip
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
-                                          CategoryFactory, LocationFactory,
-                                          TripFactory, TripScheduleFactory)
+                                          CategoryFactory, HostFactory,
+                                          LocationFactory, TripFactory,
+                                          TripScheduleFactory)
 
 
 @ddt.ddt
@@ -214,6 +215,7 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
             destination=cls.skardu,
             duration=timedelta(days=10),
             categories=[cls.honeymoon],
+            host=HostFactory(verified=False),
         )
 
         cls.now = timezone.now().date()
@@ -249,6 +251,14 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
 
     def test_filter_by_category(self):
         data = self.get_results({"category": self.honeymoon.slug})
+        self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
+
+    def test_filter_by_verified_host(self):
+        data = self.get_results({"verified_host": "true"})
+        self.assertEqual({t["name"] for t in data}, {"Hunza Adventure"})
+
+    def test_filter_by_unverified_host(self):
+        data = self.get_results({"verified_host": "false"})
         self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
 
     def test_filter_by_price_range(self):

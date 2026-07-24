@@ -92,12 +92,18 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.action == "list":
+            # annotate() with an aggregate silently drops Trip.Meta's default
+            # ordering (Django stops applying it once GROUP BY is involved),
+            # so re-assert it explicitly here. Otherwise, with no ?ordering=
+            # param, row order is whatever MySQL's query plan happens to
+            # produce for that particular filter combination — same rows,
+            # different order, from one request to the next.
             queryset = queryset.annotate(
                 price=Min(
                     "schedules__price",
                     filter=Q(schedules__status=ScheduleStatus.PUBLISHED),
                 )
-            ).distinct()
+            ).distinct().order_by(*Trip._meta.ordering)  # pylint:disable=protected-access
         return queryset
 
     def get_serializer_class(self):

@@ -56,6 +56,20 @@ class TripFilter(TripBaseFilter):
         lookup_expr="in",
         help_text="Filter trips by a list of category slugs, e.g. ?category=hiking,camping",
     )
+    host = CharInFilter(
+        field_name="host__slug",
+        lookup_expr="in",
+        help_text="Filter trips by a list of host slugs, e.g. ?host=blue-sky-tours,acme",
+    )
+    trust_badge = CharInFilter(
+        field_name="trust_badges__slug",
+        lookup_expr="in",
+        help_text="Filter trips by a list of trust badge slugs, e.g. ?trust_badge=certified-guide",
+    )
+    verified_host = filters.BooleanFilter(
+        field_name="host__verified",
+        help_text="Filter trips by whether their host is verified, e.g. ?verified_host=true",
+    )
     price_from = filters.NumberFilter(
         method="filter_noop",
         help_text="Filter trips with a published schedule priced at or above this value.",

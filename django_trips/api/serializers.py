@@ -107,6 +107,22 @@ class TrustBadgeSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "slug", "icon", "is_active")
 
 
+class TrustBadgeListSerializer(TrustBadgeSerializer):
+    """
+    Trust badge serializer for the public trust-badge filter listing.
+
+    trips_count must come from an annotated queryset (see
+    ActiveTrustBadgesListAPIView) - kept off the base TrustBadgeSerializer
+    since that one is also used nested inside Trip serializers, where no
+    such annotation exists.
+    """
+
+    trips_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta(TrustBadgeSerializer.Meta):
+        fields = TrustBadgeSerializer.Meta.fields + ("trips_count",)
+
+
 class GearSerializer(serializers.ModelSerializer):
     """Gear Modal Serializer"""
 
@@ -153,6 +169,24 @@ class HostSerializer(serializers.ModelSerializer):
             rating["rating_count"] = host_rating.rating_count
             rating["rated_by"] = host_rating.rated_by
         return rating
+
+
+class HostListSerializer(serializers.ModelSerializer):
+    """
+    Host serializer for the public host filter listing.
+
+    Deliberately not built on HostSerializer: this only needs name/slug/count
+    for a filter checklist, and HostSerializer's rating/cancellation_policy
+    fields would add an avoidable per-host `ratings` lookup for data this
+    list never shows. trips_count must come from an annotated queryset (see
+    ActiveHostsListAPIView).
+    """
+
+    trips_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Host
+        fields = ("name", "slug", "trips_count")
 
 
 class BaseTripItinerarySerializer(serializers.ModelSerializer):

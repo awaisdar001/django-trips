@@ -12,11 +12,13 @@ from rest_framework import serializers
 from django_trips.api.serializers import (
     CategoryListSerializer,
     DestinationWithSchedulesSerializer,
+    HostListSerializer,
     TripBookingSerializer,
     TripCreateSerializer,
     TripDetailSerializer,
     TripListSerializer,
     TripWishlistToggleSerializer,
+    TrustBadgeListSerializer,
 )
 
 
@@ -25,6 +27,8 @@ class SchemaTags(Enum):
     TRIPS = ["Trips"]
     Bookings = ["Bookings"]
     CATEGORIES = ["Categories"]
+    HOSTS = ["Hosts"]
+    TRUST_BADGES = ["Trust Badges"]
 
 
 error_response_serializer = inline_serializer(
@@ -212,6 +216,24 @@ categories_list_schema = extend_schema(
     "descending.",
     responses={200: CategoryListSerializer},
     tags=SchemaTags.CATEGORIES.value,
+)
+
+hosts_list_schema = extend_schema(
+    summary="Get Trip Hosts",
+    description="List all verified trip hosts, each annotated with a "
+    "count of its currently active trips. Ordered by trip count "
+    "descending.",
+    responses={200: HostListSerializer},
+    tags=SchemaTags.HOSTS.value,
+)
+
+trust_badges_list_schema = extend_schema(
+    summary="Get Trust Badges",
+    description="List all active trust badges, each annotated with a "
+    "count of its currently active trips. Ordered by trip count "
+    "descending.",
+    responses={200: TrustBadgeListSerializer},
+    tags=SchemaTags.TRUST_BADGES.value,
 )
 
 booking_create_schema = extend_schema(

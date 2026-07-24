@@ -24,6 +24,7 @@ from django_trips.models import (
     TripReview,
     TripReviewSummary,
     TripSchedule,
+    TrustBadge,
 )
 
 fake = Faker()
@@ -39,6 +40,7 @@ DEFAULT_SETTINGS = {
     "TRIP_FACILITIES": ["Bone-fire", "Food", "Drinks"],
     "TRIP_CATEGORIES": ["Honymoon", "Outdoor"],
     "TRIP_GEARS": ["Sun glasses", "Sun block"],
+    "TRIP_TRUST_BADGES": ["Certified Guide", "Free Cancellation"],
 }
 
 
@@ -134,6 +136,7 @@ class Command(BaseCommand):
         trip.locations.set(self.get_locations())
         trip.facilities.set(self.get_facilities())
         trip.categories.set(self.get_categories())
+        trip.trust_badges.set(self.get_trust_badges())
         trip.options.add()
 
         trip.tags.add("Adventure", "Group")
@@ -288,6 +291,16 @@ class Command(BaseCommand):
             Facility.objects.get_or_create(name=name, defaults={"slug": slugify(name)})[
                 0
             ]
+            for name in names
+        ]
+
+    def get_trust_badges(self):
+        badges = self.get_setting("TRIP_TRUST_BADGES")
+        names = random.sample(badges, random.randint(0, min(2, len(badges))))
+        return [
+            TrustBadge.objects.get_or_create(
+                name=name, defaults={"slug": slugify(name)}
+            )[0]
             for name in names
         ]
 

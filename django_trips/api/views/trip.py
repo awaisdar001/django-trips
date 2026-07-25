@@ -1,5 +1,5 @@
 # pylint:disable=import-error
-from django.db.models import Min, Q
+from django.db.models import Count, Min, Q
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -221,6 +221,14 @@ class ActiveDestinationsWithSchedulesView(ListAPIView):
         return (
             Location.objects.active()
             .filter(destination_trips__isnull=False)
+            .annotate(
+                trips_count=Count(
+                    "destination_trips",
+                    filter=Q(destination_trips__is_active=True),
+                    distinct=True,
+                )
+            )
             .distinct()
             .prefetch_related("destination_trips")
+            .order_by("-trips_count", "name")
         )

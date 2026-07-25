@@ -652,12 +652,20 @@ class UpcomingTripListSerializer(serializers.ModelSerializer):
 
 
 class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
+    """
+    trips_count must come from an annotated queryset (see
+    ActiveDestinationsWithSchedulesView) - it's used to rank destinations by
+    popularity (e.g. a landing page's "top destinations") without a manual
+    curation field.
+    """
+
     schedules = serializers.SerializerMethodField()
     region = serializers.ReadOnlyField()
+    trips_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Location
-        fields = ["id", "name", "slug", "region", "schedules"]
+        fields = ["id", "name", "slug", "region", "schedules", "trips_count"]
 
     @extend_schema_field(UpcomingTripListSerializer(many=True))
     def get_schedules(self, obj: "Location"):

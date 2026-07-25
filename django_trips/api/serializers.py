@@ -71,6 +71,7 @@ class LocationSerializer(serializers.ModelSerializer):
 
     type = serializers.SerializerMethodField()
     region = serializers.ReadOnlyField()
+    poster = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
@@ -83,12 +84,17 @@ class LocationSerializer(serializers.ModelSerializer):
             "type",
             "region",
             "importance",
+            "poster",
         )
 
     @extend_schema_field({"type": "string", "example": "TOWN"})
     def get_type(self, location):
         """Returns human readable model choice value."""
         return location.get_type_display()
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_poster(self, location):
+        return get_location_poster(location, self.context)
 
 
 class FacilitySerializer(serializers.ModelSerializer):
@@ -415,6 +421,22 @@ class TripImageSerializer(serializers.ModelSerializer):
         fields = ("id", "image", "alt_text", "order")
 
 
+def get_location_poster(location, context):
+    """
+    Absolute URL of a location's poster photo, or None if neither is set.
+
+    `poster_image` (an upload) takes priority over `poster_url` (an
+    external link) when both are set. `poster_image.url` is relative to
+    MEDIA_URL, so it needs `request` from the serializer context to become
+    an absolute URL matching `poster_url`'s shape.
+    """
+    if location.poster_image:
+        request = context.get("request")
+        url = location.poster_image.url
+        return request.build_absolute_uri(url) if request else url
+    return location.poster_url or None
+
+
 def get_is_wished(trip, context):
     """
     Whether the current authenticated request user has wishlisted this trip.
@@ -662,10 +684,15 @@ class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
     schedules = serializers.SerializerMethodField()
     region = serializers.ReadOnlyField()
     trips_count = serializers.IntegerField(read_only=True, default=0)
+    poster = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
-        fields = ["id", "name", "slug", "region", "schedules", "trips_count"]
+        fields = ["id", "name", "slug", "region", "schedules", "trips_count", "poster"]
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_poster(self, obj: "Location"):
+        return get_location_poster(obj, self.context)
 
     @extend_schema_field(UpcomingTripListSerializer(many=True))
     def get_schedules(self, obj: "Location"):

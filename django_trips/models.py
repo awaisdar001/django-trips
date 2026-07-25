@@ -156,6 +156,18 @@ class Location(SlugMixin, models.Model):
         help_text="The broader location this belongs to, e.g. a TOWN's parent "
         "PROVINCE. Used to derive `region` for display/grouping.",
     )
+    poster_image = models.ImageField(
+        upload_to="locations/posters/",
+        null=True,
+        blank=True,
+        help_text="Uploaded poster photo for destination cards. Takes "
+        "priority over poster_url when both are set.",
+    )
+    poster_url = models.URLField(
+        null=True,
+        blank=True,
+        help_text="External poster photo URL, used when poster_image isn't uploaded.",
+    )
 
     objects = managers.LocationQuerySet.as_manager()
 

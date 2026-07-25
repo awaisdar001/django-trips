@@ -6,6 +6,7 @@ formatting, and review_summary.
 from datetime import timedelta
 
 import pytest
+from django.core.files.base import ContentFile
 from django.urls import reverse
 from django.utils import timezone
 
@@ -40,29 +41,38 @@ class TestTripCardFields(AuthenticatedUserTestCase):
 
     # -- poster --------------------------------------------------------
 
-    def test_poster_from_metadata(self):
-        """poster should reflect metadata['poster'] on both list and detail."""
+    def test_poster_from_url(self):
+        """poster should reflect poster_url on both list and detail."""
         trip = TripFactory(
-            metadata={"poster": "https://example.com/hunza.jpg"}, trip_schedule=None
+            poster_url="https://example.com/hunza.jpg", trip_schedule=None
         )
         self.assertEqual(self.get_detail(trip)["poster"], "https://example.com/hunza.jpg")
         self.assertEqual(
             self.get_list_item(trip)["poster"], "https://example.com/hunza.jpg"
         )
 
-    def test_poster_defaults_to_empty_string(self):
-        """poster should be '' (not crash) when metadata has no poster key."""
-        trip = TripFactory(metadata={}, trip_schedule=None)
-        self.assertEqual(self.get_detail(trip)["poster"], "")
+    def test_poster_none_when_unset(self):
+        """poster should be None (not crash) when neither poster field is set."""
+        trip = TripFactory(poster_url=None, trip_schedule=None)
+        self.assertIsNone(self.get_detail(trip)["poster"])
 
-    def test_poster_prefers_first_trip_image(self):
-        """poster should use the first TripImage (by order) over metadata['poster']."""
+    def test_poster_prefers_upload_over_url(self):
+        """poster should resolve poster_image (an upload) over poster_url when both are set."""
         trip = TripFactory(
-            metadata={"poster": "https://example.com/legacy.jpg"}, trip_schedule=None
+            poster_url="https://example.com/external.jpg", trip_schedule=None
         )
-        TripImageFactory(trip=trip, order=2, image="https://example.com/second.jpg")
-        TripImageFactory(trip=trip, order=1, image="https://example.com/first.jpg")
-        self.assertEqual(self.get_detail(trip)["poster"], "https://example.com/first.jpg")
+        trip.poster_image.save("poster.jpg", ContentFile(b"fake-image-bytes"), save=True)
+        self.addCleanup(trip.poster_image.delete, save=False)
+
+        poster = self.get_detail(trip)["poster"]
+        self.assertNotEqual(poster, "https://example.com/external.jpg")
+        self.assertIn("poster.jpg", poster)
+
+    def test_poster_not_affected_by_image_gallery(self):
+        """poster shouldn't be derived from the images gallery - it's independent."""
+        trip = TripFactory(poster_url=None, trip_schedule=None)
+        TripImageFactory(trip=trip, order=0, image="https://example.com/gallery.jpg")
+        self.assertIsNone(self.get_detail(trip)["poster"])
 
     # -- images (gallery) --------------------------------------------------
 

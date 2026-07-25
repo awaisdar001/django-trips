@@ -4,6 +4,7 @@ from unittest.mock import ANY
 import ddt
 import factory
 import pytest
+from django.core.files.base import ContentFile
 from django.urls import reverse
 from django.utils import timezone
 
@@ -309,3 +310,73 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         response = self.client.get(url, {}, headers=self.headers)
         names = {d["name"] for d in response.json()["results"]}
         self.assertNotIn("Unused Waypoint", names)
+
+    def test_destinations_ordered_by_trips_count_descending(self):
+        """Destinations should be ordered by their active trip count, most first."""
+        quiet = LocationFactory(name="Quiet Valley")
+        popular = LocationFactory(name="Popular Peak")
+        TripFactory(destination=quiet)
+        TripFactory.create_batch(3, destination=popular)
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        results = {d["name"]: d for d in response.json()["results"]}
+        self.assertEqual(results["Popular Peak"]["trips_count"], 3)
+        self.assertEqual(results["Quiet Valley"]["trips_count"], 1)
+
+        names = [d["name"] for d in response.json()["results"]]
+        self.assertLess(names.index("Popular Peak"), names.index("Quiet Valley"))
+
+    def test_destinations_trips_count_excludes_inactive_trips(self):
+        """trips_count should only count active trips against this destination."""
+        destination = LocationFactory(name="Mixed Activity Town")
+        TripFactory.create_batch(2, destination=destination, is_active=True)
+        TripFactory(destination=destination, is_active=False)
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        results = {d["name"]: d for d in response.json()["results"]}
+        self.assertEqual(results["Mixed Activity Town"]["trips_count"], 2)
+
+    def test_destination_poster_from_url(self):
+        """A destination's poster should reflect poster_url when set."""
+        destination = LocationFactory(
+            name="Poster Town", poster_url="https://example.com/poster-town.jpg"
+        )
+        TripFactory(destination=destination)
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        results = {d["name"]: d for d in response.json()["results"]}
+        self.assertEqual(
+            results["Poster Town"]["poster"], "https://example.com/poster-town.jpg"
+        )
+
+    def test_destination_poster_none_when_unset(self):
+        """A destination's poster should be None (not crash) when unset."""
+        destination = LocationFactory(name="Posterless Town", poster_url=None)
+        TripFactory(destination=destination)
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        results = {d["name"]: d for d in response.json()["results"]}
+        self.assertIsNone(results["Posterless Town"]["poster"])
+
+    def test_destination_poster_prefers_upload_over_url(self):
+        """A destination's poster should resolve poster_image over poster_url when both are set."""
+        destination = LocationFactory(
+            name="Uploaded Poster Town",
+            poster_url="https://example.com/external.jpg",
+        )
+        destination.poster_image.save(
+            "poster.jpg", ContentFile(b"fake-image-bytes"), save=True
+        )
+        self.addCleanup(destination.poster_image.delete, save=False)
+        TripFactory(destination=destination)
+
+        url = reverse("trips-api:destinations")
+        response = self.client.get(url, {}, headers=self.headers)
+        results = {d["name"]: d for d in response.json()["results"]}
+        poster = results["Uploaded Poster Town"]["poster"]
+        self.assertNotEqual(poster, "https://example.com/external.jpg")
+        self.assertIn("poster.jpg", poster)

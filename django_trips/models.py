@@ -411,8 +411,21 @@ class Trip(SlugMixin, models.Model):
         help_text="Classification tags (e.g., 'Adventure', 'Family')",
     )
 
-    # meta includes tinyurl, poster
+    # meta includes tinyurl
     metadata = models.JSONField(default=dict, blank=True)
+
+    poster_image = models.ImageField(
+        upload_to="trips/posters/",
+        null=True,
+        blank=True,
+        help_text="Uploaded primary listing photo. Takes priority over "
+        "poster_url when both are set.",
+    )
+    poster_url = models.URLField(
+        null=True,
+        blank=True,
+        help_text="External primary listing photo URL, used when poster_image isn't uploaded.",
+    )
 
     featured = models.CharField(
         max_length=20,
@@ -456,18 +469,6 @@ class Trip(SlugMixin, models.Model):
 
     def __repr__(self):
         return f"<Trip: {self.name}, {self.departure} > {self.destination}>"
-
-    @property
-    def poster(self):
-        """
-        Primary listing image URL: the first `TripImage` (by `order`), or
-        the legacy `metadata['poster']` string for trips that predate the
-        image gallery.
-        """
-        first_image = self.images.first()
-        if first_image:
-            return first_image.image
-        return self.metadata.get("poster", "") if self.metadata else ""
 
     @property
     def starting_price(self):
@@ -599,15 +600,26 @@ class Trip(SlugMixin, models.Model):
 
 class TripImage(models.Model):
     """
-    A single photo in a Trip's gallery/carousel.
+    A single photo in a Trip's gallery/carousel. Ordered by `order`
+    (ascending, ties broken by `id`).
 
-    Ordered by `order` (ascending, ties broken by `id`); `Trip.poster` uses
-    the first one as the primary/listing image, falling back to the legacy
-    `metadata['poster']` string for trips that predate this gallery.
+    Distinct from `Trip.poster_image`/`poster_url` - the primary listing
+    card image is its own dedicated field pair, not derived from this
+    gallery.
+
+    Either `image` (an external URL) or `image_upload` (a local file) may
+    be set - `image_upload` takes priority when both are, resolved via
+    `resolve_media_url` in api/serializers.py.
     """
 
     trip = models.ForeignKey(Trip, related_name="images", on_delete=models.CASCADE)
-    image = models.URLField(help_text="URL of the photo")
+    image = models.URLField(help_text="External URL of the photo")
+    image_upload = models.ImageField(
+        upload_to="trips/images/",
+        null=True,
+        blank=True,
+        help_text="Uploaded photo. Takes priority over `image` (URL) when both are set.",
+    )
     alt_text = models.CharField(max_length=255, blank=True)
     order = models.PositiveSmallIntegerField(
         default=0, help_text="Display order within the trip's gallery (ascending)"

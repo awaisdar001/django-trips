@@ -52,7 +52,7 @@ class CommandsTestBase(TestCase):
         not the empty/zero defaults - otherwise trip cards render blank."""
         self.run_generate_trips_command(batch_size=3)
         for trip in Trip.objects.all():
-            self.assertTrue(trip.poster, f"{trip} has no poster")
+            self.assertTrue(trip.poster_url, f"{trip} has no poster")
             self.assertTrue(trip.reviews.exists(), f"{trip} has no reviews")
 
     def test_backfills_region_for_preexisting_location(self):

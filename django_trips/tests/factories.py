@@ -191,12 +191,8 @@ class TripFactory(DjangoModelFactory):
     destination = factory.SubFactory(LocationFactory)
     country = "PK"  # Use country code, assuming the default is 'PK'
 
-    metadata = factory.LazyFunction(
-        lambda: {
-            "tinyurl": "http://example.com",
-            "poster": "http://example.com/poster.jpg",
-        }
-    )
+    metadata = factory.LazyFunction(lambda: {"tinyurl": "http://example.com"})
+    poster_url = "http://example.com/poster.jpg"
 
     featured = None
     is_pax_required = factory.Faker("boolean")

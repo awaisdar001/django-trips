@@ -124,10 +124,8 @@ class Command(BaseCommand):
             passenger_limit_min=random.randint(1, 4),
             passenger_limit_max=random.randint(5, 15),
             created_by=user,
-            metadata={
-                "poster": fake.image_url(width=640, height=480),
-                "tinyurl": fake.url(),
-            },
+            metadata={"tinyurl": fake.url()},
+            poster_url=fake.image_url(width=640, height=480),
         )
 
         trip.save()

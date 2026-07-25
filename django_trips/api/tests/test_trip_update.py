@@ -124,6 +124,7 @@ class TripUpdateTestCase(AuthenticatedUserTestCase):
                 "lon": ANY,
                 "region": ANY,
                 "importance": ANY,
+                "poster": ANY,
             },
         )
         self.assertEqual(

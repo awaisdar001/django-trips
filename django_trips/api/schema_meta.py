@@ -204,7 +204,8 @@ upcoming_trips_list_schema = extend_schema(
 )
 destinations_list_schema = extend_schema(
     summary="Get Trip Destinations",
-    description="List all trip destinations.",
+    description="List all trip destinations, each annotated with a count "
+    "of its currently active trips. Ordered by trip count descending.",
     responses={200: DestinationWithSchedulesSerializer},
     tags=SchemaTags.TRIPS.value,
 )

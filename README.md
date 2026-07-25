@@ -39,10 +39,13 @@ following settings.
 1. `TRIP_DESTINATIONS`
 2. `TRIP_DEPARTURE_LOCATION`
 3. `TRIP_LOCATIONS = TRIP_DEPARTURE_LOCATION + TRIP_DESTINATIONS`
-4. `TRIP_HOSTS`
-5. `TRIP_FACILITIES`
-6. `TRIP_CATEGORIES`
-7. `TRIP_GEARS`
+4. `TRIP_LOCATIONS_BY_REGION` (optional) - maps each location name above to its
+   PROVINCE-level parent, e.g. `{"Gilgit-Baltistan": ("Hunza", "Skardu")}`, so
+   `Location.region` resolves instead of staying `None`.
+5. `TRIP_HOSTS`
+6. `TRIP_FACILITIES`
+7. `TRIP_CATEGORIES`
+8. `TRIP_GEARS`
 
 ```
 python manage.py generate_trips --batch_size=100

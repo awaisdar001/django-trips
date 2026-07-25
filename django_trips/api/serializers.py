@@ -1,5 +1,7 @@
 """Django Trips serializers"""
 
+from typing import TYPE_CHECKING, Optional
+
 import crum
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -27,6 +29,9 @@ from django_trips.models import (
     TrustBadge,
 )
 from django_trips.utils import format_trip_duration
+
+if TYPE_CHECKING:
+    from django.db.models.fields.files import FieldFile
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -71,6 +76,7 @@ class LocationSerializer(serializers.ModelSerializer):
 
     type = serializers.SerializerMethodField()
     region = serializers.ReadOnlyField()
+    poster = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
@@ -83,12 +89,17 @@ class LocationSerializer(serializers.ModelSerializer):
             "type",
             "region",
             "importance",
+            "poster",
         )
 
     @extend_schema_field({"type": "string", "example": "TOWN"})
     def get_type(self, location):
         """Returns human readable model choice value."""
         return location.get_type_display()
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_poster(self, location: "Location") -> Optional[str]:
+        return get_location_poster(location, self.context)
 
 
 class FacilitySerializer(serializers.ModelSerializer):
@@ -410,9 +421,46 @@ def get_trip_review_summary_data(trip):
 class TripImageSerializer(serializers.ModelSerializer):
     """A single photo in a trip's gallery/carousel."""
 
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = TripImage
         fields = ("id", "image", "alt_text", "order")
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_image(self, obj: "TripImage") -> Optional[str]:
+        return resolve_media_url(obj.image_upload, obj.image, self.context)
+
+
+def resolve_media_url(
+    upload_file: Optional["FieldFile"], url: Optional[str], context: dict
+) -> Optional[str]:
+    """
+    Absolute URL for an "upload or external URL" media pair, or None if
+    neither is set.
+
+    `upload_file` (e.g. an ImageField) takes priority over `url` (a plain
+    URLField/string) when both are set. `upload_file.url` is relative to
+    MEDIA_URL, so it needs `request` from the serializer context to become
+    an absolute URL matching `url`'s shape.
+    """
+    if upload_file:
+        request = context.get("request")
+        file_url = upload_file.url
+        return request.build_absolute_uri(file_url) if request else file_url
+    return url or None
+
+
+def get_location_poster(location: "Location", context: dict) -> Optional[str]:
+    """Absolute URL of a location's poster photo, or None if neither
+    `poster_image` nor `poster_url` is set."""
+    return resolve_media_url(location.poster_image, location.poster_url, context)
+
+
+def get_trip_poster(trip: "Trip", context: dict) -> Optional[str]:
+    """Absolute URL of a trip's primary listing photo, or None if neither
+    `poster_image` nor `poster_url` is set."""
+    return resolve_media_url(trip.poster_image, trip.poster_url, context)
 
 
 def get_is_wished(trip, context):
@@ -444,7 +492,7 @@ class TripWishlistToggleSerializer(serializers.Serializer):  # pylint:disable=ab
 class TripListSerializer(serializers.ModelSerializer):
     destination = LocationSerializer()
     duration = serializers.SerializerMethodField()
-    poster = serializers.ReadOnlyField()
+    poster = serializers.SerializerMethodField()
     images = TripImageSerializer(many=True, read_only=True)
     starting_price = serializers.ReadOnlyField()
     review_summary = serializers.SerializerMethodField()
@@ -484,6 +532,10 @@ class TripListSerializer(serializers.ModelSerializer):
     def get_duration(self, obj):
         return format_trip_duration(obj.duration)
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_poster(self, trip: "Trip") -> Optional[str]:
+        return get_trip_poster(trip, self.context)
+
     @extend_schema_field(TripReviewSummarySerializer)
     def get_review_summary(self, obj):
         return get_trip_review_summary_data(obj)
@@ -516,7 +568,7 @@ class TripOptionSerializer(serializers.ModelSerializer):
 class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     cancellation_policy = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
-    poster = serializers.ReadOnlyField()
+    poster = serializers.SerializerMethodField()
     images = TripImageSerializer(many=True, read_only=True)
     starting_price = serializers.ReadOnlyField()
     review_summary = serializers.SerializerMethodField()
@@ -588,6 +640,10 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     def get_duration(self, obj):
         return format_trip_duration(obj.duration)
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_poster(self, trip: "Trip") -> Optional[str]:
+        return get_trip_poster(trip, self.context)
+
     @extend_schema_field(TripReviewSummarySerializer)
     def get_review_summary(self, obj):
         return get_trip_review_summary_data(obj)
@@ -652,12 +708,25 @@ class UpcomingTripListSerializer(serializers.ModelSerializer):
 
 
 class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
+    """
+    trips_count must come from an annotated queryset (see
+    ActiveDestinationsWithSchedulesView) - it's used to rank destinations by
+    popularity (e.g. a landing page's "top destinations") without a manual
+    curation field.
+    """
+
     schedules = serializers.SerializerMethodField()
     region = serializers.ReadOnlyField()
+    trips_count = serializers.IntegerField(read_only=True, default=0)
+    poster = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
-        fields = ["id", "name", "slug", "region", "schedules"]
+        fields = ["id", "name", "slug", "region", "schedules", "trips_count", "poster"]
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_poster(self, obj: "Location") -> Optional[str]:
+        return get_location_poster(obj, self.context)
 
     @extend_schema_field(UpcomingTripListSerializer(many=True))
     def get_schedules(self, obj: "Location"):

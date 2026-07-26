@@ -39,27 +39,23 @@ class BookingStatus(models.TextChoices):
     """
     Represents the lifecycle states of a booking with allowed transitions.
 
-    Status Flow:
-    └── PENDING
-        ├── WAITING_PAYMENT (when payment required)
-        │   ├── CONFIRMED (on full payment)
+    Status Flow (guest, out-of-band-payment booking model):
+    └── PENDING ("NEW" in the UI - booking request submitted, not yet actioned)
+        ├── CONFIRMED (staff called the traveler, advance payment received)
+        │   ├── READY (remaining balance collected on arrival / fully paid)
         │   │   ├── COMPLETED (after trip completion)
-        │   │   └── CANCELLED (admin-initiated only + refund)
-        │   └── CANCELLED (if payment not received)
-        ├── CONFIRMED (if no payment required)
-        │   ├── COMPLETED
-        │   └── CANCELLED (admin-initiated)
-        └── CANCELLED (user-initiated while pending)
+        │   │   └── CANCELLED (admin-initiated only)
+        │   └── CANCELLED (admin-initiated only)
+        └── CANCELLED (user- or admin-initiated while pending)
 
-    Special Cases:
-    - PARTIAL_PAYMENT: Can only transition from WAITING_PAYMENT
-        └── Either progresses to CONFIRMED (on full payment)
-            or falls back to CANCELLED
+    Legacy states (pre-dating the out-of-band-payment model; not part of the
+    current flow above, kept for backward compatibility with existing rows):
+    - WAITING_PAYMENT, PARTIAL_PAYMENT
 
     Restrictions:
-    - CONFIRMED/COMPLETED/PARTIAL_PAYMENT bookings cannot be automatically cancelled
+    - CONFIRMED/READY/COMPLETED bookings cannot be automatically cancelled
     - Only admin can cancel these bookings
-    - PENDING/WAITING_PAYMENT bookings can be user-cancelled
+    - PENDING bookings can be user-cancelled
     """
 
     PENDING = "PENDING", "Pending"
@@ -67,6 +63,7 @@ class BookingStatus(models.TextChoices):
 
     # Cannot cancel the trip automatically.
     CONFIRMED = "CONFIRMED", "Confirmed"
+    READY = "READY", "Ready"
     COMPLETED = "COMPLETED", "Completed"
     PARTIAL_PAYMENT = "PARTIAL_PAYMENT", "Partial Payment"
 

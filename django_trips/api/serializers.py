@@ -815,7 +815,10 @@ class TripBookingSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         validated_data = super().validate(attrs)
-        validated_data["created_by"] = self.context["request"].user
+        request_user = self.context["request"].user
+        validated_data["created_by"] = (
+            request_user if request_user.is_authenticated else None
+        )
 
         trip = get_object_or_404(Trip.objects.active(), pk=self.context["trip_id"])
         if validated_data["schedule"].trip.pk != trip.pk:
@@ -825,8 +828,31 @@ class TripBookingSerializer(serializers.ModelSerializer):
         return validated_data
 
     def create(self, validated_data):
-        trip_schedule = super().create(validated_data)
-        return trip_schedule
+        number_of_persons = validated_data["number_of_persons"]
+
+        with transaction.atomic():
+            # Lock the schedule row so two concurrent bookings can't both
+            # read the same remaining-seats count and both succeed.
+            schedule = TripSchedule.objects.select_for_update().get(
+                pk=validated_data["schedule"].pk
+            )
+            remaining_seats = schedule.available_seats - schedule.booked_seats
+            if number_of_persons > remaining_seats:
+                raise serializers.ValidationError(
+                    {
+                        "number_of_persons": (
+                            f"Only {max(remaining_seats, 0)} seat(s) left "
+                            "for this schedule."
+                        )
+                    }
+                )
+
+            trip_booking = super().create(validated_data)
+
+            schedule.booked_seats += number_of_persons
+            schedule.save(update_fields=["booked_seats"])
+
+        return trip_booking
 
     def update(self, instance, validated_data):
         for key, value in validated_data.items():

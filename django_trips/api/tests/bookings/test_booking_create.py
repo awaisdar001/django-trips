@@ -7,9 +7,12 @@ from django.utils import timezone
 
 from django_trips.choices import BookingStatus, ScheduleStatus
 from django_trips.models import TripBooking
-from django_trips.tests.factories import (AuthenticatedUserTestCase,
-                                          TripBookingFactory, TripFactory,
-                                          TripScheduleFactory)
+from django_trips.tests.factories import (
+    AuthenticatedUserTestCase,
+    TripBookingFactory,
+    TripFactory,
+    TripScheduleFactory,
+)
 
 
 class TripBookingCreateTestCase(AuthenticatedUserTestCase):
@@ -26,7 +29,12 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
             categories=["Outdoors", "Hiking"],
         )
         schedule_date = timezone.now().date() + timedelta(days=7)
-        cls.trip_schedule = TripScheduleFactory(trip=cls.trip, start_date=schedule_date)
+        cls.trip_schedule = TripScheduleFactory(
+            trip=cls.trip,
+            start_date=schedule_date,
+            available_seats=20,
+            booked_seats=0,
+        )
         cls.schedule2 = TripScheduleFactory(
             trip=cls.trip, start_date=timezone.now() + timedelta(days=20)
         )
@@ -84,3 +92,38 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
             {**self.payload, "schedule": other_schedule.id}, expected_response=400
         )
         self.assertIn("schedule", data)
+
+    def test_booking_create_allows_anonymous_guest(self):
+        response = self.client.post(
+            self.url, self.payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        data = response.json()
+        self.assertIsNone(data["created_by"])
+
+        new_booking = TripBooking.objects.get(number=data["number"])
+        self.assertIsNone(new_booking.created_by)
+
+    def test_booking_create_increments_booked_seats(self):
+        self.trip_schedule.refresh_from_db()
+        before = self.trip_schedule.booked_seats
+
+        self.make_create_trip_booking_request()
+
+        self.trip_schedule.refresh_from_db()
+        self.assertEqual(
+            self.trip_schedule.booked_seats, before + self.payload["number_of_persons"]
+        )
+
+    def test_booking_create_rejects_when_not_enough_seats(self):
+        self.trip_schedule.available_seats = 3
+        self.trip_schedule.booked_seats = 0
+        self.trip_schedule.save()
+
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "number_of_persons": 5}, expected_response=400
+        )
+        self.assertIn("number_of_persons", data)
+
+        self.trip_schedule.refresh_from_db()
+        self.assertEqual(self.trip_schedule.booked_seats, 0)

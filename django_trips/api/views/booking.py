@@ -1,11 +1,13 @@
 # pylint:disable=import-error,too-many-ancestors
 
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -16,6 +18,7 @@ from django_trips.api.schema_meta import (
     booking_cancel_schema,
     booking_create_schema,
     booking_list_schema,
+    booking_lookup_schema,
     booking_retrieve_schema,
     booking_update_schema,
 )
@@ -112,5 +115,41 @@ class TripBookingListView(TripBookingBaseViewSet, generics.ListAPIView):
 @extend_schema_view(post=booking_create_schema)
 class TripBookingCreateView(TripBookingBaseViewSet, generics.CreateAPIView):
     pagination_class = TripBookingsPagination
-    permission_classes = (IsAuthenticated,)
+    # Guest-first: booking is a request, not a paid transaction, so it must
+    # work for anonymous users. `created_by` is set from `request.user` when
+    # authenticated, else left null (see TripBookingSerializer.validate()).
+    permission_classes = (AllowAny,)
     serializer_class = TripBookingSerializer
+
+
+@extend_schema_view(get=booking_lookup_schema)
+class TripBookingLookupView(generics.RetrieveAPIView):
+    """
+    Anonymous "look up my booking" endpoint.
+
+    Scoped to a booking `number` AND its `email` together (not `number`
+    alone) so a guessed or leaked reference number can't be used to pull up
+    someone else's booking - accounts don't exist yet in this release, so
+    this pair is the only thing a guest has to prove they own a booking.
+    """
+
+    queryset = TripBooking.objects.all()
+    serializer_class = TripBookingSerializer
+    permission_classes = (AllowAny,)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        return {**context, **self.kwargs}
+
+    def get_object(self):
+        number = self.request.query_params.get("number")
+        email = self.request.query_params.get("email")
+        if not number or not email:
+            raise ValidationError(
+                {"detail": "Both `number` and `email` query parameters are required."}
+            )
+        booking = get_object_or_404(
+            TripBooking.objects.filter(email__iexact=email), number=number
+        )
+        self.kwargs["trip_id"] = booking.schedule.trip.id
+        return booking

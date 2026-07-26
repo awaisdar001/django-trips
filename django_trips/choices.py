@@ -16,9 +16,9 @@ class FeaturedType(models.TextChoices):
 
 
 class LocationType(models.TextChoices):
-    TOWN = "TOWN", "Town"
-    CITY = "CITY", "City"
     PROVINCE = "PROVINCE", "Province"
+    REGION = "REGION", "Region"
+    CITY = "CITY", "City"
 
 
 class AvailabilityType(models.TextChoices):

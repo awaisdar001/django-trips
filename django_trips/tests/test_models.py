@@ -106,8 +106,8 @@ class LocationFactoryTestCase(TestCase):
     def test_region_from_parent(self):
         """A location with a parent should report the parent's name as its region."""
         province = LocationFactory(name="Gilgit-Baltistan", type=LocationType.PROVINCE)
-        town = LocationFactory(name="Hunza", type=LocationType.TOWN, parent=province)
-        self.assertEqual(town.region, "Gilgit-Baltistan")
+        city = LocationFactory(name="Hunza", type=LocationType.CITY, parent=province)
+        self.assertEqual(city.region, "Gilgit-Baltistan")
 
     def test_region_for_province_without_parent(self):
         """A PROVINCE-level location with no parent should report its own name."""
@@ -116,8 +116,8 @@ class LocationFactoryTestCase(TestCase):
 
     def test_region_none_when_unlinked(self):
         """A non-PROVINCE location with no parent set yet has no region."""
-        town = LocationFactory(type=LocationType.TOWN, parent=None)
-        self.assertIsNone(town.region)
+        city = LocationFactory(type=LocationType.CITY, parent=None)
+        self.assertIsNone(city.region)
 
     def test_repr(self):
         self.assertIn(self.location.name, repr(self.location))

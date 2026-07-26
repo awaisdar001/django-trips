@@ -33,7 +33,7 @@ from django_trips.api.serializers import (
     TripWishlistToggleSerializer,
     UpcomingTripListSerializer,
 )
-from django_trips.choices import ScheduleStatus
+from django_trips.choices import LocationType, ScheduleStatus
 from django_trips.models import Location, Trip, TripSchedule, TripWishlist
 from django_trips.permissions import IsStaffForDeleteOnly
 
@@ -218,17 +218,39 @@ class ActiveDestinationsWithSchedulesView(ListAPIView):
     serializer_class = DestinationWithSchedulesSerializer
 
     def get_queryset(self):
+        # A REGION-type location (e.g. "Galiyat") may have no trips of its
+        # own - trips are booked to its child towns (e.g. "Nathia Gali").
+        # It still needs to appear here (with a rolled-up trips_count) since
+        # travelers search for the region name, not each child town - see
+        # expand_destination_slugs() in api/filters.py for the matching
+        # search-side behavior.
+        #
+        # Scoped to type=REGION specifically (not e.g. a PROVINCE, which is
+        # also technically a "parent") - otherwise every province would
+        # inherit its regions'/cities' trips too and show up as a giant
+        # catch-all pseudo-destination, which isn't what a province is for.
         return (
             Location.objects.active()
-            .filter(destination_trips__isnull=False)
+            .filter(
+                Q(destination_trips__isnull=False)
+                | Q(type=LocationType.REGION, children__destination_trips__isnull=False)
+            )
             .annotate(
                 trips_count=Count(
                     "destination_trips",
                     filter=Q(destination_trips__is_active=True),
                     distinct=True,
                 )
+                + Count(
+                    "children__destination_trips",
+                    filter=Q(
+                        children__destination_trips__is_active=True,
+                        type=LocationType.REGION,
+                    ),
+                    distinct=True,
+                )
             )
             .distinct()
-            .prefetch_related("destination_trips")
+            .prefetch_related("destination_trips", "children__destination_trips")
             .order_by("-trips_count", "name")
         )

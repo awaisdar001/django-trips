@@ -3,8 +3,26 @@ from datetime import timedelta
 import django_filters as filters
 from django.db.models import Q
 
-from django_trips.choices import ScheduleStatus
-from django_trips.models import Trip, TripBooking, TripSchedule
+from django_trips.choices import LocationType, ScheduleStatus
+from django_trips.models import Location, Trip, TripBooking, TripSchedule
+
+
+def expand_destination_slugs(slugs):
+    """
+    A REGION-type destination (e.g. 'galiyat') has no trips of its own -
+    trips are booked to its child towns (e.g. 'nathia-gali'). Searching by
+    the region name is how travelers actually search (see Location.parent/
+    Location.region), so filtering by a region's slug must also match trips
+    destined for any of its children, not just an exact slug match.
+
+    Scoped to parent__type=REGION specifically - a CITY with children (e.g.
+    Skardu with Shangrila) doesn't roll its children up; only a REGION does.
+    """
+    return set(slugs) | set(
+        Location.objects.filter(
+            parent__slug__in=slugs, parent__type=LocationType.REGION
+        ).values_list("slug", flat=True)
+    )
 
 
 class TimedeltaFromDaysFilter(filters.NumberFilter):
@@ -26,7 +44,11 @@ class TripBaseFilter(filters.FilterSet):
     destination = CharInFilter(
         field_name="destination__slug",
         lookup_expr="in",
-        help_text="Filter trips by a list of destination slugs, e.g. ?destination=hunza,skardu",
+        method="filter_destination",
+        help_text="Filter trips by a list of destination slugs, e.g. "
+        "?destination=hunza,skardu. A REGION-type slug (e.g. 'galiyat') also "
+        "matches trips destined for any of that region's child locations "
+        "(e.g. 'nathia-gali').",
     )
     duration_from = TimedeltaFromDaysFilter(field_name="duration", lookup_expr="gte")
     duration_to = TimedeltaFromDaysFilter(field_name="duration", lookup_expr="lte")
@@ -34,6 +56,11 @@ class TripBaseFilter(filters.FilterSet):
     class Meta:
         model = Trip
         fields = []
+
+    def filter_destination(self, queryset, _name, value):
+        if not value:
+            return queryset
+        return queryset.filter(destination__slug__in=expand_destination_slugs(value))
 
 
 class TripFilter(TripBaseFilter):
@@ -155,7 +182,11 @@ class UpcomingTripsFilter(filters.FilterSet):
     destination = CharInFilter(
         field_name="trip__destination__slug",
         lookup_expr="in",
-        help_text="Filter trips by a list of destination slugs, e.g. ?destination=hunza,skardu",
+        method="filter_destination",
+        help_text="Filter trips by a list of destination slugs, e.g. "
+        "?destination=hunza,skardu. A REGION-type slug (e.g. 'galiyat') also "
+        "matches trips destined for any of that region's child locations "
+        "(e.g. 'nathia-gali').",
     )
     duration_from = TimedeltaFromDaysFilter(
         field_name="trip__duration",
@@ -180,6 +211,11 @@ class UpcomingTripsFilter(filters.FilterSet):
             "duration_from",
             "duration_to",
         ]
+
+    def filter_destination(self, queryset, _name, value):
+        if not value:
+            return queryset
+        return queryset.filter(trip__destination__slug__in=expand_destination_slugs(value))
 
 
 class TripBookingFilterSet(filters.FilterSet):

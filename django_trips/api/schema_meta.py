@@ -13,6 +13,7 @@ from django_trips.api.serializers import (
     CategoryListSerializer,
     DestinationWithSchedulesSerializer,
     HostListSerializer,
+    TestimonialSerializer,
     TripBookingSerializer,
     TripCreateSerializer,
     TripDetailSerializer,
@@ -29,6 +30,7 @@ class SchemaTags(Enum):
     CATEGORIES = ["Categories"]
     HOSTS = ["Hosts"]
     TRUST_BADGES = ["Trust Badges"]
+    TESTIMONIALS = ["Testimonials"]
 
 
 error_response_serializer = inline_serializer(
@@ -217,6 +219,14 @@ categories_list_schema = extend_schema(
     "descending.",
     responses={200: CategoryListSerializer},
     tags=SchemaTags.CATEGORIES.value,
+)
+
+testimonials_list_schema = extend_schema(
+    summary="Get Testimonials",
+    description="List active, verified, curated site-wide testimonials for "
+    "marketing/landing-page display.",
+    responses={200: TestimonialSerializer},
+    tags=SchemaTags.TESTIMONIALS.value,
 )
 
 hosts_list_schema = extend_schema(

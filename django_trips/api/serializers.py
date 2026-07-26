@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 import crum
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django_countries.serializer_fields import CountryField
@@ -13,12 +14,14 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from taggit.serializers import TaggitSerializer, TagListSerializerField
 
+from django_trips.choices import LocationType
 from django_trips.models import (
     Category,
     Facility,
     Gear,
     Host,
     Location,
+    Testimonial,
     Trip,
     TripBooking,
     TripImage,
@@ -730,10 +733,34 @@ class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(UpcomingTripListSerializer(many=True))
     def get_schedules(self, obj: "Location"):
+        # A REGION-type location's own trips_count/schedules are rolled up
+        # from its child locations (see ActiveDestinationsWithSchedulesView),
+        # so the schedules nested here must match - otherwise a region could
+        # report e.g. trips_count=3 with an empty schedules list. Scoped to
+        # type=REGION specifically, same as the view - a CITY with children
+        # (e.g. Skardu with Shangrila) doesn't roll its children up.
+        destination_q = Q(destination=obj)
+        if obj.type == LocationType.REGION:
+            destination_q |= Q(destination__parent=obj)
+        trips = Trip.objects.filter(destination_q)
         schedules = TripSchedule.objects.upcoming().filter(
-            id__in=obj.destination_trips.all().values_list("schedules", flat=True)
+            id__in=trips.values_list("schedules", flat=True)
         )
         return UpcomingTripListSerializer(schedules, many=True).data
+
+
+class TestimonialSerializer(serializers.ModelSerializer):
+    """Curated, site-wide marketing quote for landing-page social proof."""
+
+    location = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Testimonial
+        fields = ["id", "quote", "name", "location"]
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_location(self, obj: "Testimonial") -> Optional[str]:
+        return obj.location.name if obj.location else None
 
 
 class TripBookingSerializer(serializers.ModelSerializer):

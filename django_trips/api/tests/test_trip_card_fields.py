@@ -270,7 +270,7 @@ class TestTripCardFields(AuthenticatedUserTestCase):
     def test_destination_region_from_parent(self):
         province = LocationFactory(name="Gilgit-Baltistan", type=LocationType.PROVINCE)
         destination = LocationFactory(
-            name="Hunza", type=LocationType.TOWN, parent=province
+            name="Hunza", type=LocationType.CITY, parent=province
         )
         trip = TripFactory(destination=destination, trip_schedule=None)
         self.assertEqual(
@@ -281,6 +281,6 @@ class TestTripCardFields(AuthenticatedUserTestCase):
         )
 
     def test_destination_region_none_when_unlinked(self):
-        destination = LocationFactory(type=LocationType.TOWN, parent=None)
+        destination = LocationFactory(type=LocationType.CITY, parent=None)
         trip = TripFactory(destination=destination, trip_schedule=None)
         self.assertIsNone(self.get_detail(trip)["destination"]["region"])

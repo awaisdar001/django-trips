@@ -2,12 +2,29 @@
 
 from django.contrib import admin
 
-from django_trips.models import (CancellationPolicy, Category, Facility, Gear,
-                                 Host, HostRating, HostType, Location, Testimonial,
-                                 Trip, TripAvailability, TripBooking,
-                                 TripImage, TripItinerary, TripPickupLocation,
-                                 TripReview, TripReviewSummary, TripSchedule,
-                                 TripWishlist, TrustBadge)
+from django_trips.choices import LocationType
+from django_trips.models import (
+    CancellationPolicy,
+    Category,
+    Facility,
+    Gear,
+    Host,
+    HostRating,
+    HostType,
+    Location,
+    Testimonial,
+    Trip,
+    TripAvailability,
+    TripBooking,
+    TripImage,
+    TripItinerary,
+    TripPickupLocation,
+    TripReview,
+    TripReviewSummary,
+    TripSchedule,
+    TripWishlist,
+    TrustBadge,
+)
 
 
 class TripScheduleAdminInline(admin.TabularInline):
@@ -112,6 +129,50 @@ class TrustBadgeAdmin(admin.ModelAdmin):
     )
 
 
+class RegionListFilter(admin.SimpleListFilter):
+    """Filters the Location changelist down to children of a chosen region."""
+
+    title = "region"
+    parameter_name = "parent"
+
+    def lookups(self, request, model_admin):
+        regions = Location.objects.filter(type=LocationType.REGION).order_by("name")
+        return [(region.pk, region.name) for region in regions]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(parent__id=self.value())
+        return queryset
+
+
+class ProvinceListFilter(admin.SimpleListFilter):
+    """Filters the Location changelist down to children of a chosen province."""
+
+    title = "province"
+    parameter_name = "parent"
+
+    def lookups(self, request, model_admin):
+        provinces = Location.objects.filter(type=LocationType.PROVINCE).order_by("name")
+        return [(province.pk, province.name) for province in provinces]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(parent__id=self.value())
+        return queryset
+
+
+class LocationChildInline(admin.TabularInline):
+    """Inline listing of a Location's children (e.g. a region's cities)."""
+
+    model = Location
+    fk_name = "parent"
+    extra = 0
+    fields = ("name", "slug", "type", "is_active")
+    show_change_link = True
+    verbose_name = "Child location"
+    verbose_name_plural = "Child locations"
+
+
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
     """Location modal admin configuration"""
@@ -123,9 +184,10 @@ class LocationAdmin(admin.ModelAdmin):
         "type",
         "parent",
     )
-    list_filter = ("is_active", "type")
+    list_filter = ("is_active", "type", ProvinceListFilter, RegionListFilter)
     search_fields = ["name", "slug"]
     autocomplete_fields = ["parent"]
+    inlines = [LocationChildInline]
 
 
 @admin.register(TripItinerary)
@@ -158,12 +220,15 @@ class TripScheduleAdmin(admin.ModelAdmin):
     raw_id_fields = ("trip",)
 
 
-@admin.action(description="Mark selected hosts as inactive (and deactivate their trips)")
+@admin.action(
+    description="Mark selected hosts as inactive (and deactivate their trips)"
+)
 def deactivate_hosts(modeladmin, request, queryset):
     trips_updated = Trip.objects.filter(host__in=queryset).update(is_active=False)
     hosts_updated = queryset.update(is_active=False)
     modeladmin.message_user(
-        request, f"Deactivated {hosts_updated} host(s) and {trips_updated} of their trip(s)."
+        request,
+        f"Deactivated {hosts_updated} host(s) and {trips_updated} of their trip(s).",
     )
 
 
@@ -211,11 +276,41 @@ class TripReviewSummaryAdmin(admin.ModelAdmin):
     search_fields = ["trip__name"]
 
 
+@admin.action(description="Mark selected testimonials as active")
+def activate_testimonials(modeladmin, request, queryset):
+    updated = queryset.update(is_active=True)
+    modeladmin.message_user(request, f"Marked {updated} testimonial(s) as active.")
+
+
+@admin.action(description="Mark selected testimonials as inactive")
+def deactivate_testimonials(modeladmin, request, queryset):
+    updated = queryset.update(is_active=False)
+    modeladmin.message_user(request, f"Marked {updated} testimonial(s) as inactive.")
+
+
+@admin.action(description="Mark selected testimonials as verified")
+def verify_testimonials(modeladmin, request, queryset):
+    updated = queryset.update(is_verified=True)
+    modeladmin.message_user(request, f"Marked {updated} testimonial(s) as verified.")
+
+
+@admin.action(description="Mark selected testimonials as unverified")
+def unverify_testimonials(modeladmin, request, queryset):
+    updated = queryset.update(is_verified=False)
+    modeladmin.message_user(request, f"Marked {updated} testimonial(s) as unverified.")
+
+
 @admin.register(Testimonial)
 class TestimonialAdmin(admin.ModelAdmin):
     list_display = ("name", "location", "is_verified", "is_active", "created_at")
     list_filter = ("is_verified", "is_active")
     search_fields = ["name", "quote"]
+    actions = [
+        activate_testimonials,
+        deactivate_testimonials,
+        verify_testimonials,
+        unverify_testimonials,
+    ]
 
 
 @admin.register(TripPickupLocation)

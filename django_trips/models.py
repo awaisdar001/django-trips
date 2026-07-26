@@ -133,7 +133,7 @@ class Location(SlugMixin, models.Model):
     type = models.CharField(
         max_length=100,
         choices=LocationType.choices,
-        default=LocationType.TOWN,
+        default=LocationType.CITY,
         help_text="Classification of location type",
     )
     importance = models.DecimalField(

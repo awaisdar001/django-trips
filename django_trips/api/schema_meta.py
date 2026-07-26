@@ -313,6 +313,35 @@ booking_update_schema = extend_schema(
     tags=SchemaTags.Bookings.value,
 )
 
+booking_lookup_schema = extend_schema(
+    summary="Look up a booking (guest, no login)",
+    description="Retrieve a booking by its reference `number` and the `email` "
+    "it was booked with - no account required. Both must match.",
+    parameters=[
+        OpenApiParameter(
+            name="number",
+            description="Booking reference number, e.g. DPT00012399",
+            required=True,
+            type=OpenApiTypes.STR,
+        ),
+        OpenApiParameter(
+            name="email",
+            description="Email address the booking was made with.",
+            required=True,
+            type=OpenApiTypes.STR,
+        ),
+    ],
+    responses={
+        200: TripBookingSerializer,
+        400: OpenApiResponse(
+            response=error_response_serializer,
+            description="Missing `number` or `email` query parameter.",
+        ),
+        404: OpenApiResponse(description="No matching booking found."),
+    },
+    tags=SchemaTags.Bookings.value,
+)
+
 booking_cancel_schema = extend_schema(
     summary="Cancel a trip booking",
     description="Cancel a booking identified by the number in the URL. Only allowed if the booking is not already cancelled and meets cancellation criteria.",

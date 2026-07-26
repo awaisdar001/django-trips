@@ -58,6 +58,11 @@ app_urlpatterns = [
         booking.TripBookingCreateView.as_view(),
         name="trip-bookings-create",
     ),
+    path(
+        "trips/bookings/lookup/",
+        booking.TripBookingLookupView.as_view(),
+        name="trip-bookings-lookup",
+    ),
     *router.urls,
 ]
 

@@ -155,31 +155,44 @@ class Command(BaseCommand):
             round(base_price * factor / 10000) * 100 for factor in (90, 100, 110, 125)
         ]
 
+        def make_schedule(start_date, end_date, status, booked_seats=0):
+            price = random.choice(price_choices)
+            available_seats = random.randint(6, 20)
+            TripSchedule.objects.create(
+                trip=trip,
+                start_date=start_date,
+                end_date=end_date,
+                price=price,
+                child_price=round(price * 0.6 / 100) * 100,
+                available_seats=available_seats,
+                booked_seats=min(booked_seats, available_seats),
+                status=status,
+            )
+
         # 1. Expired schedule
-        TripSchedule.objects.create(
-            trip=trip,
-            start_date=now - timedelta(days=duration_days + 10),
-            end_date=now - timedelta(days=5),
-            price=random.choice(price_choices),
-            status=ScheduleStatus.FULL,
+        make_schedule(
+            now - timedelta(days=duration_days + 10),
+            now - timedelta(days=5),
+            ScheduleStatus.FULL,
+            booked_seats=random.randint(6, 20),
         )
         # 2. In-progress schedule
-        TripSchedule.objects.create(
-            trip=trip,
-            start_date=now - timedelta(days=2),
-            end_date=now + timedelta(days=duration_days),
-            price=random.choice(price_choices),
-            status=ScheduleStatus.PUBLISHED,
+        make_schedule(
+            now - timedelta(days=2),
+            now + timedelta(days=duration_days),
+            ScheduleStatus.PUBLISHED,
+            booked_seats=random.randint(0, 10),
         )
 
-        # 3. Upcoming schedule
-        TripSchedule.objects.create(
-            trip=trip,
-            start_date=now + timedelta(days=5),
-            end_date=now + timedelta(days=5 + duration_days),
-            price=random.choice(price_choices),
-            status=ScheduleStatus.PUBLISHED,
-        )
+        # 3-5. A few upcoming, bookable schedules spread over the next
+        # ~90 days, so the availability picker has real date choices
+        # rather than a single option.
+        for departure_offset in (5, 30, 60):
+            make_schedule(
+                now + timedelta(days=departure_offset),
+                now + timedelta(days=departure_offset + duration_days),
+                ScheduleStatus.PUBLISHED,
+            )
 
     def get_category(self):
         name = random.choice(self.get_setting("TRIP_CATEGORIES"))

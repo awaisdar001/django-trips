@@ -750,6 +750,13 @@ class TripSchedule(models.Model):
 
     trip = models.ForeignKey(Trip, related_name="schedules", on_delete=models.CASCADE)
     price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    child_price = models.DecimalField(
+        default=0,
+        max_digits=7,
+        decimal_places=0,
+        help_text="Per-child price for this departure. Independent of `price` "
+        "rather than a fixed ratio, since child discounts vary by trip.",
+    )
     is_per_person_price = models.BooleanField(default=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
@@ -774,6 +781,10 @@ class TripSchedule(models.Model):
             today = now().date()
             return self.start_date <= today < self.end_date
         return False
+
+    @property
+    def seats_left(self):
+        return max(self.available_seats - self.booked_seats, 0)
 
 
 class TripOption(models.Model):
@@ -1063,9 +1074,9 @@ class TripWishlist(models.Model):
 
 
 class TripPickupLocation(models.Model):
-    """Trip pickup locations"""
+    """A pickup point offered for a specific trip departure (`TripSchedule`)."""
 
-    trip = models.ForeignKey(
+    schedule = models.ForeignKey(
         TripSchedule, related_name="pickup_locations", on_delete=models.CASCADE
     )
     location = models.ForeignKey(Location, on_delete=models.CASCADE)
@@ -1075,4 +1086,4 @@ class TripPickupLocation(models.Model):
         return str(self.location)
 
     def __repr__(self):
-        return f"<TripPickupLocation trip={self.trip}-{self.location}>"
+        return f"<TripPickupLocation schedule={self.schedule}-{self.location}>"

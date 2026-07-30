@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from taggit.serializers import TaggitSerializer, TagListSerializerField
 
-from django_trips.choices import LocationType
+from django_trips.choices import LocationType, ScheduleStatus
 from django_trips.models import (
     Category,
     Facility,
@@ -27,6 +27,7 @@ from django_trips.models import (
     TripImage,
     TripItinerary,
     TripOption,
+    TripPickupLocation,
     TripReviewSummary,
     TripSchedule,
     TrustBadge,
@@ -568,6 +569,52 @@ class TripOptionSerializer(serializers.ModelSerializer):
         fields = ("name", "description", "base_price", "base_child_price")
 
 
+class TripPickupLocationSerializer(serializers.ModelSerializer):
+    """A pickup point offered for a specific trip departure."""
+
+    name = serializers.CharField(source="location.name", read_only=True)
+
+    class Meta:
+        model = TripPickupLocation
+        fields = ("id", "name", "additional_price")
+
+
+class TripScheduleBaseSerializer(serializers.ModelSerializer):
+    """Fields shared by every context a `TripSchedule` is rendered in."""
+
+    seats_left = serializers.IntegerField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = TripSchedule
+        fields = (
+            "id",
+            "price",
+            "child_price",
+            "is_per_person_price",
+            "start_date",
+            "end_date",
+            "available_seats",
+            "booked_seats",
+            "seats_left",
+            "status",
+            "is_active",
+        )
+
+
+class TripScheduleDetailSerializer(TripScheduleBaseSerializer):
+    """
+    Nested under `TripDetailSerializer` - the parent trip is already known
+    from context there, so this deliberately doesn't re-embed `trip` the way
+    `TripScheduleSerializer` does.
+    """
+
+    pickup_locations = TripPickupLocationSerializer(many=True, read_only=True)
+
+    class Meta(TripScheduleBaseSerializer.Meta):
+        fields = TripScheduleBaseSerializer.Meta.fields + ("pickup_locations",)
+
+
 class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     cancellation_policy = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
@@ -591,6 +638,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     tags = TagListSerializerField(required=False)
     trip_itinerary = TripItineraryReadSerializer(source="itinerary_days", many=True)
     options = TripOptionSerializer(many=True)
+    schedules = serializers.SerializerMethodField()
 
     class Meta:
         model = Trip
@@ -637,6 +685,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "trip_url",
             "trip_itinerary",
             "options",
+            "schedules",
         )
 
     @extend_schema_field({"type": "string", "example": "7 Days 6 Nights"})
@@ -673,41 +722,39 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
         """
         return obj.cancellation_policy
 
+    @extend_schema_field(TripScheduleDetailSerializer(many=True))
+    def get_schedules(self, trip):
+        """
+        This trip's upcoming, published departures - i.e. exactly what a
+        traveler can actually book (matches the `TripSchedule.objects.upcoming()`
+        queryset `TripBookingSerializer`'s `schedule` field validates against),
+        not every schedule row that happens to exist (draft/past/cancelled ones
+        are irrelevant to an availability picker).
+        """
+        schedules = (
+            trip.schedules.upcoming()
+            .filter(status=ScheduleStatus.PUBLISHED)
+            .prefetch_related("pickup_locations__location")
+            .order_by("start_date")
+        )
+        return TripScheduleDetailSerializer(
+            schedules, many=True, context=self.context
+        ).data
 
-class TripScheduleSerializer(serializers.ModelSerializer):
+
+class TripScheduleSerializer(TripScheduleBaseSerializer):
+    """Used where the parent trip isn't already known from context, e.g. a
+    booking's `schedule_details` or the standalone upcoming-trips list."""
+
     trip = TripListSerializer()
 
-    class Meta:
-        model = TripSchedule
-        fields = (
-            "id",
-            "trip",
-            "price",
-            "is_per_person_price",
-            "start_date",
-            "end_date",
-            "available_seats",
-            "booked_seats",
-            "status",
-        )
+    class Meta(TripScheduleBaseSerializer.Meta):
+        fields = ("trip",) + TripScheduleBaseSerializer.Meta.fields
 
 
-class UpcomingTripListSerializer(serializers.ModelSerializer):
-    trip = TripListSerializer()
-
-    class Meta:
-        model = TripSchedule
-        fields = (
-            "id",
-            "trip",
-            "price",
-            "is_per_person_price",
-            "start_date",
-            "end_date",
-            "available_seats",
-            "booked_seats",
-            "status",
-        )
+class UpcomingTripListSerializer(TripScheduleSerializer):
+    """Same shape as `TripScheduleSerializer` - kept as a distinct name for
+    the `/trips/upcoming/` endpoint's schema/call sites."""
 
 
 class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
@@ -836,12 +883,12 @@ class TripBookingSerializer(serializers.ModelSerializer):
             schedule = TripSchedule.objects.select_for_update().get(
                 pk=validated_data["schedule"].pk
             )
-            remaining_seats = schedule.available_seats - schedule.booked_seats
+            remaining_seats = schedule.seats_left
             if number_of_persons > remaining_seats:
                 raise serializers.ValidationError(
                     {
                         "number_of_persons": (
-                            f"Only {max(remaining_seats, 0)} seat(s) left "
+                            f"Only {remaining_seats} seat(s) left "
                             "for this schedule."
                         )
                     }

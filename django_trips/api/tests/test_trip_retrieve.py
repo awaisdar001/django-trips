@@ -1,12 +1,18 @@
+from datetime import timedelta
+
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 
+from django_trips.choices import ScheduleStatus
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           CategoryFactory, FacilityFactory,
                                           GearFactory, HostFactory,
                                           LocationFactory, TripFactory,
                                           TripItineraryFactory,
-                                          TripOptionFactory)
+                                          TripOptionFactory,
+                                          TripPickupLocationFactory,
+                                          TripScheduleFactory)
 
 
 class TripRetrieveTestCase(AuthenticatedUserTestCase):
@@ -69,8 +75,44 @@ class TripRetrieveTestCase(AuthenticatedUserTestCase):
             "trip_itinerary",
             "tags",
             "options",
+            "schedules",
         }
         self.assertTrue(expected_fields.issubset(data.keys()))
+
+    def test_schedules_only_include_upcoming_published_departures(self):
+        now = timezone.now()
+        upcoming_published = TripScheduleFactory(
+            trip=self.trip,
+            status=ScheduleStatus.PUBLISHED,
+            start_date=(now + timedelta(days=10)).date(),
+            end_date=(now + timedelta(days=15)).date(),
+            available_seats=12,
+            booked_seats=5,
+        )
+        TripPickupLocationFactory(schedule=upcoming_published, additional_price=750)
+
+        # Neither of these should surface in the availability picker.
+        TripScheduleFactory(
+            trip=self.trip,
+            status=ScheduleStatus.DRAFT,
+            start_date=(now + timedelta(days=20)).date(),
+            end_date=(now + timedelta(days=25)).date(),
+        )
+        TripScheduleFactory(
+            trip=self.trip,
+            status=ScheduleStatus.PUBLISHED,
+            start_date=(now - timedelta(days=20)).date(),
+            end_date=(now - timedelta(days=15)).date(),
+        )
+
+        data = self.make_api_call(self.trip.slug)
+        schedule_ids = {schedule["id"] for schedule in data["schedules"]}
+        self.assertEqual(schedule_ids, {upcoming_published.id})
+
+        returned_schedule = data["schedules"][0]
+        self.assertEqual(returned_schedule["seats_left"], 7)
+        self.assertEqual(len(returned_schedule["pickup_locations"]), 1)
+        self.assertEqual(returned_schedule["pickup_locations"][0]["additional_price"], 750)
 
     def test_retrieve_nonexistent_trip_returns_404(self):
         self.make_api_call("non-existent-slug", status.HTTP_404_NOT_FOUND)

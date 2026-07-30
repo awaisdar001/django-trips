@@ -560,6 +560,14 @@ class TripScheduleFactoryTestCase(TestCase):
         schedule = TripScheduleFactory(start_date=None, end_date=None)
         self.assertFalse(schedule.is_active)
 
+    def test_seats_left_subtracts_booked_from_available(self):
+        schedule = TripScheduleFactory(available_seats=10, booked_seats=4)
+        self.assertEqual(schedule.seats_left, 6)
+
+    def test_seats_left_floors_at_zero_when_overbooked(self):
+        schedule = TripScheduleFactory(available_seats=5, booked_seats=8)
+        self.assertEqual(schedule.seats_left, 0)
+
 
 class TripAvailabilityTestCase(TestCase):
     def test_str(self):
@@ -751,7 +759,7 @@ class TripPickupLocationTestCase(TestCase):
         schedule = TripScheduleFactory()
         location = LocationFactory(name="Naran")
         pickup = TripPickupLocation.objects.create(
-            trip=schedule, location=location, additional_price=100
+            schedule=schedule, location=location, additional_price=100
         )
         self.assertEqual(str(pickup), str(location))
         self.assertIn("TripPickupLocation", repr(pickup))

@@ -207,6 +207,7 @@ class TripScheduleAdmin(admin.ModelAdmin):
         "trip",
         "status",
         "price",
+        "child_price",
         "start_date",
         "end_date",
     )
@@ -315,8 +316,8 @@ class TestimonialAdmin(admin.ModelAdmin):
 
 @admin.register(TripPickupLocation)
 class TripPickupLocationAdmin(admin.ModelAdmin):
-    list_display = ("trip", "location", "additional_price")
-    search_fields = ["trip__name"]
+    list_display = ("schedule", "location", "additional_price")
+    search_fields = ["schedule__trip__name"]
     list_filter = ("location",)
 
 

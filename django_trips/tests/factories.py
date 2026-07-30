@@ -35,6 +35,7 @@ from django_trips.models import (
     TripImage,
     TripItinerary,
     TripOption,
+    TripPickupLocation,
     TripReview,
     TripReviewSummary,
     TripSchedule,
@@ -292,6 +293,7 @@ class TripScheduleFactory(DjangoModelFactory):
 
     trip = factory.SubFactory(TripFactory)  # Generates a related Trip instance
     price = factory.Faker("random_number", digits=5)  # Random price
+    child_price = factory.Faker("random_number", digits=4)
     is_per_person_price = factory.Faker("boolean")
     start_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
     end_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=10))
@@ -301,6 +303,15 @@ class TripScheduleFactory(DjangoModelFactory):
     status = factory.Faker(
         "random_element", elements=[choice[0] for choice in ScheduleStatus.choices]
     )
+
+
+class TripPickupLocationFactory(DjangoModelFactory):
+    class Meta:
+        model = TripPickupLocation
+
+    schedule = factory.SubFactory(TripScheduleFactory)
+    location = factory.SubFactory(LocationFactory)
+    additional_price = factory.Faker("random_int", min=0, max=1500)
 
 
 class TripBookingFactory(DjangoModelFactory):

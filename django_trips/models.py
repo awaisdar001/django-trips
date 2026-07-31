@@ -23,8 +23,8 @@ from django_trips.choices import (
     BookingStatus,
     FeaturedType,
     LocationType,
+    PackageTier,
     ScheduleStatus,
-    TripOptions,
 )
 from django_trips.mixins import SlugMixin
 
@@ -70,6 +70,14 @@ class Host(SlugMixin, models.Model):
     address = models.CharField(max_length=255, null=True, blank=True)
     cancellation_policy = models.JSONField(default=list, blank=True, null=True)
     refund_policy = models.JSONField(default=list, blank=True, null=True)
+    refund_schedule = models.JSONField(
+        default=list,
+        blank=True,
+        null=True,
+        help_text="Host-level override for the structured refund-tier schedule "
+        "(same shape as CancellationPolicy.refund_schedule). Empty - the "
+        "default - falls back to the platform-wide schedule.",
+    )
 
     verified = models.BooleanField(default=False)
     is_active = models.BooleanField(
@@ -502,6 +510,16 @@ class Trip(SlugMixin, models.Model):
         """
         return self.host.refund_policy or RefundPolicy.current().description
 
+    @property
+    def refund_schedule(self):
+        """
+        Structured per-timeframe refund tiers backing the cancellation-policy
+        timeline UI (e.g. "7+ days: 100% / 3-7 days: 50% / <72hrs: 0%") - same
+        host-override-over-platform-default precedence as `cancellation_policy`/
+        `refund_policy` above.
+        """
+        return self.host.refund_schedule or CancellationPolicy.current().refund_schedule
+
     def create_schedules(self):
         """
         Generates individual trip schedules based on the availability configuration.
@@ -787,12 +805,12 @@ class TripSchedule(models.Model):
         return max(self.available_seats - self.booked_seats, 0)
 
 
-class TripOption(models.Model):
+class TripPackage(models.Model):
     """
-    Represents optional configurations or tiers for a Trip.
+    Represents a pricing package/tier for a Trip.
 
     A trip can have multiple pricing tiers or styles (e.g., Standard, Deluxe,
-    VIP), each with its own pricing and description. These options are linked
+    VIP), each with its own pricing and description. These packages are linked
     directly to the Trip, not to specific schedules.
 
     Use Case:
@@ -800,11 +818,11 @@ class TripOption(models.Model):
     - Helps support multiple pricing models under the same trip.
     """
 
-    trip = models.ForeignKey(Trip, related_name="options", on_delete=models.CASCADE)
+    trip = models.ForeignKey(Trip, related_name="packages", on_delete=models.CASCADE)
     name = models.CharField(
         max_length=20,
-        choices=TripOptions.choices,
-        default=TripOptions.STANDARD,
+        choices=PackageTier.choices,
+        default=PackageTier.STANDARD,
     )
 
     description = models.TextField()
@@ -819,7 +837,7 @@ class TripOption(models.Model):
         return str(self.name)
 
     def __repr__(self):
-        return f"<TripOption {self.name}>"
+        return f"<TripPackage {self.name}>"
 
 
 class TripReview(models.Model):
@@ -926,8 +944,39 @@ class Testimonial(models.Model):
         return f"<Testimonial name={self.name} verified={self.is_verified}>"
 
 
+def default_refund_schedule():
+    """Platform-default refund tiers backing the cancellation-policy timeline UI."""
+    return [
+        {
+            "label": "7+ days before departure",
+            "min_hours_before_departure": 168,
+            "refund_percent": 100,
+        },
+        {
+            "label": "3-7 days before departure",
+            "min_hours_before_departure": 72,
+            "refund_percent": 50,
+        },
+        {
+            "label": "Less than 72 hours before departure",
+            "min_hours_before_departure": 0,
+            "refund_percent": 0,
+        },
+    ]
+
+
 class CancellationPolicy(ConfigurationModel):
     description = models.TextField()
+    refund_schedule = models.JSONField(
+        default=default_refund_schedule,
+        blank=True,
+        help_text="Ordered refund tiers, each a "
+        "{'label', 'min_hours_before_departure', 'refund_percent'} dict, "
+        "backing the cancellation-policy timeline UI.",
+    )
+
+    class Meta:
+        verbose_name_plural = "Cancellation policies"
 
     def __str__(self):
         return str(self.description)

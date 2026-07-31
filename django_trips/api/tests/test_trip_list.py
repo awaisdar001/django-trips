@@ -11,6 +11,7 @@ from django_trips.models import Trip
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           CategoryFactory, HostFactory,
                                           LocationFactory, TripFactory,
+                                          TripPickupLocationFactory,
                                           TripScheduleFactory)
 
 
@@ -69,6 +70,7 @@ class TestTripListAPI(AuthenticatedUserTestCase):
             "featured",
             "trip_url",
             "host",
+            "schedules",
         ]
         results = self.get_trips_list_result()
         self.assertEqual(len(results), 1)
@@ -83,6 +85,49 @@ class TestTripListAPI(AuthenticatedUserTestCase):
         TripFactory(is_active=False)
         trips = self.get_trips_list_result()
         self.assertEqual(len(trips), 1)
+
+    def test_schedules_only_include_upcoming_published_departures(self):
+        """
+        Mirrors the same rule on the detail endpoint - a list card's
+        `schedules` should only ever contain what's actually bookable, and
+        (unlike the detail endpoint) never a `pickup_locations` key - that's
+        booking-flow detail, needlessly heavy to prefetch for every card.
+        """
+        now = timezone.now()
+        upcoming_published = TripScheduleFactory(
+            trip=self.trip,
+            status=ScheduleStatus.PUBLISHED,
+            start_date=(now + timedelta(days=10)).date(),
+            end_date=(now + timedelta(days=15)).date(),
+            available_seats=12,
+            booked_seats=5,
+        )
+        TripPickupLocationFactory(schedule=upcoming_published, additional_price=750)
+
+        # Neither of these should surface.
+        TripScheduleFactory(
+            trip=self.trip,
+            status=ScheduleStatus.DRAFT,
+            start_date=(now + timedelta(days=20)).date(),
+            end_date=(now + timedelta(days=25)).date(),
+        )
+        TripScheduleFactory(
+            trip=self.trip,
+            status=ScheduleStatus.PUBLISHED,
+            start_date=(now - timedelta(days=20)).date(),
+            end_date=(now - timedelta(days=15)).date(),
+        )
+
+        result = self.get_trips_list_result()[0]
+        # cls.trip_schedule (set up in setUpTestData) has a past start_date,
+        # so it's excluded regardless of its (randomized) status - only
+        # upcoming_published should show up.
+        schedule_ids = {schedule["id"] for schedule in result["schedules"]}
+        self.assertEqual(schedule_ids, {upcoming_published.id})
+
+        returned_schedule = result["schedules"][0]
+        self.assertEqual(returned_schedule["seats_left"], 7)
+        self.assertNotIn("pickup_locations", returned_schedule)
 
     @pytest.mark.skip(reason="Move this to trip detail")
     def test_api_trip_detail_data(self):

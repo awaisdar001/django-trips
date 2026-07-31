@@ -1,5 +1,6 @@
 """Django admin config"""
 
+from config_models.admin import ConfigurationModelAdmin
 from django.contrib import admin
 
 from django_trips.choices import LocationType
@@ -18,6 +19,7 @@ from django_trips.models import (
     TripBooking,
     TripImage,
     TripItinerary,
+    TripPackage,
     TripPickupLocation,
     TripReview,
     TripReviewSummary,
@@ -65,7 +67,7 @@ class TripImageAdminInline(admin.TabularInline):
     extra = 1
 
 
-admin.register(CancellationPolicy)
+admin.site.register(CancellationPolicy, ConfigurationModelAdmin)
 
 
 @admin.register(Trip)
@@ -312,6 +314,15 @@ class TestimonialAdmin(admin.ModelAdmin):
         verify_testimonials,
         unverify_testimonials,
     ]
+
+
+@admin.register(TripPackage)
+class TripPackageAdmin(admin.ModelAdmin):
+    """Trip pricing package (Standard/Budget/Premium) admin configuration"""
+
+    list_display = ("trip", "name", "base_price", "base_child_price")
+    list_filter = ("name",)
+    search_fields = ["trip__name"]
 
 
 @admin.register(TripPickupLocation)

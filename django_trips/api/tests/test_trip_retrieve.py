@@ -5,12 +5,13 @@ from django.utils import timezone
 from rest_framework import status
 
 from django_trips.choices import ScheduleStatus
+from django_trips.models import CancellationPolicy
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           CategoryFactory, FacilityFactory,
                                           GearFactory, HostFactory,
                                           LocationFactory, TripFactory,
                                           TripItineraryFactory,
-                                          TripOptionFactory,
+                                          TripPackageFactory,
                                           TripPickupLocationFactory,
                                           TripScheduleFactory)
 
@@ -25,9 +26,9 @@ class TripRetrieveTestCase(AuthenticatedUserTestCase):
             gear=["Backpack", "Glasses"],
             categories=["Outdoors", "Hiking"],
         )
-        cls.option1 = TripOptionFactory(trip=cls.trip, name="Deluxe")
-        cls.option2 = TripOptionFactory(trip=cls.trip, name="Budget")
-        cls.option3 = TripOptionFactory(trip=cls.trip, name="Five Star")
+        cls.package1 = TripPackageFactory(trip=cls.trip, name="Deluxe")
+        cls.package2 = TripPackageFactory(trip=cls.trip, name="Budget")
+        cls.package3 = TripPackageFactory(trip=cls.trip, name="Five Star")
         cls.host = cls.trip.host
         cls.destination = cls.trip.destination
         cls.departure = cls.trip.departure
@@ -74,10 +75,27 @@ class TripRetrieveTestCase(AuthenticatedUserTestCase):
             "locations",
             "trip_itinerary",
             "tags",
-            "options",
+            "packages",
             "schedules",
+            "cancellation_policy",
+            "refund_schedule",
         }
         self.assertTrue(expected_fields.issubset(data.keys()))
+
+    def test_refund_schedule_defaults_to_platform_wide_policy(self):
+        """No host-level override set on this trip's host, so `refund_schedule`
+        falls back to the current `CancellationPolicy.refund_schedule` default."""
+        data = self.make_api_call(self.trip.slug)
+        platform_default = CancellationPolicy.current().refund_schedule
+        self.assertEqual(data["refund_schedule"], platform_default)
+
+    def test_refund_schedule_prefers_host_override(self):
+        host_schedule = [{"label": "Custom", "min_hours_before_departure": 24, "refund_percent": 25}]
+        self.host.refund_schedule = host_schedule
+        self.host.save(update_fields=["refund_schedule"])
+
+        data = self.make_api_call(self.trip.slug)
+        self.assertEqual(data["refund_schedule"], host_schedule)
 
     def test_schedules_only_include_upcoming_published_departures(self):
         now = timezone.now()

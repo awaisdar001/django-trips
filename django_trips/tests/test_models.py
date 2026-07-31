@@ -35,7 +35,7 @@ from django_trips.tests.factories import (
     TripFactory,
     TripImageFactory,
     TripItineraryFactory,
-    TripOptionFactory,
+    TripPackageFactory,
     TripReviewFactory,
     TripReviewSummaryFactory,
     TripScheduleFactory,
@@ -667,11 +667,11 @@ class TripReviewSummaryTestCase(TestCase):
         self.assertIn("TripReviewSummary", repr(summary))
 
 
-class TripOptionTestCase(TestCase):
+class TripPackageTestCase(TestCase):
     def test_str_and_repr(self):
-        option = TripOptionFactory()
-        self.assertEqual(str(option), option.name)
-        self.assertIn(option.name, repr(option))
+        package = TripPackageFactory()
+        self.assertEqual(str(package), package.name)
+        self.assertIn(package.name, repr(package))
 
 
 class TestimonialTestCase(TestCase):
@@ -807,4 +807,23 @@ class TripWishlistTestCase(TestCase):
         user.delete()
         self.assertFalse(
             TripWishlist.objects.filter(id=wishlist_entry.id).exists()
+        )
+
+
+class TripRefundScheduleTestCase(TestCase):
+    """`Trip.refund_schedule` - the structured per-timeframe refund tiers
+    backing the cancellation-policy timeline UI."""
+
+    def test_falls_back_to_platform_wide_default_when_host_has_none(self):
+        trip = TripFactory(trip_schedule=None)
+        self.assertEqual(trip.refund_schedule, CancellationPolicy.current().refund_schedule)
+
+    def test_prefers_host_override_when_set(self):
+        host = HostFactory(
+            refund_schedule=[{"label": "Custom", "min_hours_before_departure": 24, "refund_percent": 25}]
+        )
+        trip = TripFactory(trip_schedule=None, host=host)
+        self.assertEqual(
+            trip.refund_schedule,
+            [{"label": "Custom", "min_hours_before_departure": 24, "refund_percent": 25}],
         )

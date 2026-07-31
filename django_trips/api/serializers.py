@@ -167,7 +167,7 @@ class HostSerializer(serializers.ModelSerializer):
 
     @extend_schema_field({"type": "string", "example": "Tour Operator"})
     def get_type(self, host):
-        return host.type.name if host else ""
+        return host.type.name if host.type else ""
 
     @extend_schema_field(
         {

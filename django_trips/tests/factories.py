@@ -19,8 +19,8 @@ from rest_framework_simplejwt.tokens import AccessToken
 from django_trips.choices import (
     BookingStatus,
     LocationType,
+    PackageTier,
     ScheduleStatus,
-    TripOptions,
 )
 from django_trips.models import (
     Category,
@@ -34,7 +34,7 @@ from django_trips.models import (
     TripBooking,
     TripImage,
     TripItinerary,
-    TripOption,
+    TripPackage,
     TripPickupLocation,
     TripReview,
     TripReviewSummary,
@@ -274,17 +274,17 @@ class TripImageFactory(DjangoModelFactory):
     order = factory.Sequence(lambda n: n)
 
 
-class TripOptionFactory(DjangoModelFactory):
+class TripPackageFactory(DjangoModelFactory):
     trip = factory.SubFactory(TripFactory)
     name = factory.Faker(
-        "random_element", elements=[choice[0] for choice in TripOptions.choices]
+        "random_element", elements=[choice[0] for choice in PackageTier.choices]
     )
     description = factory.Faker("paragraph", nb_sentences=1)
     base_price = factory.Faker("random_int", min=0, max=100)
     base_child_price = factory.Faker("random_int", min=0, max=100)
 
     class Meta:
-        model = TripOption
+        model = TripPackage
 
 
 class TripScheduleFactory(DjangoModelFactory):

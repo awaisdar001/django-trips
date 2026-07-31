@@ -1,9 +1,9 @@
 from django.db import models
 
 
-class TripOptions(models.TextChoices):
+class PackageTier(models.TextChoices):
     STANDARD = "STANDARD", "Standard Package"
-    BUDGET = "BUDGET", "Standard Package"
+    BUDGET = "BUDGET", "Budget Package"
     PREMIUM = "PREMIUM", "Premium Package"
 
 

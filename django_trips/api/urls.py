@@ -3,8 +3,8 @@ from drf_spectacular.views import (SpectacularAPIView, SpectacularRedocView,
                                    SpectacularSwaggerView)
 from rest_framework.routers import DefaultRouter
 
-from django_trips.api.views import (booking, category, host, testimonial,
-                                    trip, trust_badge)
+from django_trips.api.views import (booking, category, host, review,
+                                    testimonial, trip, trust_badge)
 from django_trips.api.views.trip import (ActiveDestinationsWithSchedulesView,
                                          TripViewSet)
 
@@ -57,6 +57,11 @@ app_urlpatterns = [
         "trips/<int:trip_id>/bookings/create/",
         booking.TripBookingCreateView.as_view(),
         name="trip-bookings-create",
+    ),
+    path(
+        "trips/<int:trip_id>/reviews/",
+        review.TripReviewListView.as_view(),
+        name="trip-reviews",
     ),
     path(
         "trips/bookings/lookup/",

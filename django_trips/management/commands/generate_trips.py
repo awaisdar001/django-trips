@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from faker import Faker
 
-from django_trips.choices import LocationType, ScheduleStatus, TripOptions
+from django_trips.choices import LocationType, PackageTier, ScheduleStatus
 from django_trips.models import (
     Category,
     Facility,
@@ -20,7 +20,7 @@ from django_trips.models import (
     Location,
     Trip,
     TripItinerary,
-    TripOption,
+    TripPackage,
     TripReview,
     TripReviewSummary,
     TripSchedule,
@@ -91,7 +91,7 @@ class Command(BaseCommand):
                 trip = self.create_trip(user, no_of_days)
                 self.create_itineraries(trip, no_of_days)
                 self.create_schedules(trip)
-                self.create_trip_options(trip)
+                self.create_trip_packages(trip)
                 self.create_reviews(trip)
                 self.stdout.write(
                     self.style.SUCCESS(f"Trip Created: <id={trip.pk} name={trip.name}>")
@@ -135,7 +135,6 @@ class Command(BaseCommand):
         trip.facilities.set(self.get_facilities())
         trip.categories.set(self.get_categories())
         trip.trust_badges.set(self.get_trust_badges())
-        trip.options.add()
 
         trip.tags.add("Adventure", "Group")
         return trip
@@ -209,10 +208,10 @@ class Command(BaseCommand):
             for name in names
         ]
 
-    def create_trip_options(self, trip):
-        names = random.sample(TripOptions.values, random.randint(1, 3))
+    def create_trip_packages(self, trip):
+        names = random.sample(PackageTier.values, random.randint(1, 3))
         return [
-            TripOption.objects.get_or_create(
+            TripPackage.objects.get_or_create(
                 trip=trip, name=name, defaults={"description": name}
             )[0]
             for name in names

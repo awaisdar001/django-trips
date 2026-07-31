@@ -26,8 +26,9 @@ from django_trips.models import (
     TripBooking,
     TripImage,
     TripItinerary,
-    TripOption,
+    TripPackage,
     TripPickupLocation,
+    TripReview,
     TripReviewSummary,
     TripSchedule,
     TrustBadge,
@@ -394,6 +395,37 @@ class TripReviewSummarySerializer(serializers.ModelSerializer):
         fields = ("meals", "accommodation", "transport", "value_for_money", "overall")
 
 
+class TripReviewSerializer(serializers.ModelSerializer):
+    """
+    A single traveler review, for the paginated per-trip review list
+    (`GET /trips/<trip_id>/reviews/`) - distinct from `TripReviewSummarySerializer`,
+    which is the curated aggregate rollup shown on the trip card/header.
+    Deliberately excludes `email` - a reviewer's contact info has no business
+    being public.
+    """
+
+    location = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TripReview
+        fields = (
+            "id",
+            "name",
+            "location",
+            "meals",
+            "accommodation",
+            "transport",
+            "value_for_money",
+            "overall",
+            "comment",
+            "created_at",
+        )
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_location(self, review: "TripReview") -> Optional[str]:
+        return review.location.name if review.location else None
+
+
 def get_trip_review_summary_data(trip):
     """
     Build the review_summary dict for a trip: its curated rating breakdown
@@ -493,6 +525,44 @@ class TripWishlistToggleSerializer(serializers.Serializer):  # pylint:disable=ab
     is_wished = serializers.BooleanField(read_only=True)
 
 
+class TripScheduleBaseSerializer(serializers.ModelSerializer):
+    """Fields shared by every context a `TripSchedule` is rendered in."""
+
+    seats_left = serializers.IntegerField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = TripSchedule
+        fields = (
+            "id",
+            "price",
+            "child_price",
+            "is_per_person_price",
+            "start_date",
+            "end_date",
+            "available_seats",
+            "booked_seats",
+            "seats_left",
+            "status",
+            "is_active",
+        )
+
+
+def get_upcoming_published_schedules(trip: "Trip"):
+    """
+    Queryset of a trip's upcoming, published departures - i.e. exactly what a
+    traveler can actually book. Matches the `TripSchedule.objects.upcoming()`
+    queryset `TripBookingSerializer`'s `schedule` field validates against, not
+    every schedule row that happens to exist (draft/past/cancelled ones are
+    irrelevant to an availability picker).
+    """
+    return (
+        trip.schedules.upcoming()
+        .filter(status=ScheduleStatus.PUBLISHED)
+        .order_by("start_date")
+    )
+
+
 class TripListSerializer(serializers.ModelSerializer):
     destination = LocationSerializer()
     duration = serializers.SerializerMethodField()
@@ -507,6 +577,7 @@ class TripListSerializer(serializers.ModelSerializer):
     facilities = FacilitySerializer(many=True)
     trust_badges = TrustBadgeSerializer(many=True)
     host = HostSerializer()
+    schedules = serializers.SerializerMethodField()
 
     class Meta:
         model = Trip
@@ -530,6 +601,7 @@ class TripListSerializer(serializers.ModelSerializer):
             "trip_url",
             "is_wished",
             "host",
+            "schedules",
         )
 
     @extend_schema_field({"type": "string", "example": "7 Days 6 Nights"})
@@ -554,6 +626,22 @@ class TripListSerializer(serializers.ModelSerializer):
     def get_is_wished(self, trip):
         return get_is_wished(trip, self.context)
 
+    @extend_schema_field(TripScheduleBaseSerializer(many=True))
+    def get_schedules(self, trip):
+        """
+        Same upcoming/published departures as `TripDetailSerializer.schedules`,
+        without `pickup_locations` - irrelevant until a traveler is actually
+        booking, and needlessly heavy to prefetch for every card on `/trips/`.
+
+        Prefers the `_prefetched_upcoming_schedules` cache `TripViewSet.get_queryset`
+        attaches via `Prefetch(..., to_attr=...)` for the list action, to avoid an
+        N+1 query per row; falls back to a direct query otherwise.
+        """
+        schedules = getattr(trip, "_prefetched_upcoming_schedules", None)
+        if schedules is None:
+            schedules = get_upcoming_published_schedules(trip)
+        return TripScheduleBaseSerializer(schedules, many=True, context=self.context).data
+
 
 class TripItineraryReadSerializer(BaseTripItinerarySerializer):
     location = LocationSerializer(read_only=True)
@@ -563,9 +651,9 @@ class TripItineraryReadSerializer(BaseTripItinerarySerializer):
         fields = BaseTripItinerarySerializer.Meta.fields
 
 
-class TripOptionSerializer(serializers.ModelSerializer):
+class TripPackageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TripOption
+        model = TripPackage
         fields = ("name", "description", "base_price", "base_child_price")
 
 
@@ -577,29 +665,6 @@ class TripPickupLocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TripPickupLocation
         fields = ("id", "name", "additional_price")
-
-
-class TripScheduleBaseSerializer(serializers.ModelSerializer):
-    """Fields shared by every context a `TripSchedule` is rendered in."""
-
-    seats_left = serializers.IntegerField(read_only=True)
-    is_active = serializers.BooleanField(read_only=True)
-
-    class Meta:
-        model = TripSchedule
-        fields = (
-            "id",
-            "price",
-            "child_price",
-            "is_per_person_price",
-            "start_date",
-            "end_date",
-            "available_seats",
-            "booked_seats",
-            "seats_left",
-            "status",
-            "is_active",
-        )
 
 
 class TripScheduleDetailSerializer(TripScheduleBaseSerializer):
@@ -617,6 +682,7 @@ class TripScheduleDetailSerializer(TripScheduleBaseSerializer):
 
 class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     cancellation_policy = serializers.SerializerMethodField()
+    refund_schedule = serializers.SerializerMethodField()
     duration = serializers.SerializerMethodField()
     poster = serializers.SerializerMethodField()
     images = TripImageSerializer(many=True, read_only=True)
@@ -637,7 +703,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     host = HostSerializer()
     tags = TagListSerializerField(required=False)
     trip_itinerary = TripItineraryReadSerializer(source="itinerary_days", many=True)
-    options = TripOptionSerializer(many=True)
+    packages = TripPackageSerializer(many=True)
     schedules = serializers.SerializerMethodField()
 
     class Meta:
@@ -675,6 +741,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             "is_pax_required",
             "is_active",
             "cancellation_policy",
+            "refund_schedule",
             "created_at",
             "updated_at",
             "created_by",
@@ -684,7 +751,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             # Additional Model relations.
             "trip_url",
             "trip_itinerary",
-            "options",
+            "packages",
             "schedules",
         )
 
@@ -722,20 +789,31 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
         """
         return obj.cancellation_policy
 
+    @extend_schema_field(
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string", "example": "7+ days before departure"},
+                    "min_hours_before_departure": {"type": "integer", "example": 168},
+                    "refund_percent": {"type": "integer", "example": 100},
+                },
+            },
+        }
+    )
+    def get_refund_schedule(self, obj: "Trip"):
+        """Structured refund tiers backing the cancellation-policy timeline UI
+        (e.g. "7+ days: 100% / 3-7 days: 50% / <72hrs: 0%") - same host-override
+        -over-platform-default precedence as `cancellation_policy` above."""
+        return obj.refund_schedule
+
     @extend_schema_field(TripScheduleDetailSerializer(many=True))
     def get_schedules(self, trip):
-        """
-        This trip's upcoming, published departures - i.e. exactly what a
-        traveler can actually book (matches the `TripSchedule.objects.upcoming()`
-        queryset `TripBookingSerializer`'s `schedule` field validates against),
-        not every schedule row that happens to exist (draft/past/cancelled ones
-        are irrelevant to an availability picker).
-        """
-        schedules = (
-            trip.schedules.upcoming()
-            .filter(status=ScheduleStatus.PUBLISHED)
-            .prefetch_related("pickup_locations__location")
-            .order_by("start_date")
+        """Same as `TripListSerializer.schedules`, plus `pickup_locations` -
+        only needed once a traveler is actually looking at a single trip to book."""
+        schedules = get_upcoming_published_schedules(trip).prefetch_related(
+            "pickup_locations__location"
         )
         return TripScheduleDetailSerializer(
             schedules, many=True, context=self.context

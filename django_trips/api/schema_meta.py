@@ -18,6 +18,7 @@ from django_trips.api.serializers import (
     TripCreateSerializer,
     TripDetailSerializer,
     TripListSerializer,
+    TripReviewSerializer,
     TripWishlistToggleSerializer,
     TrustBadgeListSerializer,
 )
@@ -245,6 +246,23 @@ trust_badges_list_schema = extend_schema(
     "descending.",
     responses={200: TrustBadgeListSerializer},
     tags=SchemaTags.TRUST_BADGES.value,
+)
+
+trip_reviews_list_schema = extend_schema(
+    summary="List a trip's reviews",
+    description="Paginated list of a trip's verified individual reviews, "
+    "newest first. Distinct from the aggregate `review_summary` rollup "
+    "shown on the trip card/header.",
+    responses={200: TripReviewSerializer},
+    parameters=[
+        OpenApiParameter(
+            "trip_id",
+            OpenApiTypes.INT,
+            OpenApiParameter.PATH,
+            description="Numeric trip ID to list reviews for.",
+        )
+    ],
+    tags=SchemaTags.TRIPS.value,
 )
 
 booking_create_schema = extend_schema(

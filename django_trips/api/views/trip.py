@@ -1,5 +1,5 @@
 # pylint:disable=import-error
-from django.db.models import Count, Min, Q
+from django.db.models import Count, Min, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -104,6 +104,18 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
                     filter=Q(schedules__status=ScheduleStatus.PUBLISHED),
                 )
             ).distinct().order_by(*Trip._meta.ordering)  # pylint:disable=protected-access
+            # Backs TripListSerializer.schedules - prefetched once per page here
+            # (to_attr caches it off each trip instance) rather than one query per
+            # row inside the serializer.
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "schedules",
+                    queryset=TripSchedule.objects.upcoming()
+                    .filter(status=ScheduleStatus.PUBLISHED)
+                    .order_by("start_date"),
+                    to_attr="_prefetched_upcoming_schedules",
+                )
+            )
         return queryset
 
     def get_serializer_class(self):

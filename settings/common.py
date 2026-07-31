@@ -212,7 +212,7 @@ SPECTACULAR_SETTINGS = {
     },
     "ENUM_NAME_OVERRIDES": {
         "BookingStatusEnum": "django_trips.choices.BookingStatus",
-        "TripOptionsEnum": "django_trips.choices.TripOptions",
+        "PackageTierEnum": "django_trips.choices.PackageTier",
         "LocationTypeEnum": "django_trips.choices.LocationType",
         "AvailabilityTypeEnum": "django_trips.choices.AvailabilityType",
         "ScheduleStatusEnum": "django_trips.choices.ScheduleStatus",

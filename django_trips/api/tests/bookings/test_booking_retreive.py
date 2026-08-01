@@ -58,6 +58,7 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
                 "number_of_persons": 5,
                 "target_date": f"{self.schedule_date.isoformat()}T00:00:00Z",
                 "message": "booking 1",
+                "terms_accepted": False,
                 "created": mock.ANY,
                 "modified": mock.ANY,
                 "schedule_details": mock.ANY,

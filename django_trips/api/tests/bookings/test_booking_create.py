@@ -15,6 +15,7 @@ from django_trips.tests.factories import (
 )
 
 
+@ddt.ddt
 class TripBookingCreateTestCase(AuthenticatedUserTestCase):
     maxDiff = None
 
@@ -50,6 +51,7 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
             "number_of_persons": 5,
             "target_date": schedule_date.isoformat(),
             "message": "this is a test message",
+            "terms_accepted": True,
         }
 
     def make_create_trip_booking_request(self, data=None, expected_response=201):
@@ -77,6 +79,7 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
                 "number_of_persons": 5,
                 "target_date": f"{new_booking.target_date.date().isoformat()}T00:00:00Z",
                 "message": "this is a test message",
+                "terms_accepted": True,
                 "created_by": self.user.pk,
                 "created": mock.ANY,
                 "modified": mock.ANY,
@@ -114,6 +117,15 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
         self.assertEqual(
             self.trip_schedule.booked_seats, before + self.payload["number_of_persons"]
         )
+
+    @ddt.data(False, None)
+    def test_booking_create_rejects_without_terms_accepted(self, terms_accepted):
+        payload = {**self.payload, "terms_accepted": terms_accepted}
+        if terms_accepted is None:
+            del payload["terms_accepted"]
+
+        data = self.make_create_trip_booking_request(payload, expected_response=400)
+        self.assertIn("terms_accepted", data)
 
     def test_booking_create_rejects_when_not_enough_seats(self):
         self.trip_schedule.available_seats = 3

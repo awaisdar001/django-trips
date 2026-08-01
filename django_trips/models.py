@@ -1036,6 +1036,10 @@ class TripBooking(TimeStampedModel):
     message = models.TextField(
         null=True, blank=True, help_text="Special requests or additional information"
     )
+    terms_accepted = models.BooleanField(
+        default=False,
+        help_text="Guest agreed to the Terms & Conditions and cancellation policy at booking time",
+    )
     created_by = models.ForeignKey(
         User,
         null=True,

@@ -909,6 +909,10 @@ class TripBookingSerializer(serializers.ModelSerializer):
         max_value=50,
         help_text="Number of participants (1-50)",
     )
+    terms_accepted = serializers.BooleanField(
+        required=False,
+        help_text="Guest must accept the Terms & Conditions and cancellation policy to book",
+    )
 
     RESTRICTED_FIELDS = (
         "trip",
@@ -932,6 +936,7 @@ class TripBookingSerializer(serializers.ModelSerializer):
             "number_of_persons",
             "target_date",
             "message",
+            "terms_accepted",
             "created",
             "created_by",
             "modified",
@@ -944,6 +949,16 @@ class TripBookingSerializer(serializers.ModelSerializer):
         validated_data["created_by"] = (
             request_user if request_user.is_authenticated else None
         )
+
+        if self.instance is None and not validated_data.get("terms_accepted"):
+            raise serializers.ValidationError(
+                {
+                    "terms_accepted": (
+                        "You must accept the Terms & Conditions and "
+                        "cancellation policy to book."
+                    )
+                }
+            )
 
         trip = get_object_or_404(Trip.objects.active(), pk=self.context["trip_id"])
         if validated_data["schedule"].trip.pk != trip.pk:

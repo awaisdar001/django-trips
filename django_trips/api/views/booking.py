@@ -105,7 +105,7 @@ class TripBookingListView(TripBookingBaseViewSet, generics.ListAPIView):
         "phone_number",
     ]
     filterset_class = TripBookingFilterSet
-    ordering_fields = ["full_name", "target_date", "created", "number_of_persons"]
+    ordering_fields = ["full_name", "target_date", "created", "adults", "children"]
     ordering = ["-created"]
 
     def get_queryset(self):

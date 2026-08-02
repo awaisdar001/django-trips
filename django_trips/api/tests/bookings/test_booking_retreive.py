@@ -27,7 +27,7 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
             phone_number="03001234567",
             number="DPT00123AA",
             target_date=cls.schedule_date,
-            number_of_persons=5,
+            adults=5,
             message="booking 1",
             created_by=cls.user,
         )
@@ -37,7 +37,7 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
             phone_number="03111234567",
             number="DPT00124BB",
             target_date=cls.schedule_date,
-            number_of_persons=10,
+            adults=10,
             message="booking 2",
         )
         cls.url = reverse(
@@ -55,13 +55,16 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
                 "full_name": "Ali Raza",
                 "email": self.booking1.email,
                 "phone_number": "03001234567",
-                "number_of_persons": 5,
+                "adults": 5,
+                "children": 0,
                 "target_date": f"{self.schedule_date.isoformat()}T00:00:00Z",
                 "message": "booking 1",
                 "terms_accepted": False,
                 "created": mock.ANY,
                 "modified": mock.ANY,
                 "schedule_details": mock.ANY,
+                "package_details": None,
+                "total_price": mock.ANY,
                 "created_by": self.user.pk,
             },
         )

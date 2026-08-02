@@ -275,13 +275,22 @@ class TripImageFactory(DjangoModelFactory):
 
 
 class TripPackageFactory(DjangoModelFactory):
+    """
+    Defaults to a non-STANDARD tier: every Trip already gets an
+    auto-created, zero-delta Standard package (see signals.py), and
+    TripPackage.clean() rejects a Standard package with a non-zero price
+    delta - so a randomly-priced STANDARD row here would collide/fail.
+    Pass name=PackageTier.STANDARD explicitly (with additional_price=0) if a
+    test specifically needs to exercise that tier.
+    """
+
     trip = factory.SubFactory(TripFactory)
     name = factory.Faker(
-        "random_element", elements=[choice[0] for choice in PackageTier.choices]
+        "random_element", elements=[PackageTier.BUDGET, PackageTier.PREMIUM]
     )
     description = factory.Faker("paragraph", nb_sentences=1)
-    base_price = factory.Faker("random_int", min=0, max=100)
-    base_child_price = factory.Faker("random_int", min=0, max=100)
+    additional_price = factory.Faker("random_int", min=0, max=100)
+    additional_child_price = factory.Faker("random_int", min=0, max=100)
 
     class Meta:
         model = TripPackage
@@ -322,7 +331,8 @@ class TripBookingFactory(DjangoModelFactory):
     full_name = factory.Faker("name")
     email = factory.Faker("email")
     phone_number = factory.Faker("phone_number")
-    number_of_persons = factory.Faker("random_int", min=1, max=10)
+    adults = factory.Faker("random_int", min=1, max=10)
+    children = 0
     target_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=10))
     status = BookingStatus.PENDING  # Adjust based on your Enum/Choices
     created_by = factory.SubFactory(UserFactory)

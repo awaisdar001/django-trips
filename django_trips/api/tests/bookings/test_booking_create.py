@@ -5,12 +5,13 @@ import ddt
 from django.urls import reverse
 from django.utils import timezone
 
-from django_trips.choices import BookingStatus, ScheduleStatus
+from django_trips.choices import BookingStatus, PackageTier, ScheduleStatus
 from django_trips.models import TripBooking
 from django_trips.tests.factories import (
     AuthenticatedUserTestCase,
     TripBookingFactory,
     TripFactory,
+    TripPackageFactory,
     TripScheduleFactory,
 )
 
@@ -48,7 +49,8 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
             "full_name": "Foo Bar",
             "email": "foo@bar.com",
             "phone_number": "+923331234567",
-            "number_of_persons": 5,
+            "adults": 5,
+            "children": 0,
             "target_date": schedule_date.isoformat(),
             "message": "this is a test message",
             "terms_accepted": True,
@@ -76,7 +78,8 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
                 "full_name": "Foo Bar",
                 "email": "foo@bar.com",
                 "phone_number": "+923331234567",
-                "number_of_persons": 5,
+                "adults": 5,
+                "children": 0,
                 "target_date": f"{new_booking.target_date.date().isoformat()}T00:00:00Z",
                 "message": "this is a test message",
                 "terms_accepted": True,
@@ -84,6 +87,8 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
                 "created": mock.ANY,
                 "modified": mock.ANY,
                 "schedule_details": mock.ANY,
+                "package_details": mock.ANY,
+                "total_price": mock.ANY,
             },
         )
 
@@ -115,7 +120,8 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
 
         self.trip_schedule.refresh_from_db()
         self.assertEqual(
-            self.trip_schedule.booked_seats, before + self.payload["number_of_persons"]
+            self.trip_schedule.booked_seats,
+            before + self.payload["adults"] + self.payload["children"],
         )
 
     @ddt.data(False, None)
@@ -127,15 +133,78 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
         data = self.make_create_trip_booking_request(payload, expected_response=400)
         self.assertIn("terms_accepted", data)
 
+    def test_booking_create_defaults_to_standard_package(self):
+        """When no `package` is supplied, the booking should default to the
+        trip's (auto-created, zero-delta) Standard package and its
+        total_price should be the schedule's plain per-person price."""
+        data = self.make_create_trip_booking_request()
+        self.assertEqual(data["package_details"]["name"], PackageTier.STANDARD)
+
+        new_booking = TripBooking.objects.get(number=data["number"])
+        self.assertEqual(new_booking.package.name, PackageTier.STANDARD)
+        expected_total = self.trip_schedule.price * self.payload["adults"]
+        self.assertEqual(new_booking.total_price, expected_total)
+
+    def test_booking_create_with_explicit_package_adds_its_delta(self):
+        """An explicitly-supplied package's delta should be reflected in the
+        stored total_price - schedule price + package delta, times persons."""
+        package = TripPackageFactory(
+            trip=self.trip,
+            name=PackageTier.PREMIUM,
+            additional_price=1500,
+            additional_child_price=800,
+        )
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "package": package.id}
+        )
+
+        new_booking = TripBooking.objects.get(number=data["number"])
+        self.assertEqual(new_booking.package_id, package.id)
+        expected_total = (self.trip_schedule.price + 1500) * self.payload["adults"]
+        self.assertEqual(new_booking.total_price, expected_total)
+
+    def test_booking_create_with_children_adds_child_price(self):
+        """Children should be priced using the schedule/package's child price,
+        not the adult price - and counted towards booked seats too."""
+        package = TripPackageFactory(
+            trip=self.trip,
+            name=PackageTier.PREMIUM,
+            additional_price=1500,
+            additional_child_price=800,
+        )
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "package": package.id, "adults": 2, "children": 3}
+        )
+
+        new_booking = TripBooking.objects.get(number=data["number"])
+        self.assertEqual(new_booking.adults, 2)
+        self.assertEqual(new_booking.children, 3)
+        expected_total = (self.trip_schedule.price + 1500) * 2 + (
+            self.trip_schedule.child_price + 800
+        ) * 3
+        self.assertEqual(new_booking.total_price, expected_total)
+
+        self.trip_schedule.refresh_from_db()
+        self.assertEqual(self.trip_schedule.booked_seats, 5)
+
+    def test_booking_create_rejects_package_from_another_trip(self):
+        other_trip = TripFactory.create(trip_schedule=None)
+        other_package = TripPackageFactory(trip=other_trip, name=PackageTier.PREMIUM)
+
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "package": other_package.id}, expected_response=400
+        )
+        self.assertIn("package", data)
+
     def test_booking_create_rejects_when_not_enough_seats(self):
         self.trip_schedule.available_seats = 3
         self.trip_schedule.booked_seats = 0
         self.trip_schedule.save()
 
         data = self.make_create_trip_booking_request(
-            {**self.payload, "number_of_persons": 5}, expected_response=400
+            {**self.payload, "adults": 5}, expected_response=400
         )
-        self.assertIn("number_of_persons", data)
+        self.assertIn("adults", data)
 
         self.trip_schedule.refresh_from_db()
         self.assertEqual(self.trip_schedule.booked_seats, 0)

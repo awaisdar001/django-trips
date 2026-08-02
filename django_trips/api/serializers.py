@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from taggit.serializers import TaggitSerializer, TagListSerializerField
 
-from django_trips.choices import LocationType, ScheduleStatus
+from django_trips.choices import LocationType, PackageTier, ScheduleStatus
 from django_trips.models import (
     Category,
     Facility,
@@ -33,6 +33,7 @@ from django_trips.models import (
     TripSchedule,
     TrustBadge,
 )
+from django_trips.services import get_effective_price
 from django_trips.utils import format_trip_duration
 
 if TYPE_CHECKING:
@@ -652,9 +653,43 @@ class TripItineraryReadSerializer(BaseTripItinerarySerializer):
 
 
 class TripPackageSerializer(serializers.ModelSerializer):
+    """
+    A pricing package/tier. `additional_price`/`additional_child_price` are
+    the raw deltas stored on the model (always 0 for the Standard tier - see
+    `TripPackage.clean()`); `effective_price`/`effective_child_price` are
+    those deltas resolved against a specific schedule via
+    `get_effective_price()`, taken from `self.context["schedule"]` - `None`
+    when no schedule is given in context (e.g. this serializer used with no
+    schedule in scope).
+    """
+
+    effective_price = serializers.SerializerMethodField()
+    effective_child_price = serializers.SerializerMethodField()
+
     class Meta:
         model = TripPackage
-        fields = ("name", "description", "base_price", "base_child_price")
+        fields = (
+            "name",
+            "description",
+            "additional_price",
+            "additional_child_price",
+            "effective_price",
+            "effective_child_price",
+        )
+
+    @extend_schema_field(OpenApiTypes.NUMBER)
+    def get_effective_price(self, package) -> Optional[float]:
+        schedule = self.context.get("schedule")
+        if not schedule:
+            return None
+        return get_effective_price(schedule, package=package)["price"]
+
+    @extend_schema_field(OpenApiTypes.NUMBER)
+    def get_effective_child_price(self, package) -> Optional[float]:
+        schedule = self.context.get("schedule")
+        if not schedule:
+            return None
+        return get_effective_price(schedule, package=package)["child_price"]
 
 
 class TripPickupLocationSerializer(serializers.ModelSerializer):
@@ -703,7 +738,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
     host = HostSerializer()
     tags = TagListSerializerField(required=False)
     trip_itinerary = TripItineraryReadSerializer(source="itinerary_days", many=True)
-    packages = TripPackageSerializer(many=True)
+    packages = serializers.SerializerMethodField()
     schedules = serializers.SerializerMethodField()
 
     class Meta:
@@ -819,6 +854,25 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
             schedules, many=True, context=self.context
         ).data
 
+    @extend_schema_field(TripPackageSerializer(many=True))
+    def get_packages(self, trip):
+        """
+        `effective_price`/`effective_child_price` on each package are
+        resolved against the same "cheapest active/upcoming schedule" used
+        for `starting_price` - the representative price shown before a
+        traveler has picked a specific departure date.
+        """
+        reference_schedule = (
+            (trip.schedules.active() | trip.schedules.upcoming())
+            .order_by("price")
+            .first()
+        )
+        return TripPackageSerializer(
+            trip.packages.all(),
+            many=True,
+            context={**self.context, "schedule": reference_schedule},
+        ).data
+
 
 class TripScheduleSerializer(TripScheduleBaseSerializer):
     """Used where the parent trip isn't already known from context, e.g. a
@@ -899,15 +953,34 @@ class TripBookingSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text="Detailed information about the booking schedule ",
     )
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=TripPackage.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        help_text="ID of the selected pricing package/tier. Defaults to the "
+        "trip's Standard package when omitted.",
+    )
+    package_details = serializers.SerializerMethodField(
+        help_text="Detailed information about the booked package, including "
+        "its effective price for this booking's schedule."
+    )
 
     trip = TripDetailSerializer(read_only=True, help_text="Complete trip information")
     target_date = serializers.DateTimeField(
         help_text="The intended date for the trip (format: YYYY-MM-DDTHH:MM:SS)"
     )
-    number_of_persons = serializers.IntegerField(
+    adults = serializers.IntegerField(
         min_value=1,
         max_value=50,
-        help_text="Number of participants (1-50)",
+        help_text="Number of adult participants (1-50)",
+    )
+    children = serializers.IntegerField(
+        min_value=0,
+        max_value=50,
+        required=False,
+        default=0,
+        help_text="Number of child participants (0-50)",
     )
     terms_accepted = serializers.BooleanField(
         required=False,
@@ -917,6 +990,7 @@ class TripBookingSerializer(serializers.ModelSerializer):
     RESTRICTED_FIELDS = (
         "trip",
         "schedule",
+        "package",
         "number",
         "status",
         "created_by",
@@ -928,12 +1002,16 @@ class TripBookingSerializer(serializers.ModelSerializer):
             "trip",
             "schedule",
             "schedule_details",
+            "package",
+            "package_details",
+            "total_price",
             "number",
             "status",
             "full_name",
             "email",
             "phone_number",
-            "number_of_persons",
+            "adults",
+            "children",
             "target_date",
             "message",
             "terms_accepted",
@@ -941,7 +1019,22 @@ class TripBookingSerializer(serializers.ModelSerializer):
             "created_by",
             "modified",
         )
-        read_only_fields = ["number", "status", "created", "created_by", "modified"]
+        read_only_fields = [
+            "number",
+            "status",
+            "total_price",
+            "created",
+            "created_by",
+            "modified",
+        ]
+
+    @extend_schema_field(TripPackageSerializer(allow_null=True))
+    def get_package_details(self, booking) -> Optional[dict]:
+        if not booking.package:
+            return None
+        return TripPackageSerializer(
+            booking.package, context={**self.context, "schedule": booking.schedule}
+        ).data
 
     def validate(self, attrs):
         validated_data = super().validate(attrs)
@@ -965,10 +1058,18 @@ class TripBookingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"schedule": "The schedule must be the same as provided trip"}
             )
+
+        package = validated_data.get("package")
+        if package and package.trip.pk != trip.pk:
+            raise serializers.ValidationError(
+                {"package": "The package must belong to the same trip as the schedule"}
+            )
         return validated_data
 
     def create(self, validated_data):
-        number_of_persons = validated_data["number_of_persons"]
+        adults = validated_data["adults"]
+        children = validated_data.get("children", 0)
+        total_persons = adults + children
 
         with transaction.atomic():
             # Lock the schedule row so two concurrent bookings can't both
@@ -977,19 +1078,33 @@ class TripBookingSerializer(serializers.ModelSerializer):
                 pk=validated_data["schedule"].pk
             )
             remaining_seats = schedule.seats_left
-            if number_of_persons > remaining_seats:
+            if total_persons > remaining_seats:
                 raise serializers.ValidationError(
                     {
-                        "number_of_persons": (
+                        "adults": (
                             f"Only {remaining_seats} seat(s) left "
                             "for this schedule."
                         )
                     }
                 )
 
+            package = validated_data.get("package")
+            if package is None:
+                package, _ = TripPackage.objects.get_or_create(
+                    trip=schedule.trip,
+                    name=PackageTier.STANDARD,
+                    defaults={"additional_price": 0, "additional_child_price": 0},
+                )
+                validated_data["package"] = package
+
+            effective = get_effective_price(schedule, package=package)
+            validated_data["total_price"] = (
+                effective["price"] * adults + effective["child_price"] * children
+            )
+
             trip_booking = super().create(validated_data)
 
-            schedule.booked_seats += number_of_persons
+            schedule.booked_seats += total_persons
             schedule.save(update_fields=["booked_seats"])
 
         return trip_booking

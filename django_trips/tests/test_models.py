@@ -1,10 +1,16 @@
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 
-from django_trips.choices import AvailabilityType, LocationType, ScheduleStatus
+from django_trips.choices import (
+    AvailabilityType,
+    LocationType,
+    PackageTier,
+    ScheduleStatus,
+)
 from django_trips.models import (
     CancellationPolicy,
     Facility,
@@ -672,6 +678,69 @@ class TripPackageTestCase(TestCase):
         package = TripPackageFactory()
         self.assertEqual(str(package), package.name)
         self.assertIn(package.name, repr(package))
+
+
+class CreateStandardPackageSignalTestCase(TestCase):
+    """`create_standard_package` (signals.py) - every Trip should always
+    have exactly one zero-delta Standard TripPackage, regardless of how many
+    times the Trip itself is saved."""
+
+    def test_creates_standard_package_on_trip_creation(self):
+        trip = TripFactory(trip_schedule=None)
+        standard_packages = trip.packages.filter(name=PackageTier.STANDARD)
+        self.assertEqual(standard_packages.count(), 1)
+        standard = standard_packages.get()
+        self.assertEqual(standard.additional_price, 0)
+        self.assertEqual(standard.additional_child_price, 0)
+
+    def test_does_not_duplicate_on_repeated_save(self):
+        trip = TripFactory(trip_schedule=None)
+        trip.save()
+        trip.save()
+        self.assertEqual(
+            trip.packages.filter(name=PackageTier.STANDARD).count(), 1
+        )
+
+    def test_does_not_clobber_other_tiers(self):
+        trip = TripFactory(trip_schedule=None)
+        TripPackageFactory(trip=trip, name=PackageTier.PREMIUM)
+        trip.save()
+        self.assertEqual(trip.packages.count(), 2)
+
+
+class TripPackageStandardTierGuardTestCase(TestCase):
+    """TripPackage.clean()/save() - the Standard tier must always stay a
+    zero-delta default; a non-zero delta on it should be rejected."""
+
+    def test_rejects_nonzero_additional_price_on_standard(self):
+        trip = TripFactory(trip_schedule=None)
+        standard = trip.packages.get(name=PackageTier.STANDARD)
+        standard.additional_price = 500
+        with self.assertRaises(ValidationError):
+            standard.save()
+
+    def test_rejects_nonzero_additional_child_price_on_standard(self):
+        trip = TripFactory(trip_schedule=None)
+        standard = trip.packages.get(name=PackageTier.STANDARD)
+        standard.additional_child_price = 250
+        with self.assertRaises(ValidationError):
+            standard.save()
+
+    def test_allows_zero_delta_standard_save(self):
+        trip = TripFactory(trip_schedule=None)
+        standard = trip.packages.get(name=PackageTier.STANDARD)
+        standard.description = "Updated description"
+        standard.save()
+        standard.refresh_from_db()
+        self.assertEqual(standard.description, "Updated description")
+
+    def test_allows_nonzero_delta_on_non_standard_tiers(self):
+        package = TripPackageFactory(
+            name=PackageTier.PREMIUM, additional_price=1000, additional_child_price=600
+        )
+        package.save()
+        package.refresh_from_db()
+        self.assertEqual(package.additional_price, 1000)
 
 
 class TestimonialTestCase(TestCase):

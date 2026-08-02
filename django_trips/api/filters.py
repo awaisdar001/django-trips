@@ -237,5 +237,6 @@ class TripBookingFilterSet(filters.FilterSet):
             "schedule__trip",
             "target_date_before",
             "target_date_after",
-            "number_of_persons",
+            "adults",
+            "children",
         ]

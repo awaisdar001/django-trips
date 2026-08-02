@@ -38,14 +38,14 @@ class TripBookingListTestCase(AuthenticatedUserTestCase):
             full_name="Ali Raza",
             phone_number="03001234567",
             number="DPT00123AA",
-            number_of_persons=5,
+            adults=5,
         )
         TripBookingFactory(
             schedule=cls.schedule2,
             full_name="Sara Khan",
             phone_number="03111234567",
             number="DPT00124BB",
-            number_of_persons=10,
+            adults=10,
         )
 
         cls.url = reverse("trips-api:trip-bookings", kwargs={"trip_id": cls.trip.pk})

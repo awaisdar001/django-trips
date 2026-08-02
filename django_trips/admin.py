@@ -320,7 +320,7 @@ class TestimonialAdmin(admin.ModelAdmin):
 class TripPackageAdmin(admin.ModelAdmin):
     """Trip pricing package (Standard/Budget/Premium) admin configuration"""
 
-    list_display = ("trip", "name", "base_price", "base_child_price")
+    list_display = ("trip", "name", "additional_price", "additional_child_price")
     list_filter = ("name",)
     search_fields = ["trip__name"]
 

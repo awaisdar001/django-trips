@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from config_models.models import ConfigurationModel
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -826,11 +827,13 @@ class TripPackage(models.Model):
     )
 
     description = models.TextField()
-    base_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
-    base_child_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    additional_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    additional_child_price = models.DecimalField(
+        default=0, max_digits=7, decimal_places=0
+    )
 
     class Meta:
-        ordering = ["trip", "name"]
+        ordering = ["trip", "additional_price"]
         unique_together = ("trip", "name")
 
     def __str__(self):
@@ -838,6 +841,24 @@ class TripPackage(models.Model):
 
     def __repr__(self):
         return f"<TripPackage {self.name}>"
+
+    def clean(self):
+        super().clean()
+        if self.name == PackageTier.STANDARD and (
+            self.additional_price != 0 or self.additional_child_price != 0
+        ):
+            raise ValidationError(
+                "The Standard package is the zero-delta default tier and can't "
+                "carry a price delta - additional_price/additional_child_price "
+                "must both be 0."
+            )
+
+    def save(self, *args, **kwargs):
+        # Only self.clean() (not full_clean()) - full_clean() would also
+        # enforce `description` being non-blank, which the auto-created
+        # Standard package (see signals.py) deliberately leaves empty.
+        self.clean()
+        super().save(*args, **kwargs)
 
 
 class TripReview(models.Model):
@@ -999,6 +1020,23 @@ class TripBooking(TimeStampedModel):
     schedule = models.ForeignKey(
         TripSchedule, related_name="bookings", on_delete=models.CASCADE
     )
+    package = models.ForeignKey(
+        "TripPackage",
+        related_name="bookings",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Pricing package/tier selected for this booking. Defaults to "
+        "the trip's Standard package when not supplied at creation time.",
+    )
+    total_price = models.DecimalField(
+        default=0,
+        max_digits=10,
+        decimal_places=0,
+        help_text="Computed total price for this booking (effective adult price "
+        "times adults, plus effective child price times children), stored at "
+        "creation time.",
+    )
     number = models.CharField(
         max_length=16,
         unique=True,
@@ -1015,11 +1053,13 @@ class TripBooking(TimeStampedModel):
     phone_number = models.CharField(
         max_length=30, help_text="Contact phone number with country code"
     )
-    # pylint:disable=fixme
-    # TODO: change this to adults/children/infants
-    number_of_persons = models.PositiveIntegerField(
+    adults = models.PositiveIntegerField(
         default=1,
-        help_text="Total number of participants",
+        help_text="Number of adult participants",
+    )
+    children = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of child participants",
     )
     target_date = models.DateTimeField(
         null=True,

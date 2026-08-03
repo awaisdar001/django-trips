@@ -21,6 +21,7 @@ from django_trips.models import (
     Trip,
     TripItinerary,
     TripPackage,
+    TripPickupLocation,
     TripReview,
     TripReviewSummary,
     TripSchedule,
@@ -41,6 +42,7 @@ DEFAULT_SETTINGS = {
     "TRIP_CATEGORIES": ["Honymoon", "Outdoor"],
     "TRIP_GEARS": ["Sun glasses", "Sun block"],
     "TRIP_TRUST_BADGES": ["Certified Guide", "Free Cancellation"],
+    "TRIP_PICKUP_POINTS": ["Bus Terminal", "Metro Station", "Airport"],
 }
 
 
@@ -90,8 +92,8 @@ class Command(BaseCommand):
             try:
                 trip = self.create_trip(user, no_of_days)
                 self.create_itineraries(trip, no_of_days)
-                self.create_schedules(trip)
-                self.create_trip_packages(trip)
+                base_price = self.create_trip_packages(trip)
+                self.create_schedules(trip, base_price)
                 self.create_reviews(trip)
                 self.stdout.write(
                     self.style.SUCCESS(f"Trip Created: <id={trip.pk} name={trip.name}>")
@@ -139,34 +141,41 @@ class Command(BaseCommand):
         trip.tags.add("Adventure", "Group")
         return trip
 
-    def create_schedules(self, trip):
+    # Thursday/Friday/Saturday departures carry a peak surcharge; every
+    # other day of the week is a regular, non-peak fare (surcharge 0).
+    PEAK_WEEKDAYS = {3, 4, 5}
+    # ~15% of the trip's base price, e.g. 3,000 on a 20,000 trip - matches
+    # the frontend's own CUSTOM_DATE_PRICE_MULTIPLIER premium (1.15x) for a
+    # private/on-request date, so seeded data previews consistently with it.
+    PEAK_SURCHARGE_FACTOR_RANGE = (0.10, 0.20)
+
+    def create_schedules(self, trip, base_price):
         now = timezone.now()
         duration_days = trip.duration.days
 
-        # Per-day rate in PKR, scaled by duration so price reflects trip
-        # length instead of being picked from a flat, duration-independent
-        # pool (that produced unrealistic outliers like a 12-day trip
-        # priced at PKR 5,000). Schedules still vary a bit around that
-        # base to reflect early-bird/last-minute pricing.
-        per_day_rate = random.randint(7000, 9500)
-        base_price = per_day_rate * duration_days
-        price_choices = [
-            round(base_price * factor / 10000) * 100 for factor in (90, 100, 110, 125)
-        ]
-
         def make_schedule(start_date, end_date, status, booked_seats=0):
-            price = random.choice(price_choices)
+            # TripPackage now carries the trip's real base price (see
+            # create_trip_packages()) - a schedule only adds a surcharge on
+            # top, and only for a peak (Thu/Fri/Sat) departure.
+            if start_date.weekday() in self.PEAK_WEEKDAYS:
+                factor = random.uniform(*self.PEAK_SURCHARGE_FACTOR_RANGE)
+                surcharge = round(base_price * factor / 100) * 100
+            else:
+                surcharge = 0
             available_seats = random.randint(6, 20)
-            TripSchedule.objects.create(
+            schedule = TripSchedule.objects.create(
                 trip=trip,
                 start_date=start_date,
                 end_date=end_date,
-                price=price,
-                child_price=round(price * 0.6 / 100) * 100,
+                additional_price=surcharge,
+                additional_child_price=(
+                    round(surcharge * 0.6 / 100) * 100 if surcharge else 0
+                ),
                 available_seats=available_seats,
                 booked_seats=min(booked_seats, available_seats),
                 status=status,
             )
+            self.create_pickup_locations(schedule, trip.departure)
 
         # 1. Expired schedule
         make_schedule(
@@ -193,6 +202,35 @@ class Command(BaseCommand):
                 ScheduleStatus.PUBLISHED,
             )
 
+    def create_pickup_locations(self, schedule, departure):
+        """
+        Every schedule always has at least one included (additional_price=0)
+        pickup point, right at the departure city itself. 0-2 more named
+        stops within that same city are layered on top with a modest
+        convenience surcharge, so not every departure looks identical.
+        """
+        TripPickupLocation.objects.create(
+            schedule=schedule, location=departure, additional_price=0
+        )
+        pickup_points = self.get_setting("TRIP_PICKUP_POINTS")
+        extra_names = random.sample(pickup_points, random.randint(0, min(2, len(pickup_points))))
+        for name in extra_names:
+            TripPickupLocation.objects.create(
+                schedule=schedule,
+                location=self.get_or_create_pickup_point(departure, name),
+                additional_price=random.choice([300, 500, 750, 1000]),
+            )
+
+    def get_or_create_pickup_point(self, departure, name):
+        """A named pickup point within the departure city - a child Location
+        of `departure`, distinct from the city-level Location rows
+        TRIP_LOCATIONS seeds."""
+        full_name = f"{departure.name} - {name}"
+        location, _ = Location.objects.get_or_create(
+            slug=slugify(full_name), defaults={"name": full_name, "parent": departure}
+        )
+        return location
+
     def get_category(self):
         name = random.choice(self.get_setting("TRIP_CATEGORIES"))
         return Category.objects.get_or_create(
@@ -208,14 +246,46 @@ class Command(BaseCommand):
             for name in names
         ]
 
+    # Package tier price relative to the trip's per-day-rate base -
+    # BUDGET/STANDARD/PREMIUM get realistic, distinct absolute prices.
+    TIER_PRICE_FACTORS = {
+        PackageTier.BUDGET: 0.75,
+        PackageTier.STANDARD: 1.0,
+        PackageTier.PREMIUM: 1.45,
+    }
+
     def create_trip_packages(self, trip):
-        names = random.sample(PackageTier.values, random.randint(1, 3))
-        return [
-            TripPackage.objects.get_or_create(
-                trip=trip, name=name, defaults={"description": name}
-            )[0]
-            for name in names
-        ]
+        """
+        Realistic, distinct absolute base_price per tier - moved here from
+        create_schedules() now that TripPackage (not TripSchedule) carries
+        the trip's base price. update_or_create (not get_or_create) so the
+        STANDARD package auto-created at base_price=0 by the post_save
+        signal also gets a real price here, same as BUDGET/PREMIUM. STANDARD
+        is always included (not just randomly sampled) since it's the
+        trip's guaranteed tier and the one date-picker surcharge previews
+        anchor against - returns its base_price for create_schedules() to
+        compute a realistic surcharge off of.
+        """
+        per_day_rate = random.randint(7000, 9500)
+        base = per_day_rate * trip.duration.days
+
+        other_tiers = [tier for tier in PackageTier.values if tier != PackageTier.STANDARD]
+        names = [PackageTier.STANDARD, *random.sample(other_tiers, random.randint(0, len(other_tiers)))]
+        standard_price = None
+        for name in names:
+            price = round(base * self.TIER_PRICE_FACTORS[name] / 100) * 100
+            TripPackage.objects.update_or_create(
+                trip=trip,
+                name=name,
+                defaults={
+                    "description": name,
+                    "base_price": price,
+                    "base_child_price": round(price * 0.6 / 100) * 100,
+                },
+            )
+            if name == PackageTier.STANDARD:
+                standard_price = price
+        return standard_price
 
     def create_reviews(self, trip):
         """

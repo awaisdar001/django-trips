@@ -8,7 +8,6 @@ from datetime import timedelta
 
 from config_models.models import ConfigurationModel
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -482,15 +481,12 @@ class Trip(SlugMixin, models.Model):
     @property
     def starting_price(self):
         """
-        Cheapest price among this trip's currently bookable (active or
-        upcoming) schedules. Returns None if no such schedule exists.
+        Cheapest base price among this trip's packages - no `None` fallback
+        needed, since `create_standard_package` (signals.py) guarantees every
+        trip always has at least one Standard package. Packages aren't
+        date-bound, so no active/upcoming schedule filtering applies here.
         """
-        schedule = (
-            (self.schedules.active() | self.schedules.upcoming())
-            .order_by("price")
-            .first()
-        )
-        return schedule.price if schedule else None
+        return self.packages.order_by("base_price").first().base_price
 
     def get_absolute_url(self):
         return reverse("trips-api:trip-detail", kwargs={"identifier": self.slug})
@@ -606,7 +602,7 @@ class Trip(SlugMixin, models.Model):
                     start_date=schedule_date,
                     is_per_person_price=options["is_per_person_price"],
                     defaults={
-                        "price": availability.price,
+                        "additional_price": 0,
                         "available_seats": availability.available_seats,
                         "booked_seats": 0,
                     },
@@ -768,13 +764,15 @@ class TripSchedule(models.Model):
     """
 
     trip = models.ForeignKey(Trip, related_name="schedules", on_delete=models.CASCADE)
-    price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
-    child_price = models.DecimalField(
+    additional_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    additional_child_price = models.DecimalField(
         default=0,
         max_digits=7,
         decimal_places=0,
-        help_text="Per-child price for this departure. Independent of `price` "
-        "rather than a fixed ratio, since child discounts vary by trip.",
+        help_text="Flat per-child surcharge for this specific departure date "
+        "(e.g. weekend/holiday/peak pricing), added on top of whichever "
+        "package tier is booked - same flat-addition semantic as "
+        "TripPickupLocation.additional_price. 0 for a regular date.",
     )
     is_per_person_price = models.BooleanField(default=True)
     start_date = models.DateField(null=True, blank=True)
@@ -808,15 +806,24 @@ class TripSchedule(models.Model):
 
 class TripPackage(models.Model):
     """
-    Represents a pricing package/tier for a Trip.
+    Represents a pricing package/tier for a Trip (e.g. Standard, Deluxe, VIP).
 
-    A trip can have multiple pricing tiers or styles (e.g., Standard, Deluxe,
-    VIP), each with its own pricing and description. These packages are linked
-    directly to the Trip, not to specific schedules.
+    A package carries the tier's stable, absolute menu price. `base_price`/
+    `base_child_price` are the full per-person price for that tier,
+    independent of any specific departure date - `TripSchedule.additional_price`/
+    `additional_child_price` is a flat per-date surcharge added on top of
+    whichever package is booked, resolved via `get_effective_price()`
+    (`django_trips/services.py`) rather than read off either model alone.
+    Every Trip always has exactly one Standard package, auto-created by a
+    `post_save` signal (`django_trips/signals.py`) at `base_price=0` until an
+    admin sets a real price - so a trip with no extra tiers still has one
+    package to book against, with no manual data-entry step required.
 
     Use Case:
     - Shown to users during booking to choose from trip tiers.
-    - Helps support multiple pricing models under the same trip.
+    - Helps support multiple pricing models under the same trip, each with
+      its own base price that a schedule's date-specific surcharge is
+      layered on top of.
     """
 
     trip = models.ForeignKey(Trip, related_name="packages", on_delete=models.CASCADE)
@@ -827,13 +834,11 @@ class TripPackage(models.Model):
     )
 
     description = models.TextField()
-    additional_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
-    additional_child_price = models.DecimalField(
-        default=0, max_digits=7, decimal_places=0
-    )
+    base_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
+    base_child_price = models.DecimalField(default=0, max_digits=7, decimal_places=0)
 
     class Meta:
-        ordering = ["trip", "additional_price"]
+        ordering = ["trip", "base_price"]
         unique_together = ("trip", "name")
 
     def __str__(self):
@@ -841,24 +846,6 @@ class TripPackage(models.Model):
 
     def __repr__(self):
         return f"<TripPackage {self.name}>"
-
-    def clean(self):
-        super().clean()
-        if self.name == PackageTier.STANDARD and (
-            self.additional_price != 0 or self.additional_child_price != 0
-        ):
-            raise ValidationError(
-                "The Standard package is the zero-delta default tier and can't "
-                "carry a price delta - additional_price/additional_child_price "
-                "must both be 0."
-            )
-
-    def save(self, *args, **kwargs):
-        # Only self.clean() (not full_clean()) - full_clean() would also
-        # enforce `description` being non-blank, which the auto-created
-        # Standard package (see signals.py) deliberately leaves empty.
-        self.clean()
-        super().save(*args, **kwargs)
 
 
 class TripReview(models.Model):

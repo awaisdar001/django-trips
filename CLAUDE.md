@@ -68,7 +68,11 @@ Everything hangs off `Trip` (`django_trips/models.py`). Key relationships:
   schedule, with an auto-generated `DPT######NN`-style reference number and a `BookingStatus` state machine —
   the allowed transitions are documented in `choices.py` on `BookingStatus`, and `can_be_cancelled`/`is_cancelled`
   are the canonical checks, not ad-hoc string comparisons).
-- `Trip.starting_price` is computed as the min price across active-or-upcoming schedules, not stored.
+- `Trip.starting_price` is computed as the min `base_price` across a trip's packages, not stored — packages
+  aren't date-bound, so no active/upcoming schedule filtering applies (unlike the older schedule-based model).
+  `TripSchedule.additional_price`/`additional_child_price` is a flat per-date surcharge added on top of whichever
+  package is booked, resolved via `get_effective_price()` (`services.py`) — see `README.md`'s "Pricing model"
+  section for the full package/schedule pricing shape.
 - `TripReview` (an individual, per-trip rating breakdown) is distinct from `TripReviewSummary` (a curated,
   one-to-one *rollup* per trip — not auto-computed from `TripReview` rows) which is in turn distinct from
   `Testimonial` (freeform, site-wide marketing quotes not tied to a specific trip) — don't conflate these when

@@ -4,7 +4,7 @@ import django_filters as filters
 from django.db.models import Q
 
 from django_trips.choices import LocationType, ScheduleStatus
-from django_trips.models import Location, Trip, TripBooking, TripSchedule
+from django_trips.models import Location, Trip, TripBooking, TripPackage, TripSchedule
 
 
 def expand_destination_slugs(slugs):
@@ -65,17 +65,18 @@ class TripBaseFilter(filters.FilterSet):
 
 class TripFilter(TripBaseFilter):
     """
-    Filter trips by name, destination, duration, category, and whether they
-    have a published schedule matching a price range and/or date range.
+    Filter trips by name, destination, duration, category, price range,
+    and/or date range.
 
-    price_from/price_to/date_from/date_to are intentionally NOT independent
+    price_from/price_to match against a trip's packages directly - a
+    package's base_price is date-independent, so no cross-schedule
+    combination concern applies there. date_from/date_to are still combined
+    into a single query against TripSchedule rather than independent
     per-field filters: since a trip can have many schedules, filtering each
     condition separately (as django-filter would by default) can match a
     trip via two *different* schedules (e.g. a cheap-but-past one and an
     expensive-but-future one) even though no single schedule satisfies both.
-    filter_queryset() below combines them into one query against
-    TripSchedule so only trips with one schedule satisfying all supplied
-    constraints match.
+    filter_queryset() below implements both halves.
     """
 
     category = CharInFilter(
@@ -99,11 +100,13 @@ class TripFilter(TripBaseFilter):
     )
     price_from = filters.NumberFilter(
         method="filter_noop",
-        help_text="Filter trips with a published schedule priced at or above this value.",
+        help_text="Filter trips with a package priced at or above this value "
+        "(still requires a published schedule to be bookable).",
     )
     price_to = filters.NumberFilter(
         method="filter_noop",
-        help_text="Filter trips with a published schedule priced at or below this value.",
+        help_text="Filter trips with a package priced at or below this value "
+        "(still requires a published schedule to be bookable).",
     )
     date_from = filters.DateFilter(
         method="filter_noop",
@@ -125,20 +128,41 @@ class TripFilter(TripBaseFilter):
         return queryset
 
     def filter_queryset(self, queryset):
-        schedule_constraints = Q(status=ScheduleStatus.PUBLISHED)
-        has_constraint = False
+        price_constraints = Q()
+        has_price_constraint = False
         for field_name, lookup in (
-            ("price_from", "price__gte"),
-            ("price_to", "price__lte"),
+            ("price_from", "base_price__gte"),
+            ("price_to", "base_price__lte"),
+        ):
+            value = self.form.cleaned_data.get(field_name)
+            if value not in (None, ""):
+                price_constraints &= Q(**{lookup: value})
+                has_price_constraint = True
+
+        if has_price_constraint:
+            matching_trip_ids = TripPackage.objects.filter(
+                price_constraints
+            ).values_list("trip_id", flat=True)
+            queryset = queryset.filter(pk__in=matching_trip_ids)
+            # A price match alone isn't enough - still require an actual
+            # bookable schedule, preserving today's implicit guarantee that
+            # browsing by budget never surfaces an unbookable trip.
+            queryset = queryset.filter(
+                schedules__status=ScheduleStatus.PUBLISHED
+            ).distinct()
+
+        schedule_constraints = Q(status=ScheduleStatus.PUBLISHED)
+        has_schedule_constraint = False
+        for field_name, lookup in (
             ("date_from", "start_date__gte"),
             ("date_to", "end_date__lte"),
         ):
             value = self.form.cleaned_data.get(field_name)
             if value not in (None, ""):
                 schedule_constraints &= Q(**{lookup: value})
-                has_constraint = True
+                has_schedule_constraint = True
 
-        if has_constraint:
+        if has_schedule_constraint:
             matching_trip_ids = TripSchedule.objects.filter(
                 schedule_constraints
             ).values_list("trip_id", flat=True)
@@ -161,12 +185,16 @@ class UpcomingTripsFilter(filters.FilterSet):
     price_from = filters.NumberFilter(
         field_name="price",
         lookup_expr="gte",
-        help_text="Filter trips with price greater than or equal to this value.",
+        help_text="Filter trips with a fully resolved price (cheapest package's "
+        "base_price plus this schedule's surcharge) greater than or equal to "
+        "this value.",
     )
     price_to = filters.NumberFilter(
         field_name="price",
         lookup_expr="lte",
-        help_text="Filter trips with price less than or equal to this value.",
+        help_text="Filter trips with a fully resolved price (cheapest package's "
+        "base_price plus this schedule's surcharge) less than or equal to "
+        "this value.",
     )
     # "%Y-%m-%d"
     date_from = filters.DateFilter(

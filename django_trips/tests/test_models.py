@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
@@ -467,7 +466,7 @@ class TripCreateSchedulesTestCase(TestCase):
         self.assertEqual(created_count, trip.schedules.count())
         self.assertGreater(created_count, 0)
         for schedule in trip.schedules.all():
-            self.assertEqual(schedule.price, availability.price)
+            self.assertEqual(schedule.additional_price, 0)
             self.assertEqual(schedule.available_seats, availability.available_seats)
             self.assertEqual(schedule.booked_seats, 0)
 
@@ -526,11 +525,13 @@ class TripScheduleFactoryTestCase(TestCase):
         self.assertEqual(trip_schedule.status, ScheduleStatus.DRAFT)
 
     def test_price_validation(self):
-        # Create a trip schedule with a price
-        trip_schedule = TripScheduleFactory(price=5000)
+        # Create a trip schedule with a surcharge
+        trip_schedule = TripScheduleFactory(additional_price=5000)
 
-        # Assert that the price is valid (i.e., not negative or zero)
-        self.assertGreater(trip_schedule.price, 0, "Price should be greater than zero")
+        # Assert that the surcharge is valid (i.e., not negative or zero)
+        self.assertGreater(
+            trip_schedule.additional_price, 0, "Price should be greater than zero"
+        )
 
     def test_status_choices(self):
         # Create trip schedules with different statuses
@@ -682,16 +683,16 @@ class TripPackageTestCase(TestCase):
 
 class CreateStandardPackageSignalTestCase(TestCase):
     """`create_standard_package` (signals.py) - every Trip should always
-    have exactly one zero-delta Standard TripPackage, regardless of how many
-    times the Trip itself is saved."""
+    have exactly one Standard TripPackage at base_price=0, regardless of how
+    many times the Trip itself is saved."""
 
     def test_creates_standard_package_on_trip_creation(self):
         trip = TripFactory(trip_schedule=None)
         standard_packages = trip.packages.filter(name=PackageTier.STANDARD)
         self.assertEqual(standard_packages.count(), 1)
         standard = standard_packages.get()
-        self.assertEqual(standard.additional_price, 0)
-        self.assertEqual(standard.additional_child_price, 0)
+        self.assertEqual(standard.base_price, 0)
+        self.assertEqual(standard.base_child_price, 0)
 
     def test_does_not_duplicate_on_repeated_save(self):
         trip = TripFactory(trip_schedule=None)
@@ -706,41 +707,6 @@ class CreateStandardPackageSignalTestCase(TestCase):
         TripPackageFactory(trip=trip, name=PackageTier.PREMIUM)
         trip.save()
         self.assertEqual(trip.packages.count(), 2)
-
-
-class TripPackageStandardTierGuardTestCase(TestCase):
-    """TripPackage.clean()/save() - the Standard tier must always stay a
-    zero-delta default; a non-zero delta on it should be rejected."""
-
-    def test_rejects_nonzero_additional_price_on_standard(self):
-        trip = TripFactory(trip_schedule=None)
-        standard = trip.packages.get(name=PackageTier.STANDARD)
-        standard.additional_price = 500
-        with self.assertRaises(ValidationError):
-            standard.save()
-
-    def test_rejects_nonzero_additional_child_price_on_standard(self):
-        trip = TripFactory(trip_schedule=None)
-        standard = trip.packages.get(name=PackageTier.STANDARD)
-        standard.additional_child_price = 250
-        with self.assertRaises(ValidationError):
-            standard.save()
-
-    def test_allows_zero_delta_standard_save(self):
-        trip = TripFactory(trip_schedule=None)
-        standard = trip.packages.get(name=PackageTier.STANDARD)
-        standard.description = "Updated description"
-        standard.save()
-        standard.refresh_from_db()
-        self.assertEqual(standard.description, "Updated description")
-
-    def test_allows_nonzero_delta_on_non_standard_tiers(self):
-        package = TripPackageFactory(
-            name=PackageTier.PREMIUM, additional_price=1000, additional_child_price=600
-        )
-        package.save()
-        package.refresh_from_db()
-        self.assertEqual(package.additional_price, 1000)
 
 
 class TestimonialTestCase(TestCase):

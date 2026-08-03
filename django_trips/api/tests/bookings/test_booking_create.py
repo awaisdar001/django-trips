@@ -135,24 +135,26 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
 
     def test_booking_create_defaults_to_standard_package(self):
         """When no `package` is supplied, the booking should default to the
-        trip's (auto-created, zero-delta) Standard package and its
-        total_price should be the schedule's plain per-person price."""
+        trip's (auto-created) Standard package, and its total_price should
+        reflect that package's base_price plus the schedule's surcharge."""
         data = self.make_create_trip_booking_request()
         self.assertEqual(data["package_details"]["name"], PackageTier.STANDARD)
 
         new_booking = TripBooking.objects.get(number=data["number"])
         self.assertEqual(new_booking.package.name, PackageTier.STANDARD)
-        expected_total = self.trip_schedule.price * self.payload["adults"]
+        expected_total = (
+            new_booking.package.base_price + self.trip_schedule.additional_price
+        ) * self.payload["adults"]
         self.assertEqual(new_booking.total_price, expected_total)
 
-    def test_booking_create_with_explicit_package_adds_its_delta(self):
-        """An explicitly-supplied package's delta should be reflected in the
-        stored total_price - schedule price + package delta, times persons."""
+    def test_booking_create_with_explicit_package_uses_its_base_price(self):
+        """An explicitly-supplied package's base_price should be reflected in
+        the stored total_price - base_price + schedule surcharge, times persons."""
         package = TripPackageFactory(
             trip=self.trip,
             name=PackageTier.PREMIUM,
-            additional_price=1500,
-            additional_child_price=800,
+            base_price=15000,
+            base_child_price=8000,
         )
         data = self.make_create_trip_booking_request(
             {**self.payload, "package": package.id}
@@ -160,17 +162,19 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
 
         new_booking = TripBooking.objects.get(number=data["number"])
         self.assertEqual(new_booking.package_id, package.id)
-        expected_total = (self.trip_schedule.price + 1500) * self.payload["adults"]
+        expected_total = (
+            package.base_price + self.trip_schedule.additional_price
+        ) * self.payload["adults"]
         self.assertEqual(new_booking.total_price, expected_total)
 
     def test_booking_create_with_children_adds_child_price(self):
-        """Children should be priced using the schedule/package's child price,
+        """Children should be priced using the package/schedule's child price,
         not the adult price - and counted towards booked seats too."""
         package = TripPackageFactory(
             trip=self.trip,
             name=PackageTier.PREMIUM,
-            additional_price=1500,
-            additional_child_price=800,
+            base_price=15000,
+            base_child_price=8000,
         )
         data = self.make_create_trip_booking_request(
             {**self.payload, "package": package.id, "adults": 2, "children": 3}
@@ -179,8 +183,10 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
         new_booking = TripBooking.objects.get(number=data["number"])
         self.assertEqual(new_booking.adults, 2)
         self.assertEqual(new_booking.children, 3)
-        expected_total = (self.trip_schedule.price + 1500) * 2 + (
-            self.trip_schedule.child_price + 800
+        expected_total = (
+            package.base_price + self.trip_schedule.additional_price
+        ) * 2 + (
+            package.base_child_price + self.trip_schedule.additional_child_price
         ) * 3
         self.assertEqual(new_booking.total_price, expected_total)
 

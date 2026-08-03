@@ -536,8 +536,8 @@ class TripScheduleBaseSerializer(serializers.ModelSerializer):
         model = TripSchedule
         fields = (
             "id",
-            "price",
-            "child_price",
+            "additional_price",
+            "additional_child_price",
             "is_per_person_price",
             "start_date",
             "end_date",
@@ -654,42 +654,19 @@ class TripItineraryReadSerializer(BaseTripItinerarySerializer):
 
 class TripPackageSerializer(serializers.ModelSerializer):
     """
-    A pricing package/tier. `additional_price`/`additional_child_price` are
-    the raw deltas stored on the model (always 0 for the Standard tier - see
-    `TripPackage.clean()`); `effective_price`/`effective_child_price` are
-    those deltas resolved against a specific schedule via
-    `get_effective_price()`, taken from `self.context["schedule"]` - `None`
-    when no schedule is given in context (e.g. this serializer used with no
-    schedule in scope).
+    A pricing package/tier. `base_price`/`base_child_price` are the tier's
+    stable, absolute menu price - a standalone number needing no schedule
+    context, unlike the per-date surcharge on `TripSchedule`.
     """
-
-    effective_price = serializers.SerializerMethodField()
-    effective_child_price = serializers.SerializerMethodField()
 
     class Meta:
         model = TripPackage
         fields = (
             "name",
             "description",
-            "additional_price",
-            "additional_child_price",
-            "effective_price",
-            "effective_child_price",
+            "base_price",
+            "base_child_price",
         )
-
-    @extend_schema_field(OpenApiTypes.NUMBER)
-    def get_effective_price(self, package) -> Optional[float]:
-        schedule = self.context.get("schedule")
-        if not schedule:
-            return None
-        return get_effective_price(schedule, package=package)["price"]
-
-    @extend_schema_field(OpenApiTypes.NUMBER)
-    def get_effective_child_price(self, package) -> Optional[float]:
-        schedule = self.context.get("schedule")
-        if not schedule:
-            return None
-        return get_effective_price(schedule, package=package)["child_price"]
 
 
 class TripPickupLocationSerializer(serializers.ModelSerializer):
@@ -856,21 +833,8 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
 
     @extend_schema_field(TripPackageSerializer(many=True))
     def get_packages(self, trip):
-        """
-        `effective_price`/`effective_child_price` on each package are
-        resolved against the same "cheapest active/upcoming schedule" used
-        for `starting_price` - the representative price shown before a
-        traveler has picked a specific departure date.
-        """
-        reference_schedule = (
-            (trip.schedules.active() | trip.schedules.upcoming())
-            .order_by("price")
-            .first()
-        )
         return TripPackageSerializer(
-            trip.packages.all(),
-            many=True,
-            context={**self.context, "schedule": reference_schedule},
+            trip.packages.all(), many=True, context=self.context
         ).data
 
 
@@ -1032,9 +996,7 @@ class TripBookingSerializer(serializers.ModelSerializer):
     def get_package_details(self, booking) -> Optional[dict]:
         if not booking.package:
             return None
-        return TripPackageSerializer(
-            booking.package, context={**self.context, "schedule": booking.schedule}
-        ).data
+        return TripPackageSerializer(booking.package, context=self.context).data
 
     def validate(self, attrs):
         validated_data = super().validate(attrs)
@@ -1093,11 +1055,11 @@ class TripBookingSerializer(serializers.ModelSerializer):
                 package, _ = TripPackage.objects.get_or_create(
                     trip=schedule.trip,
                     name=PackageTier.STANDARD,
-                    defaults={"additional_price": 0, "additional_child_price": 0},
+                    defaults={"base_price": 0, "base_child_price": 0},
                 )
                 validated_data["package"] = package
 
-            effective = get_effective_price(schedule, package=package)
+            effective = get_effective_price(package, schedule=schedule)
             validated_data["total_price"] = (
                 effective["price"] * adults + effective["child_price"] * children
             )

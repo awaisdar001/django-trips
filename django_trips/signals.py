@@ -10,15 +10,14 @@ from django_trips.models import Trip, TripPackage
 @receiver(post_save, sender=Trip)
 def create_standard_package(sender, instance, created, **kwargs):  # pylint:disable=unused-argument
     """
-    Every Trip must always have exactly one zero-delta "Standard" TripPackage
-    acting as the default tier package prices are added on top of (see
-    TripPackage.clean()). get_or_create keeps this idempotent regardless of
-    how many times/ways a Trip ends up saved.
+    Every Trip must always have exactly one Standard TripPackage, starting at
+    base_price=0 until an admin sets a real price. get_or_create keeps this
+    idempotent regardless of how many times/ways a Trip ends up saved.
     """
     if not created:
         return
     TripPackage.objects.get_or_create(
         trip=instance,
         name=PackageTier.STANDARD,
-        defaults={"additional_price": 0, "additional_child_price": 0},
+        defaults={"base_price": 0, "base_child_price": 0},
     )

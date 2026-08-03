@@ -28,139 +28,37 @@ from django_trips.models import (
     TrustBadge,
 )
 
-
-class TripScheduleAdminInline(admin.TabularInline):
-    """Trip schedule inline modal admin"""
-
-    model = TripSchedule
-    extra = 0
+# =============================================================================
+# Locations
+# =============================================================================
 
 
-class TripAvailabilityAdminInline(admin.TabularInline):
-    """Trip schedule inline modal admin"""
+class LocationParentTypeFilter(admin.SimpleListFilter):
+    """Base filter narrowing the Location changelist to children of a chosen
+    parent of `location_type`. Region/Province below share the `parent` query
+    param, so only one of the two is meant to be active at a time."""
 
-    model = TripAvailability
-    extra = 0
+    parameter_name = "parent"
+    location_type = None
 
+    def lookups(self, request, model_admin):
+        parents = Location.objects.filter(type=self.location_type).order_by("name")
+        return [(parent.pk, parent.name) for parent in parents]
 
-class HostRatingInline(admin.StackedInline):
-    model = HostRating
-    extra = 0
-
-
-class TripReviewSummaryInline(admin.StackedInline):
-    model = TripReviewSummary
-    extra = 0
-
-
-class TripItineraryAdminInline(admin.StackedInline):
-    """Trip itinerary inline modal admin"""
-
-    model = TripItinerary
-    extra = 0
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(parent__id=self.value())
+        return queryset
 
 
-class TripImageAdminInline(admin.TabularInline):
-    """Trip photo gallery inline modal admin"""
-
-    model = TripImage
-    extra = 1
-
-
-admin.site.register(CancellationPolicy, ConfigurationModelAdmin)
-
-
-@admin.register(Trip)
-class TripAdmin(admin.ModelAdmin):
-    """Trip modal admin configuration"""
-
-    inlines = [
-        TripAvailabilityAdminInline,
-        TripImageAdminInline,
-        TripItineraryAdminInline,
-        TripScheduleAdminInline,
-        TripReviewSummaryInline,
-    ]
-
-    def get_date(self, trip):
-        return [availability.end_date for availability in trip.availabilities.all()]
-
-    get_date.short_description = "Availability Up to"
-
-    prepopulated_fields = {"slug": ("name",)}
-    list_display = (
-        "name",
-        "host",
-        "departure",
-        "destination",
-        "featured",
-        "get_date",
-    )
-    list_filter = (
-        "availabilities__type",
-        "destination",
-        "featured",
-        "host",
-    )
-    search_fields = ["name", "description", "slug", "locations__name"]
-
-
-@admin.register(Facility)
-class FacilityAdmin(admin.ModelAdmin):
-    """Facility modal admin configuration"""
-
-    prepopulated_fields = {"slug": ("name",)}
-    search_fields = ["name", "slug"]
-    list_display = (
-        "name",
-        "slug",
-        "icon",
-    )
-
-
-@admin.register(TrustBadge)
-class TrustBadgeAdmin(admin.ModelAdmin):
-    """Trust badge modal admin configuration"""
-
-    prepopulated_fields = {"slug": ("name",)}
-    search_fields = ["name", "slug"]
-    list_display = (
-        "name",
-        "slug",
-        "icon",
-    )
-
-
-class RegionListFilter(admin.SimpleListFilter):
-    """Filters the Location changelist down to children of a chosen region."""
-
+class RegionListFilter(LocationParentTypeFilter):
     title = "region"
-    parameter_name = "parent"
-
-    def lookups(self, request, model_admin):
-        regions = Location.objects.filter(type=LocationType.REGION).order_by("name")
-        return [(region.pk, region.name) for region in regions]
-
-    def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(parent__id=self.value())
-        return queryset
+    location_type = LocationType.REGION
 
 
-class ProvinceListFilter(admin.SimpleListFilter):
-    """Filters the Location changelist down to children of a chosen province."""
-
+class ProvinceListFilter(LocationParentTypeFilter):
     title = "province"
-    parameter_name = "parent"
-
-    def lookups(self, request, model_admin):
-        provinces = Location.objects.filter(type=LocationType.PROVINCE).order_by("name")
-        return [(province.pk, province.name) for province in provinces]
-
-    def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(parent__id=self.value())
-        return queryset
+    location_type = LocationType.PROVINCE
 
 
 class LocationChildInline(admin.TabularInline):
@@ -179,48 +77,23 @@ class LocationChildInline(admin.TabularInline):
 class LocationAdmin(admin.ModelAdmin):
     """Location modal admin configuration"""
 
-    prepopulated_fields = {"slug": ("name",)}
-    list_display = (
-        "name",
-        "slug",
-        "type",
-        "parent",
-    )
+    list_display = ("name", "slug", "type", "parent")
+    list_select_related = ("parent",)
     list_filter = ("is_active", "type", ProvinceListFilter, RegionListFilter)
     search_fields = ["name", "slug"]
     autocomplete_fields = ["parent"]
+    prepopulated_fields = {"slug": ("name",)}
     inlines = [LocationChildInline]
 
 
-@admin.register(TripItinerary)
-class TripItineraryAdmin(admin.ModelAdmin):
-    """Trip itinerary modal admin configuration"""
-
-    list_display = ("trip", "description")
-    list_filter = ("trip",)
-    search_fields = ["trip"]
+# =============================================================================
+# Hosts
+# =============================================================================
 
 
-@admin.register(TripSchedule)
-class TripScheduleAdmin(admin.ModelAdmin):
-    """Trip schedule admin configuration"""
-
-    list_display = (
-        "trip",
-        "status",
-        "price",
-        "child_price",
-        "start_date",
-        "end_date",
-    )
-    list_filter = (
-        "start_date",
-        "end_date",
-        "status",
-        "price",
-    )
-    search_fields = ("trip", "status")
-    raw_id_fields = ("trip",)
+class HostRatingInline(admin.StackedInline):
+    model = HostRating
+    extra = 0
 
 
 @admin.action(
@@ -247,6 +120,209 @@ class HostAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+@admin.register(HostType)
+class HostTypeAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ["name"]
+
+
+# =============================================================================
+# Trips (core)
+# Availabilities, schedules, packages, itinerary and the photo gallery all
+# hang off Trip and are edited inline on TripAdmin rather than standalone.
+# =============================================================================
+
+
+class TripAvailabilityAdminInline(admin.TabularInline):
+    """Trip availability inline modal admin"""
+
+    model = TripAvailability
+    extra = 0
+
+
+class TripImageAdminInline(admin.TabularInline):
+    """Trip photo gallery inline modal admin"""
+
+    model = TripImage
+    extra = 1
+
+
+class TripItineraryAdminInline(admin.StackedInline):
+    """Trip itinerary inline modal admin"""
+
+    model = TripItinerary
+    extra = 0
+
+
+class TripScheduleAdminInline(admin.TabularInline):
+    """Trip schedule inline modal admin"""
+
+    model = TripSchedule
+    extra = 0
+
+
+class TripPackageAdminInline(admin.TabularInline):
+    """Trip pricing package (tier) inline modal admin"""
+
+    model = TripPackage
+    extra = 0
+
+
+class TripReviewSummaryInline(admin.StackedInline):
+    model = TripReviewSummary
+    extra = 0
+
+
+@admin.register(Trip)
+class TripAdmin(admin.ModelAdmin):
+    """Trip modal admin configuration"""
+
+    inlines = [
+        TripAvailabilityAdminInline,
+        TripImageAdminInline,
+        TripItineraryAdminInline,
+        TripScheduleAdminInline,
+        TripPackageAdminInline,
+        TripReviewSummaryInline,
+    ]
+    list_display = (
+        "name",
+        "host",
+        "departure",
+        "destination",
+        "featured",
+        "get_date",
+    )
+    list_select_related = ("host", "departure", "destination")
+    list_filter = (
+        "availabilities__type",
+        "destination",
+        "featured",
+        "host",
+    )
+    search_fields = ["name", "description", "slug", "locations__name"]
+    prepopulated_fields = {"slug": ("name",)}
+
+    def get_queryset(self, request):
+        # get_date() below walks each row's availabilities; prefetch once
+        # here instead of a query per row.
+        return super().get_queryset(request).prefetch_related("availabilities")
+
+    @admin.display(description="Availability Up to")
+    def get_date(self, trip):
+        return [availability.end_date for availability in trip.availabilities.all()]
+
+
+admin.site.register(CancellationPolicy, ConfigurationModelAdmin)
+
+
+# =============================================================================
+# Trip sub-entities
+# Availability windows, dated schedules, pricing tiers, per-schedule pickup
+# points, and the day-by-day itinerary - also manageable standalone.
+# =============================================================================
+
+
+@admin.register(TripAvailability)
+class TripAvailabilityAdmin(admin.ModelAdmin):
+    list_display = ("trip", "type", "price", "start_date", "end_date")
+    list_select_related = ("trip",)
+    list_filter = ("type", "start_date", "end_date")
+
+
+@admin.register(TripSchedule)
+class TripScheduleAdmin(admin.ModelAdmin):
+    """Trip schedule admin configuration"""
+
+    list_display = (
+        "trip",
+        "status",
+        "additional_price",
+        "additional_child_price",
+        "start_date",
+        "end_date",
+    )
+    list_select_related = ("trip",)
+    list_filter = (
+        "start_date",
+        "end_date",
+        "status",
+        "additional_price",
+    )
+    search_fields = ("trip__name", "status")
+    raw_id_fields = ("trip",)
+
+
+@admin.register(TripPackage)
+class TripPackageAdmin(admin.ModelAdmin):
+    """Trip pricing package (Standard/Budget/Premium) admin configuration"""
+
+    list_display = ("trip", "name", "base_price", "base_child_price")
+    list_select_related = ("trip",)
+    list_filter = ("name",)
+    search_fields = ["trip__name"]
+
+
+@admin.register(TripPickupLocation)
+class TripPickupLocationAdmin(admin.ModelAdmin):
+    list_display = ("schedule", "location", "additional_price")
+    list_select_related = ("schedule__trip", "location")
+    list_filter = ("location",)
+    search_fields = ["schedule__trip__name"]
+
+
+@admin.register(TripItinerary)
+class TripItineraryAdmin(admin.ModelAdmin):
+    """Trip itinerary modal admin configuration"""
+
+    list_display = ("trip", "description")
+    list_select_related = ("trip",)
+    list_filter = ("trip",)
+    search_fields = ["trip__name"]
+
+
+# =============================================================================
+# Bookings & wishlists
+# =============================================================================
+
+
+@admin.register(TripBooking)
+class TripBookingSummaryAdmin(admin.ModelAdmin):
+    list_display = ("number", "full_name", "schedule", "phone_number", "message")
+    list_select_related = ("schedule__trip",)
+    search_fields = ["schedule__trip__name", "full_name", "number"]
+    # `created` is when the booking was submitted; target_date filtering
+    # (removed from list_filter) would check the trip date instead.
+    list_filter = ("status", "created", "terms_accepted")
+    # `number` is auto-generated (editable=False) and never accepted as
+    # input, but staff still need to see it on the detail page.
+    readonly_fields = ("number",)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change, **kwargs)
+        # Package choices are trip-scoped, so narrow them to this booking's
+        # own trip - otherwise the dropdown lists every package across every
+        # trip, most of which can never legitimately apply to this booking.
+        if obj is not None and obj.schedule_id:
+            form.base_fields["package"].queryset = TripPackage.objects.filter(
+                trip_id=obj.schedule.trip_id
+            )
+        return form
+
+
+@admin.register(TripWishlist)
+class TripWishlistAdmin(admin.ModelAdmin):
+    list_display = ("user", "trip", "created_at")
+    list_select_related = ("user", "trip")
+    search_fields = ["user__username", "trip__name"]
+    list_filter = ("created_at",)
+
+
+# =============================================================================
+# Reviews & testimonials
+# =============================================================================
+
+
 @admin.register(TripReview)
 class TripReviewAdmin(admin.ModelAdmin):
     list_display = (
@@ -260,13 +336,13 @@ class TripReviewAdmin(admin.ModelAdmin):
         "overall",
         "is_verified",
     )
+    list_select_related = ("trip", "location")
     list_filter = ("is_verified", "trip", "overall")
     search_fields = ["trip__name", "name"]
 
 
 @admin.register(TripReviewSummary)
 class TripReviewSummaryAdmin(admin.ModelAdmin):
-    # inlines = (TripInline,)
     list_display = (
         "trip",
         "meals",
@@ -275,6 +351,7 @@ class TripReviewSummaryAdmin(admin.ModelAdmin):
         "value_for_money",
         "overall",
     )
+    list_select_related = ("trip",)
     list_filter = ("overall",)
     search_fields = ["trip__name"]
 
@@ -306,6 +383,7 @@ def unverify_testimonials(modeladmin, request, queryset):
 @admin.register(Testimonial)
 class TestimonialAdmin(admin.ModelAdmin):
     list_display = ("name", "location", "is_verified", "is_active", "created_at")
+    list_select_related = ("location",)
     list_filter = ("is_verified", "is_active")
     search_fields = ["name", "quote"]
     actions = [
@@ -316,56 +394,27 @@ class TestimonialAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(TripPackage)
-class TripPackageAdmin(admin.ModelAdmin):
-    """Trip pricing package (Standard/Budget/Premium) admin configuration"""
-
-    list_display = ("trip", "name", "additional_price", "additional_child_price")
-    list_filter = ("name",)
-    search_fields = ["trip__name"]
+# =============================================================================
+# Taxonomy / lookup tables
+# =============================================================================
 
 
-@admin.register(TripPickupLocation)
-class TripPickupLocationAdmin(admin.ModelAdmin):
-    list_display = ("schedule", "location", "additional_price")
-    search_fields = ["schedule__trip__name"]
-    list_filter = ("location",)
+@admin.register(Facility)
+class FacilityAdmin(admin.ModelAdmin):
+    """Facility modal admin configuration"""
+
+    list_display = ("name", "slug", "icon")
+    search_fields = ["name", "slug"]
+    prepopulated_fields = {"slug": ("name",)}
 
 
-@admin.register(TripBooking)
-class TripBookingSummaryAdmin(admin.ModelAdmin):
-    list_display = ("full_name", "schedule", "phone_number", "message")
-    search_fields = ["schedule__trip__name", "name"]
-    list_filter = ("schedule__trip__name", "target_date")
+@admin.register(TrustBadge)
+class TrustBadgeAdmin(admin.ModelAdmin):
+    """Trust badge modal admin configuration"""
 
-
-@admin.register(TripWishlist)
-class TripWishlistAdmin(admin.ModelAdmin):
-    list_display = ("user", "trip", "created_at")
-    search_fields = ["user__username", "trip__name"]
-    list_filter = ("created_at",)
-
-
-@admin.register(HostType)
-class HostTypeAdmin(admin.ModelAdmin):
-    list_display = ("name",)
-    search_fields = ["name"]
-
-
-@admin.register(TripAvailability)
-class TripAvailabilityAdmin(admin.ModelAdmin):
-    list_display = (
-        "trip",
-        "type",
-        "price",
-        "start_date",
-        "end_date",
-    )
-    list_filter = (
-        "type",
-        "start_date",
-        "end_date",
-    )
+    list_display = ("name", "slug", "icon")
+    search_fields = ["name", "slug"]
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(Category)

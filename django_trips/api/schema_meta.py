@@ -93,15 +93,15 @@ trip_list_schema = extend_schema(
         ),
         OpenApiParameter(
             name="price_from",
-            description="Filter trips with a published schedule priced at or "
-            "above this value.",
+            description="Filter trips with a package priced at or above this "
+            "value (still requires a published schedule to be bookable).",
             required=False,
             type=OpenApiTypes.NUMBER,
         ),
         OpenApiParameter(
             name="price_to",
-            description="Filter trips with a published schedule priced at or "
-            "below this value.",
+            description="Filter trips with a package priced at or below this "
+            "value (still requires a published schedule to be bookable).",
             required=False,
             type=OpenApiTypes.NUMBER,
         ),

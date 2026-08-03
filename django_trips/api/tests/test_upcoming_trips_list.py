@@ -8,7 +8,7 @@ from django.core.files.base import ContentFile
 from django.urls import reverse
 from django.utils import timezone
 
-from django_trips.choices import LocationType
+from django_trips.choices import LocationType, PackageTier
 from django_trips.models import TripSchedule
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           LocationFactory, TripFactory,
@@ -50,22 +50,24 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
 
         # Trip 1, Trip 2: schedule fully in the past -> never "upcoming".
         for i, trip in enumerate(cls.trips[:2]):
+            cls.set_package_price(trip, 10000)
             TripScheduleFactory(
                 trip=trip,
                 start_date=seven_days_ago + timedelta(days=i),
                 end_date=seven_days_ago + timedelta(days=i + 3),
-                price=10000,
+                additional_price=0,
             )
 
         # Trip 3, Trip 4: already started (start in the past, end in the
         # future) -- "in progress today", but NOT "upcoming" since it has
         # already started.
         for i, trip in enumerate(cls.trips[2:4]):
+            cls.set_package_price(trip, 12000)
             TripScheduleFactory(
                 trip=trip,
                 start_date=current_time - timedelta(days=i + 1),
                 end_date=current_time + timedelta(days=10 + i),
-                price=12000,
+                additional_price=0,
             )
 
         # Trip 5 -- Trip 10: genuinely upcoming (start AND end in the
@@ -81,12 +83,39 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         base_price = 13000
         for i, trip in enumerate(cls.trips[4:]):
             base_price += 1000
+            cls.set_package_price(trip, base_price)
             TripScheduleFactory(
                 trip=trip,  # Trip 5 -- Trip 10
                 start_date=cls.upcoming_start_dates[i],
                 end_date=cls.upcoming_end_dates[i],
-                price=base_price,
+                additional_price=0,
             )
+
+    @staticmethod
+    def set_package_price(trip, base_price):
+        """
+        The upcoming-trips endpoint's "price" (ordering/price_from/price_to)
+        is trip_min_base_price + schedule.additional_price (Phase A8), not a
+        raw schedule field anymore. Setting the package's base_price and
+        zeroing the schedule's surcharge lands each trip at exactly this
+        price, so the gradient the tests below assert on is unchanged.
+        """
+        package = trip.packages.get(name=PackageTier.STANDARD)
+        package.base_price = base_price
+        package.save()
+
+    @staticmethod
+    def get_resolved_price(schedule_id):
+        """
+        The same trip_min_base_price + additional_price value the view
+        annotates as `price` (Phase A8) - not a literal field in the JSON
+        response (TripScheduleBaseSerializer only exposes additional_price/
+        additional_child_price), so tests that need to assert on it look it
+        up directly instead of reading a `price` key off the response body.
+        """
+        schedule = TripSchedule.objects.get(pk=schedule_id)
+        package = schedule.trip.packages.order_by("base_price").first()
+        return package.base_price + schedule.additional_price
 
     def get_trips_list_result(self, params=None, expected_code=200):
         """Get trip list by calling api and return results"""
@@ -212,7 +241,8 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
             "duration_to": 10,
         }
         data = self.get_trips_list_result(query)
-        self.assertTrue(all(13000 <= int(t["price"]) <= 17000 for t in data))
+        resolved_prices = [self.get_resolved_price(t["id"]) for t in data]
+        self.assertTrue(all(13000 <= p <= 17000 for p in resolved_prices))
         expected_durations = [f"{d} Days {d - 1} Nights" for d in range(8, 11)]
         actual_durations = [t["trip"]["duration"] for t in data]
         self.assertEqual(actual_durations, expected_durations)
@@ -244,12 +274,17 @@ class TestUpcomingTripsListAPI(AuthenticatedUserTestCase):
         params = {"ordering": ordering}
         data = self.get_trips_list_result(params)
 
-        fields = field.split("__")
-        if len(fields) > 1:
-            # For fields like 'trip__duration'
-            response_data = [r[fields[0]][fields[1]] for r in data]
+        if field == "price":
+            # "price" is the resolved trip_min_base_price + additional_price
+            # (Phase A8) - not a literal field in the JSON response.
+            response_data = [self.get_resolved_price(r["id"]) for r in data]
         else:
-            response_data = [r[field] for r in data]
+            fields = field.split("__")
+            if len(fields) > 1:
+                # For fields like 'trip__duration'
+                response_data = [r[fields[0]][fields[1]] for r in data]
+            else:
+                response_data = [r[field] for r in data]
 
         self.assertEqual(
             response_data,

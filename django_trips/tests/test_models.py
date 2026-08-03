@@ -4,7 +4,12 @@ from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 
-from django_trips.choices import AvailabilityType, LocationType, ScheduleStatus
+from django_trips.choices import (
+    AvailabilityType,
+    LocationType,
+    PackageTier,
+    ScheduleStatus,
+)
 from django_trips.models import (
     CancellationPolicy,
     Facility,
@@ -461,7 +466,7 @@ class TripCreateSchedulesTestCase(TestCase):
         self.assertEqual(created_count, trip.schedules.count())
         self.assertGreater(created_count, 0)
         for schedule in trip.schedules.all():
-            self.assertEqual(schedule.price, availability.price)
+            self.assertEqual(schedule.additional_price, 0)
             self.assertEqual(schedule.available_seats, availability.available_seats)
             self.assertEqual(schedule.booked_seats, 0)
 
@@ -520,11 +525,13 @@ class TripScheduleFactoryTestCase(TestCase):
         self.assertEqual(trip_schedule.status, ScheduleStatus.DRAFT)
 
     def test_price_validation(self):
-        # Create a trip schedule with a price
-        trip_schedule = TripScheduleFactory(price=5000)
+        # Create a trip schedule with a surcharge
+        trip_schedule = TripScheduleFactory(additional_price=5000)
 
-        # Assert that the price is valid (i.e., not negative or zero)
-        self.assertGreater(trip_schedule.price, 0, "Price should be greater than zero")
+        # Assert that the surcharge is valid (i.e., not negative or zero)
+        self.assertGreater(
+            trip_schedule.additional_price, 0, "Price should be greater than zero"
+        )
 
     def test_status_choices(self):
         # Create trip schedules with different statuses
@@ -672,6 +679,34 @@ class TripPackageTestCase(TestCase):
         package = TripPackageFactory()
         self.assertEqual(str(package), package.name)
         self.assertIn(package.name, repr(package))
+
+
+class CreateStandardPackageSignalTestCase(TestCase):
+    """`create_standard_package` (signals.py) - every Trip should always
+    have exactly one Standard TripPackage at base_price=0, regardless of how
+    many times the Trip itself is saved."""
+
+    def test_creates_standard_package_on_trip_creation(self):
+        trip = TripFactory(trip_schedule=None)
+        standard_packages = trip.packages.filter(name=PackageTier.STANDARD)
+        self.assertEqual(standard_packages.count(), 1)
+        standard = standard_packages.get()
+        self.assertEqual(standard.base_price, 0)
+        self.assertEqual(standard.base_child_price, 0)
+
+    def test_does_not_duplicate_on_repeated_save(self):
+        trip = TripFactory(trip_schedule=None)
+        trip.save()
+        trip.save()
+        self.assertEqual(
+            trip.packages.filter(name=PackageTier.STANDARD).count(), 1
+        )
+
+    def test_does_not_clobber_other_tiers(self):
+        trip = TripFactory(trip_schedule=None)
+        TripPackageFactory(trip=trip, name=PackageTier.PREMIUM)
+        trip.save()
+        self.assertEqual(trip.packages.count(), 2)
 
 
 class TestimonialTestCase(TestCase):

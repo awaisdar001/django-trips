@@ -9,3 +9,6 @@ class DjangoTripsConfig(AppConfig):
     # destipak's is plain AutoField) — matches the actual bigint columns
     # already in the database.
     default_auto_field = "django.db.models.BigAutoField"
+
+    def ready(self):
+        import django_trips.signals  # noqa: F401 pylint:disable=unused-import,import-outside-toplevel,cyclic-import

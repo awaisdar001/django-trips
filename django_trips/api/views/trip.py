@@ -1,5 +1,5 @@
 # pylint:disable=import-error
-from django.db.models import Count, Min, Prefetch, Q
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Min, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -99,10 +99,7 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
             # produce for that particular filter combination — same rows,
             # different order, from one request to the next.
             queryset = queryset.annotate(
-                price=Min(
-                    "schedules__price",
-                    filter=Q(schedules__status=ScheduleStatus.PUBLISHED),
-                )
+                price=Min("packages__base_price")
             ).distinct().order_by(*Trip._meta.ordering)  # pylint:disable=protected-access
             # Backs TripListSerializer.schedules - prefetched once per page here
             # (to_attr caches it off each trip instance) rather than one query per
@@ -196,8 +193,9 @@ class UpcomingTripsListAPIView(ListAPIView):
 
     Query parameters:
       - name: partial trip name (case-insensitive)
-      - price_from: minimum price (inclusive)
-      - price_to: maximum price (inclusive)
+      - price_from: minimum resolved price - cheapest package's base_price
+        plus this schedule's surcharge (inclusive)
+      - price_to: maximum resolved price, same basis as price_from (inclusive)
       - date_from: trips starting on or after this date (YYYY-MM-DD)
       - date_to: trips ending on or before this date (YYYY-MM-DD)
       - destination: exact slug of destination (case-insensitive)
@@ -211,6 +209,11 @@ class UpcomingTripsListAPIView(ListAPIView):
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = UpcomingTripsFilter
+    # Same annotation-name-must-match-ordering-field convention as
+    # TripViewSet.ordering_fields/get_queryset() above - `price` here is the
+    # per-schedule fully resolved price (cheapest package + this schedule's
+    # surcharge), not a literal model field (TripSchedule has no field named
+    # `price` since the pricing reversal).
     ordering_fields = [
         "trip__name",
         "price",
@@ -220,6 +223,20 @@ class UpcomingTripsListAPIView(ListAPIView):
 
     serializer_class = UpcomingTripListSerializer
     queryset = TripSchedule.objects.upcoming()
+
+    def get_queryset(self):
+        # A schedule's fully resolved price is its trip's cheapest package
+        # base_price plus this specific date's surcharge - packages aren't
+        # date-bound, so this is the same "cheapest tier" a traveler would
+        # see if they picked this date, not an arbitrary reference price.
+        return super().get_queryset().annotate(
+            trip_min_base_price=Min("trip__packages__base_price"),
+        ).annotate(
+            price=ExpressionWrapper(
+                F("trip_min_base_price") + F("additional_price"),
+                output_field=DecimalField(),
+            )
+        )
 
 
 @extend_schema_view(get=destinations_list_schema)

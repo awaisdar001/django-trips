@@ -32,6 +32,61 @@ urlpatterns = [
 ```
 You can replace `trips/` to any namespace you like for the api.
 
+## Pricing model
+
+Price lives in two places, and they compose rather than compete:
+
+- **`TripPackage.base_price` / `base_child_price`** — the source-of-truth adult/child
+  price for a pricing tier (Standard/Budget/Premium/...). This is an absolute,
+  date-independent menu price, set once per tier rather than on every schedule.
+- **`TripSchedule.additional_price` / `additional_child_price`** — a flat *surcharge*
+  for one specific bookable departure date (e.g. weekend/holiday/peak pricing), added
+  on top of whichever package the traveler is booking against. 0 for a regular date.
+
+The final payable price for a package + (optional) schedule + (optional) pickup
+location is always resolved via `get_effective_price()`
+(`django_trips/services.py`), never by reading `TripPackage`'s fields directly:
+
+```python
+from django_trips.services import get_effective_price
+
+get_effective_price(package, schedule=schedule, pickup=pickup)
+# {"price": package.base_price + schedule.additional_price + pickup.additional_price,
+#  "child_price": package.base_child_price + schedule.additional_child_price + pickup.additional_price}
+```
+
+Every `Trip` is guaranteed to always have exactly one **"Standard"** package,
+auto-created by a `post_save` signal the moment the trip is saved
+(`django_trips/signals.py`) at `base_price=0`/`base_child_price=0` until an admin
+sets a real price. Booking a trip that offers no extra tiers still resolves to a
+real package under the hood — **no manual package-creation step is required for a
+simple, single-price trip.**
+
+### Worked example — a plain 2-night domestic trip, no tiers, no date surcharge
+
+Say a 2-night trip to Hunza has its Standard package priced at `base_price=15000`,
+`base_child_price=8000`, with no extra tiers beyond the automatic Standard one,
+and no schedule surcharge:
+
+```python
+trip = Trip.objects.create(name="2 Nights in Hunza", ...)   # Standard package auto-created here
+
+standard_package = trip.packages.get(name=PackageTier.STANDARD)
+standard_package.base_price = 15000
+standard_package.base_child_price = 8000
+standard_package.save()
+
+schedule = TripSchedule.objects.create(trip=trip, ...)   # additional_price=0 by default
+
+get_effective_price(standard_package, schedule=schedule)
+# {"price": 15000, "child_price": 8000}
+```
+
+A booking for 2 adults and 1 child on this schedule (via
+`POST /trips/<trip_id>/bookings/create/`, omitting `package` so it defaults to
+Standard) stores `total_price = 15000 * 2 + 8000 * 1 = 38000` — no package tier
+had to be created or selected for this to work correctly.
+
 ## Generate random trips.
 Before you generate random scripts, make sure you have the required settings available in your project. If you want to use the default settings set `USE_DEFAULT_TRIPS=True`. 
 The script depends upon these variables, if you don't want to use the default settings set the 

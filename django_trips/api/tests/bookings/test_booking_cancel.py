@@ -35,7 +35,7 @@ class TripBookingCancelTests(AuthenticatedUserTestCase):
             phone_number="03001234567",
             number="DPT00123AA",
             target_date=self.schedule_date,
-            number_of_persons=5,
+            adults=5,
             message="booking 1",
             created_by=self.user,
         )

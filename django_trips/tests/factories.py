@@ -275,13 +275,20 @@ class TripImageFactory(DjangoModelFactory):
 
 
 class TripPackageFactory(DjangoModelFactory):
+    """
+    Defaults to a non-STANDARD tier: every Trip already gets an
+    auto-created Standard package at base_price=0 (see signals.py). Pass
+    name=PackageTier.STANDARD explicitly if a test specifically needs to
+    exercise that tier.
+    """
+
     trip = factory.SubFactory(TripFactory)
     name = factory.Faker(
-        "random_element", elements=[choice[0] for choice in PackageTier.choices]
+        "random_element", elements=[PackageTier.BUDGET, PackageTier.PREMIUM]
     )
     description = factory.Faker("paragraph", nb_sentences=1)
-    base_price = factory.Faker("random_int", min=0, max=100)
-    base_child_price = factory.Faker("random_int", min=0, max=100)
+    base_price = factory.Faker("random_int", min=10000, max=90000)
+    base_child_price = factory.Faker("random_int", min=5000, max=50000)
 
     class Meta:
         model = TripPackage
@@ -292,8 +299,8 @@ class TripScheduleFactory(DjangoModelFactory):
         model = TripSchedule
 
     trip = factory.SubFactory(TripFactory)  # Generates a related Trip instance
-    price = factory.Faker("random_number", digits=5)  # Random price
-    child_price = factory.Faker("random_number", digits=4)
+    additional_price = factory.Faker("random_int", min=0, max=3000)  # Random surcharge
+    additional_child_price = factory.Faker("random_int", min=0, max=1500)
     is_per_person_price = factory.Faker("boolean")
     start_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
     end_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=10))
@@ -322,7 +329,8 @@ class TripBookingFactory(DjangoModelFactory):
     full_name = factory.Faker("name")
     email = factory.Faker("email")
     phone_number = factory.Faker("phone_number")
-    number_of_persons = factory.Faker("random_int", min=1, max=10)
+    adults = factory.Faker("random_int", min=1, max=10)
+    children = 0
     target_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=10))
     status = BookingStatus.PENDING  # Adjust based on your Enum/Choices
     created_by = factory.SubFactory(UserFactory)

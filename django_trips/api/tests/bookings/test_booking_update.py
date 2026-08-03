@@ -28,7 +28,7 @@ class BookingUpdateTests(AuthenticatedUserTestCase):
             phone_number="03001234567",
             number="DPT00123AA",
             target_date=cls.schedule_date,
-            number_of_persons=5,
+            adults=5,
             message="booking 1",
             created_by=cls.user,
         )
@@ -42,7 +42,7 @@ class BookingUpdateTests(AuthenticatedUserTestCase):
             "full_name": "Updated Name",
             "email": "updated@example.com",
             "phone_number": "+923000000000",
-            "number_of_persons": 2,
+            "adults": 2,
             "target_date": self.booking.target_date.isoformat(),
             "schedule": self.trip_schedule2.pk,
             "created_by": 99,
@@ -57,7 +57,7 @@ class BookingUpdateTests(AuthenticatedUserTestCase):
         self.assertEqual(data["full_name"], "Updated Name")
         self.assertEqual(data["email"], "updated@example.com")
         self.assertEqual(data["phone_number"], "+923000000000")
-        self.assertEqual(data["number_of_persons"], 2)
+        self.assertEqual(data["adults"], 2)
 
         self.assertEqual(data["schedule_details"]["id"], self.trip_schedule.pk)
         self.assertEqual(data["created_by"], self.user.id)

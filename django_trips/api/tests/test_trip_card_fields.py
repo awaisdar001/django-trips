@@ -8,18 +8,17 @@ from datetime import timedelta
 import pytest
 from django.core.files.base import ContentFile
 from django.urls import reverse
-from django.utils import timezone
 
-from django_trips.choices import LocationType
+from django_trips.choices import LocationType, PackageTier
 from django_trips.tests.factories import (
     AuthenticatedUserTestCase,
     FacilityFactory,
     LocationFactory,
     TripFactory,
     TripImageFactory,
+    TripPackageFactory,
     TripReviewFactory,
     TripReviewSummaryFactory,
-    TripScheduleFactory,
 )
 from django_trips.utils import format_trip_duration
 
@@ -166,44 +165,24 @@ class TestTripCardFields(AuthenticatedUserTestCase):
 
     # -- starting_price --------------------------------------------------
 
-    def test_starting_price_picks_cheapest_bookable_schedule(self):
-        """starting_price should be the min price among active/upcoming schedules,
-        ignoring past ones and picking the lowest even if it's not the first created."""
+    def test_starting_price_picks_cheapest_package(self):
+        """starting_price should be the min base_price among the trip's
+        packages, picking the lowest even if it's not the first created -
+        packages aren't date-bound, so no schedule is involved here at all."""
         trip = TripFactory(trip_schedule=None)
-        now = timezone.now()
-        # Past schedule - must be ignored even though it's the cheapest.
-        TripScheduleFactory(
-            trip=trip,
-            price=100,
-            start_date=now - timedelta(days=10),
-            end_date=now - timedelta(days=5),
-        )
-        # Upcoming schedules.
-        TripScheduleFactory(
-            trip=trip,
-            price=20000,
-            start_date=now + timedelta(days=5),
-            end_date=now + timedelta(days=8),
-        )
-        TripScheduleFactory(
-            trip=trip,
-            price=15000,
-            start_date=now + timedelta(days=10),
-            end_date=now + timedelta(days=13),
-        )
+        standard = trip.packages.get(name=PackageTier.STANDARD)
+        standard.base_price = 15000
+        standard.save()
+        TripPackageFactory(trip=trip, name=PackageTier.BUDGET, base_price=20000)
+        TripPackageFactory(trip=trip, name=PackageTier.PREMIUM, base_price=45000)
         self.assertEqual(int(self.get_detail(trip)["starting_price"]), 15000)
 
-    def test_starting_price_none_without_bookable_schedule(self):
-        """starting_price should be None when there's no active/upcoming schedule."""
+    def test_starting_price_defaults_to_zero_for_a_fresh_trip(self):
+        """A trip always has at least the auto-created Standard package
+        (base_price=0 until an admin sets a real price) - starting_price can
+        never be None, unlike the older schedule-based model."""
         trip = TripFactory(trip_schedule=None)
-        now = timezone.now()
-        TripScheduleFactory(
-            trip=trip,
-            price=100,
-            start_date=now - timedelta(days=10),
-            end_date=now - timedelta(days=5),
-        )
-        self.assertIsNone(self.get_detail(trip)["starting_price"])
+        self.assertEqual(int(self.get_detail(trip)["starting_price"]), 0)
 
     # -- duration ----------------------------------------------------------
 

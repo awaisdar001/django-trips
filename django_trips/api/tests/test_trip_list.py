@@ -6,7 +6,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from django_trips.choices import ScheduleStatus
+from django_trips.choices import PackageTier, ScheduleStatus
 from django_trips.models import Trip
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           CategoryFactory, HostFactory,
@@ -263,21 +263,31 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
             host=HostFactory(verified=False),
         )
 
+        cls.set_standard_price(cls.trip_hunza, 15000)
+        cls.set_standard_price(cls.trip_skardu, 30000)
+
         cls.now = timezone.now().date()
         TripScheduleFactory(
             trip=cls.trip_hunza,
-            price=15000,
             start_date=cls.now + timedelta(days=5),
             end_date=cls.now + timedelta(days=10),
             status=ScheduleStatus.PUBLISHED,
         )
         TripScheduleFactory(
             trip=cls.trip_skardu,
-            price=30000,
             start_date=cls.now + timedelta(days=15),
             end_date=cls.now + timedelta(days=25),
             status=ScheduleStatus.PUBLISHED,
         )
+
+    @staticmethod
+    def set_standard_price(trip, base_price):
+        """Price now lives on the package, not the schedule - set the
+        auto-created Standard package's base_price to a known value so
+        price filter/ordering tests have deterministic data to assert on."""
+        package = trip.packages.get(name=PackageTier.STANDARD)
+        package.base_price = base_price
+        package.save()
 
     def get_results(self, params=None):
         response = self.client.get(self.url, params, headers=self.headers)
@@ -335,34 +345,44 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
         matched = [t for t in data if t["name"] == "Multi Category Trip"]
         self.assertEqual(len(matched), 1)
 
-    def test_cross_schedule_conditions_must_be_satisfied_by_one_schedule(self):
+    def test_price_match_still_requires_a_bookable_schedule(self):
         """
-        A trip whose only cheap schedule is in the past and whose only future
-        schedule is expensive should NOT match price_to=cheap & date_from=future,
-        since no single schedule satisfies both constraints.
+        Price now lives on the package (date-independent), so a price filter
+        can no longer be defeated by a schedule mismatch the way it could
+        under the old schedule-scoped pricing model - but a price match
+        alone still shouldn't surface a trip with no bookable schedule at
+        all (Phase A6's confirmed decision).
         """
-        trip = TripFactory(name="Mismatched Schedule Trip", destination=self.hunza)
+        trip = TripFactory(
+            name="Unbookable Cheap Trip", destination=self.hunza, trip_schedule=None
+        )
+        self.set_standard_price(trip, 15000)
         TripScheduleFactory(
             trip=trip,
-            price=5000,
-            start_date=self.now - timedelta(days=30),
-            end_date=self.now - timedelta(days=20),
-            status=ScheduleStatus.PUBLISHED,
+            start_date=self.now + timedelta(days=5),
+            end_date=self.now + timedelta(days=10),
+            status=ScheduleStatus.DRAFT,
         )
-        TripScheduleFactory(
-            trip=trip,
-            price=50000,
-            start_date=self.now + timedelta(days=30),
-            end_date=self.now + timedelta(days=40),
-            status=ScheduleStatus.PUBLISHED,
-        )
+        data = self.get_results({"price_from": 10000, "price_to": 20000})
+        self.assertNotIn("Unbookable Cheap Trip", {t["name"] for t in data})
+
+    def test_price_and_date_constraints_are_independent(self):
+        """
+        Unlike the old schedule-scoped pricing model, a trip's package price
+        and its schedule's date are unrelated - a trip should match a price
+        filter and a date filter together even when satisfying them doesn't
+        require the same schedule row (there's only ever one base_price per
+        package anyway, so this is now the expected/correct behavior rather
+        than the "leaky join" the old combined-Q design guarded against).
+        """
         data = self.get_results(
             {
-                "price_to": 10000,
+                "price_from": 10000,
+                "price_to": 20000,
                 "date_from": (self.now + timedelta(days=1)).isoformat(),
             }
         )
-        self.assertNotIn("Mismatched Schedule Trip", {t["name"] for t in data})
+        self.assertEqual({t["name"] for t in data}, {"Hunza Adventure"})
 
     def test_empty_query_returns_all_active_trips(self):
         data = self.get_results()

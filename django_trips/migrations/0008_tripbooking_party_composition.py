@@ -1,3 +1,4 @@
+import django.db.models.deletion
 from django.db import migrations, models
 
 
@@ -18,10 +19,36 @@ def noop_reverse(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("django_trips", "0009_tripbooking_package_total_price"),
+        ("django_trips", "0007_tripbooking_terms_accepted"),
     ]
 
     operations = [
+        migrations.AddField(
+            model_name="tripbooking",
+            name="package",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                help_text="Pricing package/tier selected for this booking. "
+                "Defaults to the trip's Standard package when not supplied "
+                "at creation time.",
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="bookings",
+                to="django_trips.trippackage",
+            ),
+        ),
+        migrations.AddField(
+            model_name="tripbooking",
+            name="total_price",
+            field=models.DecimalField(
+                default=0,
+                max_digits=10,
+                decimal_places=0,
+                help_text="Computed total price for this booking (effective "
+                "adult price times adults, plus effective child price times "
+                "children), stored at creation time.",
+            ),
+        ),
         migrations.AddField(
             model_name="tripbooking",
             name="adults",
@@ -40,17 +67,5 @@ class Migration(migrations.Migration):
         migrations.RemoveField(
             model_name="tripbooking",
             name="number_of_persons",
-        ),
-        migrations.AlterField(
-            model_name="tripbooking",
-            name="total_price",
-            field=models.DecimalField(
-                default=0,
-                decimal_places=0,
-                max_digits=10,
-                help_text="Computed total price for this booking (effective "
-                "adult price times adults, plus effective child price times "
-                "children), stored at creation time.",
-            ),
         ),
     ]

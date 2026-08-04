@@ -64,6 +64,7 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
                 "modified": mock.ANY,
                 "schedule_details": mock.ANY,
                 "package_details": None,
+                "pickup_location_details": None,
                 "total_price": mock.ANY,
                 "created_by": self.user.pk,
             },

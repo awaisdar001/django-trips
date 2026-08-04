@@ -233,6 +233,59 @@ class TripItineraryWriteSerializer(BaseTripItinerarySerializer):
         fields = BaseTripItinerarySerializer.Meta.fields
 
 
+def upsert_trip_itinerary(trip, itinerary_data):
+    """
+    Upsert `trip`'s day-wise itinerary by day_index in bulk: one SELECT (to
+    split already-saved days from new ones) plus at most one bulk_create and
+    one bulk_update, instead of a SELECT+INSERT/UPDATE pair per itinerary day
+    from a per-item `update_or_create` loop.
+
+    Shared by `TripCreateSerializer.create` (every day is necessarily new -
+    the extra SELECT here always comes back empty, a negligible cost for not
+    duplicating this logic) and `.update` (a day already saved must be
+    updated in place, not duplicated, and any day not present in this
+    payload must be left alone). On a duplicate day_index within the same
+    payload, the last occurrence wins - same as a per-item `update_or_create`
+    loop would have produced.
+
+    Returns the set of category ids referenced by any itinerary day, for the
+    caller to add to `trip.categories` once.
+    """
+    itinerary_categories = set()
+    items_by_day = {}
+    for item in itinerary_data:
+        day_index = item.pop("day_index")
+        items_by_day[day_index] = item
+        if item.get("category"):
+            itinerary_categories.add(item["category"])
+
+    existing_by_day = {
+        itinerary.day_index: itinerary
+        for itinerary in TripItinerary.objects.filter(
+            trip=trip, day_index__in=items_by_day.keys()
+        )
+    }
+    to_create = []
+    to_update = []
+    for day_index, item in items_by_day.items():
+        existing = existing_by_day.get(day_index)
+        if existing is None:
+            to_create.append(TripItinerary(trip=trip, day_index=day_index, **item))
+            continue
+        for field, value in item.items():
+            setattr(existing, field, value)
+        to_update.append(existing)
+
+    if to_create:
+        TripItinerary.objects.bulk_create(to_create)
+    if to_update:
+        TripItinerary.objects.bulk_update(
+            to_update,
+            fields=["title", "description", "location", "category", "start_time", "end_time"],
+        )
+    return itinerary_categories
+
+
 class TripCreateSerializer(serializers.ModelSerializer):
     departure = serializers.PrimaryKeyRelatedField(
         queryset=Location.objects.active(),
@@ -327,8 +380,11 @@ class TripCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = crum.get_current_user()
 
-        # Pop M2M fields
-        itinerary_data = validated_data.pop("trip_itinerary", [])
+        # Pop M2M fields. trip_itinerary is `allow_null=True`, so an explicit
+        # `"trip_itinerary": null` payload pops None rather than falling back
+        # to the `[]` default - normalize it the same way `update()` treats a
+        # None/omitted value, so the loop below doesn't crash on it.
+        itinerary_data = validated_data.pop("trip_itinerary", None) or []
         locations = validated_data.pop("locations", [])
         facilities = validated_data.pop("facilities", [])
         trust_badges = validated_data.pop("trust_badges", [])
@@ -347,8 +403,9 @@ class TripCreateSerializer(serializers.ModelSerializer):
         trip.categories.set(categories)
         trip.tags.set(tags)
 
-        for item in itinerary_data:
-            TripItinerary.objects.create(trip=trip, **item)
+        itinerary_categories = upsert_trip_itinerary(trip, itinerary_data)
+        if itinerary_categories:
+            trip.categories.add(*itinerary_categories)
 
         return trip
 
@@ -375,15 +432,19 @@ class TripCreateSerializer(serializers.ModelSerializer):
         if gear is not None:
             instance.gear.set(gear)
         if categories is not None:
-            instance.categories.set(categories)
+            # Additive only - a trip update must never drop a category that
+            # was already set just because this request's payload omitted it.
+            instance.categories.add(*categories)
         if tags is not None:
             instance.tags.set(tags)
 
         if itinerary_data is not None:
-            # Simplest: clear all existing itineraries and create new ones
-            instance.itinerary_days.all().delete()
-            for item in itinerary_data:
-                TripItinerary.objects.create(trip=instance, **item)
+            # Upsert by day_index - keeps any existing day not present in
+            # this payload, and updates a day already saved in place instead
+            # of duplicating it (see upsert_trip_itinerary).
+            itinerary_categories = upsert_trip_itinerary(instance, itinerary_data)
+            if itinerary_categories:
+                instance.categories.add(*itinerary_categories)
 
         return instance
 
@@ -438,6 +499,16 @@ def get_trip_review_summary_data(trip):
     falls back to auto-building a field from the model/relation when a
     same-named field is declared on a plain (non-Serializer) base class
     instead of directly on the serializer itself.
+
+    `trip.review_summary` itself is a plain FK/O2O attribute access, so
+    `TripViewSet.get_queryset`'s `select_related("review_summary")` (list
+    action) satisfies it for free with no extra code here. The verified
+    review count is different: `trip.reviews.filter(...).count()` always
+    issues its own fresh query, which a bare `prefetch_related("reviews")`
+    can't intercept - so this prefers the `_prefetched_verified_reviews`
+    to_attr cache that same queryset attaches, falling back to a direct
+    query when it's absent (e.g. the detail endpoint, a single row where
+    the extra query doesn't matter).
     """
     summary = getattr(trip, "review_summary", None)
     data = (
@@ -451,7 +522,13 @@ def get_trip_review_summary_data(trip):
             "overall": 0,
         }
     )
-    data["reviews_count"] = trip.reviews.filter(is_verified=True).count()
+    verified_reviews = getattr(trip, "_prefetched_verified_reviews", None)
+    if verified_reviews is not None:
+        # Already fetched by the queryset's Prefetch - count in Python
+        # rather than re-querying with .count().
+        data["reviews_count"] = len(verified_reviews)
+    else:
+        data["reviews_count"] = trip.reviews.filter(is_verified=True).count()
     return data
 
 
@@ -569,7 +646,7 @@ class TripListSerializer(serializers.ModelSerializer):
     duration = serializers.SerializerMethodField()
     poster = serializers.SerializerMethodField()
     images = TripImageSerializer(many=True, read_only=True)
-    starting_price = serializers.ReadOnlyField()
+    starting_price = serializers.SerializerMethodField()
     review_summary = serializers.SerializerMethodField()
     trip_url = serializers.SerializerMethodField()
     is_wished = serializers.SerializerMethodField()
@@ -616,6 +693,22 @@ class TripListSerializer(serializers.ModelSerializer):
     @extend_schema_field(TripReviewSummarySerializer)
     def get_review_summary(self, obj):
         return get_trip_review_summary_data(obj)
+
+    @extend_schema_field(serializers.DecimalField(max_digits=10, decimal_places=2))
+    def get_starting_price(self, trip):
+        """
+        Cheapest package's base_price - same value as `Trip.starting_price`,
+        but resolved from the `_prefetched_packages_by_price` cache
+        `TripViewSet.get_queryset` attaches for the list action (a plain
+        `prefetch_related("packages")` can't satisfy `starting_price` as-is,
+        since that property builds its own fresh `.order_by().first()`
+        query). Falls back to the model property - one query, fine for a
+        single detail row - when the cache isn't present.
+        """
+        packages = getattr(trip, "_prefetched_packages_by_price", None)
+        if packages is not None:
+            return packages[0].base_price
+        return trip.starting_price
 
     @extend_schema_field(
         {"type": "string", "example": "api/v1/trips/2-days-trip-to-isb"}
@@ -929,6 +1022,17 @@ class TripBookingSerializer(serializers.ModelSerializer):
         help_text="Detailed information about the booked package, including "
         "its effective price for this booking's schedule."
     )
+    pickup_location = serializers.PrimaryKeyRelatedField(
+        queryset=TripPickupLocation.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        help_text="ID of the selected pickup point. Must be one of the "
+        "pickup points offered on the selected schedule.",
+    )
+    pickup_location_details = serializers.SerializerMethodField(
+        help_text="Detailed information about the selected pickup point, if any."
+    )
 
     trip = TripDetailSerializer(read_only=True, help_text="Complete trip information")
     target_date = serializers.DateTimeField(
@@ -955,6 +1059,7 @@ class TripBookingSerializer(serializers.ModelSerializer):
         "trip",
         "schedule",
         "package",
+        "pickup_location",
         "number",
         "status",
         "created_by",
@@ -968,6 +1073,8 @@ class TripBookingSerializer(serializers.ModelSerializer):
             "schedule_details",
             "package",
             "package_details",
+            "pickup_location",
+            "pickup_location_details",
             "total_price",
             "number",
             "status",
@@ -998,6 +1105,14 @@ class TripBookingSerializer(serializers.ModelSerializer):
             return None
         return TripPackageSerializer(booking.package, context=self.context).data
 
+    @extend_schema_field(TripPickupLocationSerializer(allow_null=True))
+    def get_pickup_location_details(self, booking) -> Optional[dict]:
+        if not booking.pickup_location:
+            return None
+        return TripPickupLocationSerializer(
+            booking.pickup_location, context=self.context
+        ).data
+
     def validate(self, attrs):
         validated_data = super().validate(attrs)
         request_user = self.context["request"].user
@@ -1025,6 +1140,18 @@ class TripBookingSerializer(serializers.ModelSerializer):
         if package and package.trip.pk != trip.pk:
             raise serializers.ValidationError(
                 {"package": "The package must belong to the same trip as the schedule"}
+            )
+
+        pickup_location = validated_data.get("pickup_location")
+        if (
+            pickup_location
+            and pickup_location.schedule_id != validated_data["schedule"].pk
+        ):
+            raise serializers.ValidationError(
+                {
+                    "pickup_location": "The pickup location must belong to the "
+                    "selected schedule"
+                }
             )
         return validated_data
 
@@ -1059,7 +1186,10 @@ class TripBookingSerializer(serializers.ModelSerializer):
                 )
                 validated_data["package"] = package
 
-            effective = get_effective_price(package, schedule=schedule)
+            pickup_location = validated_data.get("pickup_location")
+            effective = get_effective_price(
+                package, schedule=schedule, pickup=pickup_location
+            )
             validated_data["total_price"] = (
                 effective["price"] * adults + effective["child_price"] * children
             )
@@ -1075,4 +1205,5 @@ class TripBookingSerializer(serializers.ModelSerializer):
         for key, value in validated_data.items():
             if key not in self.RESTRICTED_FIELDS:
                 setattr(instance, key, value)
+        instance.save()
         return instance

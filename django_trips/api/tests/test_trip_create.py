@@ -97,6 +97,16 @@ class TripCreateTestCase(AuthenticatedUserTestCase):
             {"name": self.category.name, "slug": ANY, "icon": ANY},
         )
 
+    def test_trip_create_with_null_itinerary(self):
+        """
+        trip_itinerary is `allow_null=True` (to let TripCreateSerializer.update
+        treat an explicit null the same as an omitted key), so create() must
+        tolerate it too instead of crashing on `for item in None`.
+        """
+        payload = {**self.payload, "trip_itinerary": None}
+        data = self.make_create_trip_request(payload)
+        self.assertEqual(data["trip_itinerary"], [])
+
     def test_trip_create_missing_required_field(self):
         payload = {"slug": "missing-name"}  # Missing 'name'
         data = self.make_create_trip_request(payload, 400)

@@ -578,9 +578,7 @@ class Trip(SlugMixin, models.Model):
             schedule_start = datetime.fromtimestamp(
                 options["date_from"] / 1000.0, tz=UTC
             )
-            schedule_end = datetime.fromtimestamp(
-                options["end_date"] / 1000.0, tz=UTC
-            )
+            schedule_end = datetime.fromtimestamp(options["end_date"] / 1000.0, tz=UTC)
         except Exception:  # pylint:disable=broad-exception-caught
             return 0
 
@@ -946,7 +944,9 @@ class Testimonial(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.name}: {self.quote[:50]}"  # pylint:disable=unsubscriptable-object
+        return (
+            f"{self.name}: {self.quote[:50]}"  # pylint:disable=unsubscriptable-object
+        )
 
     def __repr__(self):
         return f"<Testimonial name={self.name} verified={self.is_verified}>"
@@ -1004,6 +1004,12 @@ class RefundPolicy(ConfigurationModel):
 
 
 class TripBooking(TimeStampedModel):
+    number = models.CharField(
+        max_length=16,
+        unique=True,
+        editable=False,
+        help_text="Auto-generated booking reference number",
+    )
     schedule = models.ForeignKey(
         TripSchedule, related_name="bookings", on_delete=models.CASCADE
     )
@@ -1016,6 +1022,15 @@ class TripBooking(TimeStampedModel):
         help_text="Pricing package/tier selected for this booking. Defaults to "
         "the trip's Standard package when not supplied at creation time.",
     )
+    pickup_location = models.ForeignKey(
+        "TripPickupLocation",
+        related_name="bookings",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Pickup point selected for this booking, if any. Must be one "
+        "of the pickup points offered on the booking's own schedule.",
+    )
     total_price = models.DecimalField(
         default=0,
         max_digits=10,
@@ -1023,12 +1038,6 @@ class TripBooking(TimeStampedModel):
         help_text="Computed total price for this booking (effective adult price "
         "times adults, plus effective child price times children), stored at "
         "creation time.",
-    )
-    number = models.CharField(
-        max_length=16,
-        unique=True,
-        editable=False,
-        help_text="Auto-generated booking reference number",
     )
 
     full_name = models.CharField(

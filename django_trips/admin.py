@@ -291,21 +291,22 @@ class TripBookingSummaryAdmin(admin.ModelAdmin):
     list_display = ("number", "full_name", "schedule", "phone_number", "message")
     list_select_related = ("schedule__trip",)
     search_fields = ["schedule__trip__name", "full_name", "number"]
-    # `created` is when the booking was submitted; target_date filtering
-    # (removed from list_filter) would check the trip date instead.
     list_filter = ("status", "created", "terms_accepted")
-    # `number` is auto-generated (editable=False) and never accepted as
-    # input, but staff still need to see it on the detail page.
-    readonly_fields = ("number",)
+    readonly_fields = ("number", "terms_accepted", "created_by")
+    raw_id_fields = ("schedule",)
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         form = super().get_form(request, obj, change, **kwargs)
-        # Package choices are trip-scoped, so narrow them to this booking's
-        # own trip - otherwise the dropdown lists every package across every
-        # trip, most of which can never legitimately apply to this booking.
+        # Package/pickup choices are schedule-scoped, so narrow them to this
+        # booking's own trip/schedule - otherwise the dropdown lists every
+        # package across every trip, or every pickup point across every
+        # schedule, most of which can never legitimately apply to this booking.
         if obj is not None and obj.schedule_id:
             form.base_fields["package"].queryset = TripPackage.objects.filter(
                 trip_id=obj.schedule.trip_id
+            )
+            form.base_fields["pickup_location"].queryset = (
+                TripPickupLocation.objects.filter(schedule_id=obj.schedule_id)
             )
         return form
 

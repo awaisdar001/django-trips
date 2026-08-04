@@ -11,6 +11,7 @@ from django_trips.models import Trip
 from django_trips.tests.factories import (AuthenticatedUserTestCase,
                                           CategoryFactory, HostFactory,
                                           LocationFactory, TripFactory,
+                                          TripImageFactory,
                                           TripPickupLocationFactory,
                                           TripScheduleFactory)
 
@@ -387,3 +388,53 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
     def test_empty_query_returns_all_active_trips(self):
         data = self.get_results()
         self.assertEqual(len(data), Trip.objects.active().count())
+
+
+@pytest.mark.django_db
+class TestTripListQueryCount(AuthenticatedUserTestCase):
+    """
+    Pins the list endpoint's query count so a future change can't quietly
+    reintroduce an N+1 without a test failing.
+
+    `TripViewSet.get_queryset` `select_related`s every single-valued
+    relation `TripListSerializer` touches (`destination`, `destination.parent`,
+    `review_summary`, `host` -> `host.type`/`host.ratings`) and
+    `prefetch_related`s every multi-valued one (`schedules`, `images`,
+    `categories`, `facilities`, `trust_badges`), plus `packages`/`reviews` via
+    a `Prefetch(..., to_attr=...)` that `get_starting_price`/
+    `get_trip_review_summary_data` read from instead of re-querying. The two
+    assertions below prove that actually holds: a second trip (with its own
+    schedule + gallery) adds zero extra queries, because every per-trip
+    relation now resolves from an `IN (...)` batch fetched once for the whole
+    page rather than once per row.
+
+    11 is today's fixed overhead (auth, the paginator's count, the main
+    row query, and one batch query per prefetched relation) - if a future
+    field adds a genuinely new relation, update both constants together and
+    keep them equal; if only one changes, that's this test catching a
+    regression back to N+1.
+    """
+
+    url = reverse("trips-api:trip-list")
+
+    def make_trip_with_gallery(self, image_count=2):
+        """A trip with a bookable schedule (so it's a realistic list-page
+        row) and a small photo gallery (so `images` has something to fetch)."""
+        trip = TripFactory(trip_schedule=None)
+        TripScheduleFactory(
+            trip=trip,
+            start_date=timezone.now().date() + timedelta(days=5),
+            end_date=timezone.now().date() + timedelta(days=10),
+            status=ScheduleStatus.PUBLISHED,
+        )
+        TripImageFactory.create_batch(image_count, trip=trip)
+        return trip
+
+    def test_query_count_does_not_scale_with_trip_count(self):
+        self.make_trip_with_gallery()
+        with self.assertNumQueries(11):
+            self.client.get(self.url, {}, headers=self.headers)
+
+        self.make_trip_with_gallery()
+        with self.assertNumQueries(11):
+            self.client.get(self.url, {}, headers=self.headers)

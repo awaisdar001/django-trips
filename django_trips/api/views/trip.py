@@ -34,7 +34,14 @@ from django_trips.api.serializers import (
     UpcomingTripListSerializer,
 )
 from django_trips.choices import LocationType, ScheduleStatus
-from django_trips.models import Location, Trip, TripSchedule, TripWishlist
+from django_trips.models import (
+    Location,
+    Trip,
+    TripPackage,
+    TripReview,
+    TripSchedule,
+    TripWishlist,
+)
 from django_trips.permissions import IsStaffForDeleteOnly
 
 
@@ -98,9 +105,25 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
             # param, row order is whatever MySQL's query plan happens to
             # produce for that particular filter combination — same rows,
             # different order, from one request to the next.
-            queryset = queryset.annotate(
-                price=Min("packages__base_price")
-            ).distinct().order_by(*Trip._meta.ordering)  # pylint:disable=protected-access
+            queryset = (
+                queryset.annotate(price=Min("packages__base_price"))
+                .distinct()
+                .order_by(*Trip._meta.ordering)
+            )  # pylint:disable=protected-access
+            # Single-valued relations TripListSerializer renders per row
+            # (destination, its parent for Location.region, the review
+            # summary, and the host -> host.type/host.ratings chain) - safe
+            # to select_related alongside the annotate()/distinct() above
+            # since none of these add extra rows, unlike the M2M/reverse-FK
+            # relations below.
+            queryset = queryset.select_related(
+                "destination",
+                "destination__parent",
+                "host",
+                "host__type",
+                "host__ratings",
+                "review_summary",
+            )
             # Backs TripListSerializer.schedules - prefetched once per page here
             # (to_attr caches it off each trip instance) rather than one query per
             # row inside the serializer.
@@ -111,7 +134,28 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
                     .filter(status=ScheduleStatus.PUBLISHED)
                     .order_by("start_date"),
                     to_attr="_prefetched_upcoming_schedules",
-                )
+                ),
+                # Backs TripListSerializer.get_starting_price - same to_attr
+                # trick as schedules above, since the model's starting_price
+                # property builds its own fresh `.order_by().first()` query
+                # that a plain prefetch_related("packages") wouldn't satisfy.
+                Prefetch(
+                    "packages",
+                    queryset=TripPackage.objects.order_by("base_price"),
+                    to_attr="_prefetched_packages_by_price",
+                ),
+                # Backs get_trip_review_summary_data's reviews_count - same
+                # reasoning as packages above (trip.reviews.filter(...).count()
+                # is a fresh query the ORM can't satisfy from a bare prefetch).
+                Prefetch(
+                    "reviews",
+                    queryset=TripReview.objects.filter(is_verified=True),
+                    to_attr="_prefetched_verified_reviews",
+                ),
+                "images",
+                "categories",
+                "facilities",
+                "trust_badges",
             )
         return queryset
 
@@ -134,7 +178,9 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
         context = super().get_serializer_context()
         user = self.request.user
         context["wished_trip_ids"] = (
-            set(TripWishlist.objects.filter(user=user).values_list("trip_id", flat=True))
+            set(
+                TripWishlist.objects.filter(user=user).values_list("trip_id", flat=True)
+            )
             if user.is_authenticated
             else set()
         )
@@ -229,12 +275,17 @@ class UpcomingTripsListAPIView(ListAPIView):
         # base_price plus this specific date's surcharge - packages aren't
         # date-bound, so this is the same "cheapest tier" a traveler would
         # see if they picked this date, not an arbitrary reference price.
-        return super().get_queryset().annotate(
-            trip_min_base_price=Min("trip__packages__base_price"),
-        ).annotate(
-            price=ExpressionWrapper(
-                F("trip_min_base_price") + F("additional_price"),
-                output_field=DecimalField(),
+        return (
+            super()
+            .get_queryset()
+            .annotate(
+                trip_min_base_price=Min("trip__packages__base_price"),
+            )
+            .annotate(
+                price=ExpressionWrapper(
+                    F("trip_min_base_price") + F("additional_price"),
+                    output_field=DecimalField(),
+                )
             )
         )
 

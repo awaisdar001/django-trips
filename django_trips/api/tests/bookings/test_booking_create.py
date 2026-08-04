@@ -12,6 +12,7 @@ from django_trips.tests.factories import (
     TripBookingFactory,
     TripFactory,
     TripPackageFactory,
+    TripPickupLocationFactory,
     TripScheduleFactory,
 )
 
@@ -88,6 +89,7 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
                 "modified": mock.ANY,
                 "schedule_details": mock.ANY,
                 "package_details": mock.ANY,
+                "pickup_location_details": None,
                 "total_price": mock.ANY,
             },
         )
@@ -201,6 +203,39 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
             {**self.payload, "package": other_package.id}, expected_response=400
         )
         self.assertIn("package", data)
+
+    def test_booking_create_with_pickup_location_adds_surcharge(self):
+        """A selected pickup point should be saved on the booking and its
+        additional_price added to both the adult and child price."""
+        pickup = TripPickupLocationFactory(
+            schedule=self.trip_schedule, additional_price=500
+        )
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "pickup_location": pickup.id, "adults": 2, "children": 3}
+        )
+        self.assertEqual(data["pickup_location_details"]["id"], pickup.id)
+
+        new_booking = TripBooking.objects.get(number=data["number"])
+        self.assertEqual(new_booking.pickup_location_id, pickup.id)
+        expected_total = (
+            new_booking.package.base_price
+            + self.trip_schedule.additional_price
+            + pickup.additional_price
+        ) * 2 + (
+            new_booking.package.base_child_price
+            + self.trip_schedule.additional_child_price
+            + pickup.additional_price
+        ) * 3
+        self.assertEqual(new_booking.total_price, expected_total)
+
+    def test_booking_create_rejects_pickup_location_from_another_schedule(self):
+        other_pickup = TripPickupLocationFactory(schedule=self.schedule2)
+
+        data = self.make_create_trip_booking_request(
+            {**self.payload, "pickup_location": other_pickup.id},
+            expected_response=400,
+        )
+        self.assertIn("pickup_location", data)
 
     def test_booking_create_rejects_when_not_enough_seats(self):
         self.trip_schedule.available_seats = 3

@@ -1022,6 +1022,17 @@ class TripBookingSerializer(serializers.ModelSerializer):
         help_text="Detailed information about the booked package, including "
         "its effective price for this booking's schedule."
     )
+    pickup_location = serializers.PrimaryKeyRelatedField(
+        queryset=TripPickupLocation.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        help_text="ID of the selected pickup point. Must be one of the "
+        "pickup points offered on the selected schedule.",
+    )
+    pickup_location_details = serializers.SerializerMethodField(
+        help_text="Detailed information about the selected pickup point, if any."
+    )
 
     trip = TripDetailSerializer(read_only=True, help_text="Complete trip information")
     target_date = serializers.DateTimeField(
@@ -1048,6 +1059,7 @@ class TripBookingSerializer(serializers.ModelSerializer):
         "trip",
         "schedule",
         "package",
+        "pickup_location",
         "number",
         "status",
         "created_by",
@@ -1061,6 +1073,8 @@ class TripBookingSerializer(serializers.ModelSerializer):
             "schedule_details",
             "package",
             "package_details",
+            "pickup_location",
+            "pickup_location_details",
             "total_price",
             "number",
             "status",
@@ -1091,6 +1105,14 @@ class TripBookingSerializer(serializers.ModelSerializer):
             return None
         return TripPackageSerializer(booking.package, context=self.context).data
 
+    @extend_schema_field(TripPickupLocationSerializer(allow_null=True))
+    def get_pickup_location_details(self, booking) -> Optional[dict]:
+        if not booking.pickup_location:
+            return None
+        return TripPickupLocationSerializer(
+            booking.pickup_location, context=self.context
+        ).data
+
     def validate(self, attrs):
         validated_data = super().validate(attrs)
         request_user = self.context["request"].user
@@ -1118,6 +1140,18 @@ class TripBookingSerializer(serializers.ModelSerializer):
         if package and package.trip.pk != trip.pk:
             raise serializers.ValidationError(
                 {"package": "The package must belong to the same trip as the schedule"}
+            )
+
+        pickup_location = validated_data.get("pickup_location")
+        if (
+            pickup_location
+            and pickup_location.schedule_id != validated_data["schedule"].pk
+        ):
+            raise serializers.ValidationError(
+                {
+                    "pickup_location": "The pickup location must belong to the "
+                    "selected schedule"
+                }
             )
         return validated_data
 
@@ -1152,7 +1186,10 @@ class TripBookingSerializer(serializers.ModelSerializer):
                 )
                 validated_data["package"] = package
 
-            effective = get_effective_price(package, schedule=schedule)
+            pickup_location = validated_data.get("pickup_location")
+            effective = get_effective_price(
+                package, schedule=schedule, pickup=pickup_location
+            )
             validated_data["total_price"] = (
                 effective["price"] * adults + effective["child_price"] * children
             )

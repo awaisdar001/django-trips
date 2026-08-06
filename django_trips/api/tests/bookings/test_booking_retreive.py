@@ -43,6 +43,14 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
         cls.url = reverse(
             "trips-api:booking-detail", kwargs={"number": cls.booking1.number}
         )
+        cls.other_users_booking_url = reverse(
+            "trips-api:booking-detail", kwargs={"number": cls.booking2.number}
+        )
+
+    def test_retrieve_other_users_booking_returns_404(self):
+        """A booking must only be readable by the user who created it (IDOR regression)."""
+        response = self.client.get(self.other_users_booking_url, headers=self.headers)
+        assert response.status_code == 404
 
     def test_trip_retrieve(self):
         response = self.client.get(self.url, headers=self.headers)

@@ -4,6 +4,7 @@ from io import StringIO
 from unittest.mock import patch
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.utils import timezone
@@ -21,9 +22,10 @@ from django_trips.models import (
     TripPackage,
     TripPickupLocation,
     TripSchedule,
-    User,
 )
 from django_trips.tests import factories
+
+User = get_user_model()
 
 
 class CommandsTestBase(TestCase):

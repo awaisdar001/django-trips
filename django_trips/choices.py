@@ -28,6 +28,18 @@ class AvailabilityType(models.TextChoices):
     FIX_DATE = "FIX_DATE", "Fix Date"
 
 
+class TripStatus(models.TextChoices):
+    """
+    Editorial state of a Trip, independent of `is_active` (which is soft-delete/
+    visibility, not workflow). DRAFT lets an operator build a trip's content before
+    it's ready to appear in the public catalog; PUBLISHED is the current, only-ever
+    behaviour for existing rows.
+    """
+
+    DRAFT = "DRAFT", "Draft"
+    PUBLISHED = "PUBLISHED", "Published"
+
+
 class ScheduleStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     PUBLISHED = "published", "Published"

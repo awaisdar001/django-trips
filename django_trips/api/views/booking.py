@@ -42,6 +42,9 @@ class TripBookingRetrieveUpdateViewSet(GenericViewSet, generics.RetrieveUpdateAP
 
     lookup_field = "number"
 
+    def get_queryset(self):
+        return TripBooking.objects.filter(created_by=self.request.user)
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         return {**context, **self.kwargs}

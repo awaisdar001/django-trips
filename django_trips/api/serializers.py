@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Optional
 
 import crum
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -38,6 +38,8 @@ from django_trips.utils import format_trip_duration
 
 if TYPE_CHECKING:
     from django.db.models.fields.files import FieldFile
+
+User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -22,6 +22,7 @@ class TripBookingLookupTestCase(TestCase):
             full_name="Ali Raza",
             email="ali@example.com",
             number="DPT00123AA",
+            otp="4242",
             target_date=cls.schedule_date,
             created_by=None,
         )
@@ -47,9 +48,31 @@ class TripBookingLookupTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    def test_lookup_requires_both_params(self):
+    def test_lookup_by_number_and_otp(self):
+        response = self.client.get(
+            self.url, {"number": self.booking.number, "otp": "4242"}
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["number"], self.booking.number)
+
+    def test_lookup_rejects_mismatched_otp(self):
+        response = self.client.get(
+            self.url, {"number": self.booking.number, "otp": "0000"}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_lookup_response_does_not_expose_otp(self):
+        response = self.client.get(
+            self.url, {"number": self.booking.number, "otp": "4242"}
+        )
+        self.assertNotIn("otp", response.json())
+
+    def test_lookup_requires_number_and_one_of_otp_or_email(self):
         response = self.client.get(self.url, {"number": self.booking.number})
         self.assertEqual(response.status_code, 400)
 
         response = self.client.get(self.url, {"email": "ali@example.com"})
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.get(self.url, {"otp": "4242"})
         self.assertEqual(response.status_code, 400)

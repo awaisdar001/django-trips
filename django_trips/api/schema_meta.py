@@ -267,7 +267,9 @@ trip_reviews_list_schema = extend_schema(
 
 booking_create_schema = extend_schema(
     summary="Book a trip",
-    description="Creates a new booking for the specified trip",
+    description="Creates a new booking for the specified trip. The response "
+    "includes the one-time `otp` field, shown only here - save it alongside "
+    "the booking `number` to use the guest lookup endpoint later.",
     request=TripBookingSerializer,
     responses={
         201: TripBookingSerializer,
@@ -333,8 +335,9 @@ booking_update_schema = extend_schema(
 
 booking_lookup_schema = extend_schema(
     summary="Look up a booking (guest, no login)",
-    description="Retrieve a booking by its reference `number` and the `email` "
-    "it was booked with - no account required. Both must match.",
+    description="Retrieve a booking by its reference `number` plus one of "
+    "`otp` (the 4-digit code shown at booking creation) or `email` (the "
+    "address the booking was made with) - no account required.",
     parameters=[
         OpenApiParameter(
             name="number",
@@ -343,9 +346,17 @@ booking_lookup_schema = extend_schema(
             type=OpenApiTypes.STR,
         ),
         OpenApiParameter(
+            name="otp",
+            description="4-digit code shown once at booking creation. "
+            "Either this or `email` is required.",
+            required=False,
+            type=OpenApiTypes.STR,
+        ),
+        OpenApiParameter(
             name="email",
-            description="Email address the booking was made with.",
-            required=True,
+            description="Email address the booking was made with. Either "
+            "this or `otp` is required.",
+            required=False,
             type=OpenApiTypes.STR,
         ),
     ],
@@ -353,7 +364,7 @@ booking_lookup_schema = extend_schema(
         200: TripBookingSerializer,
         400: OpenApiResponse(
             response=error_response_serializer,
-            description="Missing `number` or `email` query parameter.",
+            description="Missing `number`, or missing both `otp` and `email`.",
         ),
         404: OpenApiResponse(description="No matching booking found."),
     },

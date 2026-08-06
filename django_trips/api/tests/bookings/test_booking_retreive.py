@@ -69,3 +69,8 @@ class TripCreateBookingTestCase(AuthenticatedUserTestCase):
                 "created_by": self.user.pk,
             },
         )
+
+    def test_trip_retrieve_does_not_expose_otp(self):
+        response = self.client.get(self.url, headers=self.headers)
+        assert response.status_code == 200
+        self.assertNotIn("otp", response.json())

@@ -75,6 +75,7 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
             data,
             {
                 "number": mock.ANY,
+                "otp": mock.ANY,
                 "status": BookingStatus.PENDING,
                 "full_name": "Foo Bar",
                 "email": "foo@bar.com",
@@ -93,6 +94,13 @@ class TripBookingCreateTestCase(AuthenticatedUserTestCase):
                 "total_price": mock.ANY,
             },
         )
+
+    def test_booking_create_returns_generated_otp(self):
+        data = self.make_create_trip_booking_request()
+        self.assertRegex(data["otp"], r"^\d{4}$")
+
+        new_booking = TripBooking.objects.get(number=data["number"])
+        self.assertEqual(new_booking.otp, data["otp"])
 
     def test_booking_create_rejects_schedule_from_another_trip(self):
         other_trip = TripFactory.create(trip_schedule=None)

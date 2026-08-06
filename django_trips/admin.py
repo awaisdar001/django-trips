@@ -292,7 +292,7 @@ class TripBookingSummaryAdmin(admin.ModelAdmin):
     list_select_related = ("schedule__trip",)
     search_fields = ["schedule__trip__name", "full_name", "number"]
     list_filter = ("status", "created", "terms_accepted")
-    readonly_fields = ("number", "terms_accepted", "created_by")
+    readonly_fields = ("number", "otp", "terms_accepted", "created_by")
     raw_id_fields = ("schedule",)
 
     def get_form(self, request, obj=None, change=False, **kwargs):

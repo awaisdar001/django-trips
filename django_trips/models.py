@@ -1010,6 +1010,13 @@ class TripBooking(TimeStampedModel):
         editable=False,
         help_text="Auto-generated booking reference number",
     )
+    otp = models.CharField(
+        max_length=4,
+        editable=False,
+        help_text="Auto-generated 4-digit code, shown once at booking creation. "
+        "Paired with `number` as an alternative to `number` + `email` for the "
+        "guest booking lookup endpoint.",
+    )
     schedule = models.ForeignKey(
         TripSchedule, related_name="bookings", on_delete=models.CASCADE
     )
@@ -1110,6 +1117,8 @@ class TripBooking(TimeStampedModel):
     def save(self, **kwargs):
         if not self.number:
             self.number = self.generate_booking_number()
+        if not self.otp:
+            self.otp = self.generate_otp()
         super().save(**kwargs)
 
     def cancel(self):
@@ -1136,6 +1145,12 @@ class TripBooking(TimeStampedModel):
         suffix = f"{random.randint(0, 99):02d}"
 
         return f"{prefix}{padded_number}{suffix}"
+
+    @classmethod
+    def generate_otp(cls):
+        """A random 4-digit code, e.g. "0492". Not checked for uniqueness -
+        it's only ever looked up together with `number`, which is unique."""
+        return f"{random.randint(0, 9999):04d}"
 
 
 class TripWishlist(models.Model):

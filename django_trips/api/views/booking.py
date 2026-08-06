@@ -127,10 +127,11 @@ class TripBookingLookupView(generics.RetrieveAPIView):
     """
     Anonymous "look up my booking" endpoint.
 
-    Scoped to a booking `number` AND its `email` together (not `number`
-    alone) so a guessed or leaked reference number can't be used to pull up
-    someone else's booking - accounts don't exist yet in this release, so
-    this pair is the only thing a guest has to prove they own a booking.
+    Scoped to a booking `number` AND one more proof-of-ownership factor -
+    either its 4-digit `otp` or its `email` - not `number` alone, so a
+    guessed or leaked reference number can't be used to pull up someone
+    else's booking. Accounts don't exist yet in this release, so one of
+    these pairs is the only thing a guest has to prove they own a booking.
     """
 
     queryset = TripBooking.objects.all()
@@ -143,13 +144,23 @@ class TripBookingLookupView(generics.RetrieveAPIView):
 
     def get_object(self):
         number = self.request.query_params.get("number")
+        otp = self.request.query_params.get("otp")
         email = self.request.query_params.get("email")
-        if not number or not email:
+
+        if not number or not (otp or email):
             raise ValidationError(
-                {"detail": "Both `number` and `email` query parameters are required."}
+                {
+                    "detail": "`number` and one of `otp` or `email` query "
+                    "parameters are required."
+                }
             )
-        booking = get_object_or_404(
-            TripBooking.objects.filter(email__iexact=email), number=number
-        )
+
+        bookings = TripBooking.objects.filter(number=number)
+        if otp:
+            bookings = bookings.filter(otp=otp)
+        else:
+            bookings = bookings.filter(email__iexact=email)
+
+        booking = get_object_or_404(bookings)
         self.kwargs["trip_id"] = booking.schedule.trip.id
         return booking

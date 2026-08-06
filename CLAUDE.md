@@ -49,6 +49,12 @@ python run_lint.py     # pylint over django_trips/, fails if score < 6 (see THRE
 pep8speaks enforces max line length 120 on PR diffs only (`.pep8speaks.yml`); `.pylintrc` ignores `tests.py`,
 `urls.py`, and `migrations` entirely.
 
+## Git workflow
+
+`master` is the base branch for `django-trips`. Never commit or merge directly into `master` (or any shared
+branch) — always create a separate feature/fix branch off `master`, push that branch, and open a PR. If you are 
+already on separate branch, you can commit there. 
+
 ## Architecture
 
 ### Domain model shape

@@ -10,24 +10,20 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django_trips.api.filters import TripFilter, UpcomingTripsFilter
 from django_trips.api.paginators import CustomLimitOffsetPaginator
 from django_trips.api.schema_meta import (
     destinations_list_schema,
-    trip_create_schema,
-    trip_delete_schema,
     trip_list_schema,
     trip_retrieve_schema,
-    trip_update_schema,
     trip_wishlist_toggle_schema,
     upcoming_trips_list_schema,
 )
 from django_trips.api.serializers import (
     DestinationWithSchedulesSerializer,
-    TripCreateSerializer,
     TripDetailSerializer,
     TripListSerializer,
     TripWishlistToggleSerializer,
@@ -42,43 +38,41 @@ from django_trips.models import (
     TripSchedule,
     TripWishlist,
 )
-from django_trips.permissions import IsStaffForDeleteOnly
 
 
 @extend_schema_view(
     list=trip_list_schema,
     retrieve=trip_retrieve_schema,
-    create=trip_create_schema,
-    update=trip_update_schema,
-    destroy=trip_delete_schema,
     wishlist=trip_wishlist_toggle_schema,
 )
-class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
+class TripViewSet(ReadOnlyModelViewSet):  # pylint:disable=too-many-ancestors
     """
-    ViewSet for managing Trips with standard REST actions.
-
-    Supports listing, creating, retrieving, updating, and deleting Trip instances.
+    Public, read-only catalog of Trips.
 
     | Action    | HTTP Method | URL Pattern        | Reverse     | Description        |
     |-----------|-------------|--------------------|-------------|--------------------|
     | List      | GET         | /trips/            | trip-list   | Retrieve all trips |
-    | Create    | POST        | /trips/            | trip-list   | Create a trip      |
     | Retrieve  | GET         | /trips/<id>/       | trip-detail | Retrieve a trip    |
-    | Update    | PUT         | /trips/<id>/       | trip-detail | Update a trip      |
-    | Delete    | DELETE      | /trips/<id>/       | trip-detail | Delete a trip      |
 
     Notes:
-    - Partial updates (PATCH) are **not supported**.
     - Lookup field supports ID or slug as `{id}`.
-    - List/retrieve (GET) are public; create/update require authentication;
-      delete requires staff.
+    - List/retrieve (GET) are public. Trip management (create/update/delete) is not
+      part of this surface - it lives in the tenancy-aware operator API (destipak),
+      which imports TripCreateSerializer from this module directly.
+    - `post` stays in http_method_names for the `wishlist` extra action below (a
+      separate, detail-level URL) - it's checked once, class-wide, by Django's base
+      View.dispatch() before DRF ever resolves which action a request maps to, so
+      dropping it here would 405 the wishlist toggle too. create/update/destroy are
+      still unreachable: ReadOnlyModelViewSet doesn't implement them, so the router
+      never binds "post"/"put"/"delete" to the plain list/detail routes in the first
+      place (SimpleRouter.get_method_map() only binds a verb when hasattr(view, action)).
 
     Authentication: Session and JWT
     """
 
     authentication_classes = [SessionAuthentication, JWTAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly, IsStaffForDeleteOnly]
-    http_method_names = ["get", "post", "put", "delete"]
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    http_method_names = ["get", "post"]
     pagination_class = CustomLimitOffsetPaginator
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
@@ -160,12 +154,8 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
         return queryset
 
     def get_serializer_class(self):
-        if self.action == "list":  # pylint:disable=no-else-return
-            return TripListSerializer
-        elif self.action == "retrieve":
+        if self.action == "retrieve":
             return TripDetailSerializer
-        elif self.action in ["create", "update"]:
-            return TripCreateSerializer
         return TripListSerializer
 
     def get_object(self):
@@ -203,28 +193,6 @@ class TripViewSet(ModelViewSet):  # pylint:disable=too-many-ancestors
 
         serializer = TripWishlistToggleSerializer({"is_wished": created})
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        trip = serializer.save()
-
-        response_serializer = TripDetailSerializer(
-            trip, context=self.get_serializer_context()
-        )
-        headers = self.get_success_headers(response_serializer.data)
-        return Response(
-            response_serializer.data, status=status.HTTP_201_CREATED, headers=headers
-        )
-
-    def update(self, request, *args, **kwargs):
-        super().update(request, *args, **kwargs)
-        trip = self.get_object()
-        response_serializer = TripDetailSerializer(
-            trip, context=self.get_serializer_context()
-        )
-        headers = self.get_success_headers(response_serializer.data)
-        return Response(response_serializer.data, headers=headers)
 
 
 @extend_schema_view(get=upcoming_trips_list_schema)

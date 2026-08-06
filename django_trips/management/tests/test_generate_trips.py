@@ -1,13 +1,28 @@
 """Test management command"""
+from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import TestCase
+from django.utils import timezone
 from django.utils.text import slugify
 
-from django_trips.management.commands.generate_trips import Command
-from django_trips.models import Location, Trip, User
+from django_trips.choices import PackageTier, ScheduleStatus
+from django_trips.management.commands.generate_trips import (
+    DEFAULT_SETTINGS,
+    Command,
+)
+from django_trips.models import (
+    Location,
+    Trip,
+    TripItinerary,
+    TripPackage,
+    TripPickupLocation,
+    TripSchedule,
+    User,
+)
 from django_trips.tests import factories
 
 
@@ -107,3 +122,163 @@ class CommandsTestBase(TestCase):
             result = Command().create_reviews(trip)
         self.assertIsNone(result)
         self.assertFalse(trip.reviews.filter(is_verified=True).exists())
+
+    def test_default_batch_size_is_ten(self):
+        """No --batch_size given should fall back to the documented default of 10."""
+        output = self.run_generate_trips_command()
+        self.assertEqual(output.count("Trip Created"), 10)
+
+    def test_get_setting_falls_back_to_default_when_unset_in_django_settings(self):
+        """TRIP_HOST_TYPES isn't defined in settings.common - get_setting()
+        should fall back to DEFAULT_SETTINGS rather than an empty list."""
+        self.assertEqual(
+            Command().get_setting("TRIP_HOST_TYPES"),
+            DEFAULT_SETTINGS["TRIP_HOST_TYPES"],
+        )
+
+    def test_get_setting_prefers_django_settings_when_present(self):
+        """TRIP_HOSTS *is* defined in settings.common, so it should win over
+        the command's own DEFAULT_SETTINGS fallback."""
+        self.assertEqual(Command().get_setting("TRIP_HOSTS"), settings.TRIP_HOSTS)
+
+    def test_create_trip_packages_always_includes_standard_tier(self):
+        """STANDARD must always be (re)priced, even when no other tier is
+        sampled - it's the trip's guaranteed tier and the surcharge anchor."""
+        trip = factories.TripFactory(trip_schedule=None, duration=timedelta(days=10))
+        with patch("django_trips.management.commands.generate_trips.random") as mock_random:
+            mock_random.randint.side_effect = [8000, 0]  # per_day_rate, then 0 other tiers
+            mock_random.sample.return_value = []
+            standard_price = Command().create_trip_packages(trip)
+
+        packages = TripPackage.objects.filter(trip=trip)
+        self.assertEqual(packages.count(), 1)
+        standard = packages.get(name=PackageTier.STANDARD)
+        self.assertEqual(standard.base_price, 80000)
+        self.assertEqual(standard_price, 80000)
+
+    def test_create_trip_packages_prices_tiers_relative_to_standard(self):
+        """BUDGET/PREMIUM prices should scale off the same base as STANDARD
+        per TIER_PRICE_FACTORS, and stay ordered budget < standard < premium."""
+        trip = factories.TripFactory(trip_schedule=None, duration=timedelta(days=10))
+        with patch("django_trips.management.commands.generate_trips.random") as mock_random:
+            mock_random.randint.side_effect = [8000, 2]  # per_day_rate, then both other tiers
+            mock_random.sample.return_value = [PackageTier.BUDGET, PackageTier.PREMIUM]
+            standard_price = Command().create_trip_packages(trip)
+
+        budget = TripPackage.objects.get(trip=trip, name=PackageTier.BUDGET)
+        standard = TripPackage.objects.get(trip=trip, name=PackageTier.STANDARD)
+        premium = TripPackage.objects.get(trip=trip, name=PackageTier.PREMIUM)
+
+        self.assertEqual(budget.base_price, 60000)
+        self.assertEqual(standard.base_price, 80000)
+        self.assertEqual(premium.base_price, 116000)
+        self.assertEqual(standard_price, 80000)
+        self.assertLess(budget.base_price, standard.base_price)
+        self.assertLess(standard.base_price, premium.base_price)
+        self.assertEqual(
+            budget.base_child_price, round(int(budget.base_price) * 0.6 / 100) * 100
+        )
+
+    def test_create_schedules_creates_five_schedules_with_expected_statuses(self):
+        """create_schedules() should always lay down exactly one expired/FULL
+        schedule, one in-progress/PUBLISHED schedule, and three upcoming/
+        PUBLISHED schedules."""
+        trip = factories.TripFactory(
+            trip_schedule=None,
+            duration=timedelta(days=7),
+            departure=factories.LocationFactory(name="Lahore"),
+        )
+        Command().create_schedules(trip, base_price=50000)
+
+        schedules = list(TripSchedule.objects.filter(trip=trip).order_by("start_date"))
+        self.assertEqual(len(schedules), 5)
+
+        now = timezone.now().date()
+        expired, in_progress, *upcoming = schedules
+
+        self.assertEqual(expired.status, ScheduleStatus.FULL)
+        self.assertLess(expired.end_date, now)
+
+        self.assertEqual(in_progress.status, ScheduleStatus.PUBLISHED)
+        self.assertLess(in_progress.start_date, now)
+        self.assertGreater(in_progress.end_date, now)
+
+        self.assertEqual(len(upcoming), 3)
+        for schedule in upcoming:
+            self.assertEqual(schedule.status, ScheduleStatus.PUBLISHED)
+            self.assertGreater(schedule.start_date, now)
+
+    def test_create_schedules_surcharge_matches_peak_weekday_rule(self):
+        """Only Thu/Fri/Sat departures should carry a surcharge; every other
+        weekday must be surcharge-free, with the child surcharge always a
+        60% fraction of the adult one."""
+        trip = factories.TripFactory(
+            trip_schedule=None,
+            duration=timedelta(days=7),
+            departure=factories.LocationFactory(name="Lahore"),
+        )
+        Command().create_schedules(trip, base_price=100000)
+
+        for schedule in TripSchedule.objects.filter(trip=trip):
+            if schedule.start_date.weekday() in Command.PEAK_WEEKDAYS:
+                self.assertGreater(schedule.additional_price, 0)
+                self.assertEqual(
+                    schedule.additional_child_price,
+                    round(int(schedule.additional_price) * 0.6 / 100) * 100,
+                )
+            else:
+                self.assertEqual(schedule.additional_price, 0)
+                self.assertEqual(schedule.additional_child_price, 0)
+
+    def test_create_schedules_creates_pickup_location_at_departure_for_each_schedule(self):
+        """Every schedule create_schedules() makes should get a free pickup
+        point at the trip's own departure city."""
+        trip = factories.TripFactory(
+            trip_schedule=None,
+            duration=timedelta(days=5),
+            departure=factories.LocationFactory(name="Lahore"),
+        )
+        Command().create_schedules(trip, base_price=40000)
+
+        for schedule in TripSchedule.objects.filter(trip=trip):
+            self.assertTrue(
+                TripPickupLocation.objects.filter(
+                    schedule=schedule, location=trip.departure, additional_price=0
+                ).exists()
+            )
+
+    def test_create_pickup_locations_always_includes_departure_at_zero_price(self):
+        """The departure city pickup point is mandatory and free; 0-2 named
+        extra stops may be layered on top."""
+        schedule = factories.TripScheduleFactory()
+        departure = factories.LocationFactory(name="Lahore")
+
+        Command().create_pickup_locations(schedule, departure)
+
+        pickups = TripPickupLocation.objects.filter(schedule=schedule)
+        self.assertTrue(pickups.filter(location=departure, additional_price=0).exists())
+        self.assertGreaterEqual(pickups.count(), 1)
+        self.assertLessEqual(pickups.count(), 3)
+
+    def test_get_or_create_pickup_point_is_idempotent_child_of_departure(self):
+        """A named pickup point should be a Location child of `departure`,
+        and re-requesting the same name shouldn't create a duplicate."""
+        departure = factories.LocationFactory(name="Lahore")
+
+        first = Command().get_or_create_pickup_point(departure, "Metro Station")
+        second = Command().get_or_create_pickup_point(departure, "Metro Station")
+
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.parent, departure)
+        self.assertEqual(Location.objects.filter(parent=departure).count(), 1)
+
+    def test_create_itineraries_creates_sequential_days(self):
+        """Itinerary day_index should run 1..no_of_days in order, and each
+        day's end_time should come after its start_time."""
+        trip = factories.TripFactory(trip_schedule=None)
+        Command().create_itineraries(trip, no_of_days=4)
+
+        itineraries = list(TripItinerary.objects.filter(trip=trip).order_by("day_index"))
+        self.assertEqual([itinerary.day_index for itinerary in itineraries], [1, 2, 3, 4])
+        for itinerary in itineraries:
+            self.assertGreater(itinerary.end_time, itinerary.start_time)

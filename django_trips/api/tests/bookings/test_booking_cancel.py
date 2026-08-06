@@ -81,6 +81,7 @@ class TripBookingCancelTests(AuthenticatedUserTestCase):
 
         data = self.cancel_trip_booking()
         assert data["status"] == "CANCELLED"
+        assert "otp" not in data
 
         self.booking.refresh_from_db()
         assert self.booking.status == "CANCELLED"

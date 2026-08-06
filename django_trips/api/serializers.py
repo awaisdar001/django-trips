@@ -1054,6 +1054,12 @@ class TripBookingSerializer(serializers.ModelSerializer):
         required=False,
         help_text="Guest must accept the Terms & Conditions and cancellation policy to book",
     )
+    otp = serializers.CharField(
+        read_only=True,
+        help_text="Auto-generated 4-digit lookup code. Only present in the "
+        "response to the booking-creation request - never returned again "
+        "afterwards, so the guest must save it at that point.",
+    )
 
     RESTRICTED_FIELDS = (
         "trip",
@@ -1077,6 +1083,7 @@ class TripBookingSerializer(serializers.ModelSerializer):
             "pickup_location_details",
             "total_price",
             "number",
+            "otp",
             "status",
             "full_name",
             "email",
@@ -1092,12 +1099,23 @@ class TripBookingSerializer(serializers.ModelSerializer):
         )
         read_only_fields = [
             "number",
+            "otp",
             "status",
             "total_price",
             "created",
             "created_by",
             "modified",
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # `otp` is a lookup secret: only ever surface it in the response to
+        # the booking-creation request, not on retrieve/update/cancel/list -
+        # those all reuse this same serializer.
+        view = self.context.get("view")
+        if not view or view.__class__.__name__ != "TripBookingCreateView":
+            data.pop("otp", None)
+        return data
 
     @extend_schema_field(TripPackageSerializer(allow_null=True))
     def get_package_details(self, booking) -> Optional[dict]:

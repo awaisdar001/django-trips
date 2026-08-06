@@ -15,7 +15,6 @@ from django_trips.api.serializers import (
     HostListSerializer,
     TestimonialSerializer,
     TripBookingSerializer,
-    TripCreateSerializer,
     TripDetailSerializer,
     TripListSerializer,
     TripReviewSerializer,
@@ -39,20 +38,6 @@ error_response_serializer = inline_serializer(
     fields={
         "detail": serializers.CharField(help_text="High-level error message"),
     },
-)
-
-trip_create_schema = extend_schema(
-    summary="Create Trip",
-    description="Create a new trip with details like itinerary, locations, facilities, gear, and tags.",
-    request=TripCreateSerializer,
-    responses={
-        201: TripDetailSerializer,
-        400: OpenApiResponse(
-            response=error_response_serializer,
-            description="Invalid input data",
-        ),
-    },
-    tags=SchemaTags.TRIPS.value,
 )
 
 trip_retrieve_schema = extend_schema(
@@ -121,54 +106,6 @@ trip_list_schema = extend_schema(
     ],
 )
 
-
-trip_update_schema = extend_schema(
-    summary="Update a Trip",
-    description="Fully update a trip by ID or slug. Partial updates (PATCH) are not supported.",
-    request=TripCreateSerializer,
-    parameters=[
-        OpenApiParameter(
-            "identifier",
-            OpenApiTypes.STR,
-            OpenApiParameter.PATH,
-            description="Unique trip ID or slug to identify the trip.",
-        )
-    ],
-    responses={
-        200: TripDetailSerializer,
-        400: OpenApiResponse(
-            response=error_response_serializer,
-            description="Invalid input data",
-        ),
-        404: OpenApiResponse(description="Trip not found"),
-    },
-    tags=SchemaTags.TRIPS.value,
-)
-
-trip_delete_schema = extend_schema(
-    summary="Delete a Trip",
-    description="Delete a trip by ID or slug. Only staff users are authorized to perform this action.",
-    parameters=[
-        OpenApiParameter(
-            "identifier",
-            OpenApiTypes.STR,
-            OpenApiParameter.PATH,
-            description="Unique trip ID or slug to identify the trip.",
-        )
-    ],
-    responses={
-        204: OpenApiResponse(
-            description="Trip deleted successfully, no content returned"
-        ),
-        400: OpenApiResponse(
-            response=error_response_serializer,
-            description="Invalid input data",
-        ),
-        403: OpenApiResponse(description="Permission denied"),
-        404: OpenApiResponse(description="Trip not found"),
-    },
-    tags=SchemaTags.TRIPS.value,
-)
 
 trip_wishlist_toggle_schema = extend_schema(
     summary="Toggle trip wishlist",

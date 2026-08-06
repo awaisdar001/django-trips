@@ -32,10 +32,37 @@ class BookingUpdateTests(AuthenticatedUserTestCase):
             message="booking 1",
             created_by=cls.user,
         )
+        cls.other_users_booking = TripBookingFactory(
+            schedule=cls.trip_schedule,
+            number="DPT00125CC",
+            target_date=cls.schedule_date,
+        )
 
         cls.url = reverse(
             "trips-api:booking-detail", kwargs={"number": cls.booking.number}
         )
+        cls.other_users_booking_url = reverse(
+            "trips-api:booking-detail",
+            kwargs={"number": cls.other_users_booking.number},
+        )
+
+    def test_update_other_users_booking_returns_404(self):
+        """A booking must only be updatable by the user who created it (IDOR regression)."""
+        payload = {
+            "full_name": "Hijacked Name",
+            "email": "hijacked@example.com",
+            "phone_number": "+923000000000",
+            "adults": 1,
+            "target_date": self.other_users_booking.target_date.isoformat(),
+            "schedule": self.trip_schedule.pk,
+        }
+        response = self.client.put(
+            self.other_users_booking_url,
+            payload,
+            headers=self.headers,
+            content_type="application/json",
+        )
+        assert response.status_code == 404
 
     def test_update_trip_booking(self):
         payload = {

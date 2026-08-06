@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from datetime import timedelta
 
 from config_models.models import ConfigurationModel
-from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -25,10 +25,9 @@ from django_trips.choices import (
     LocationType,
     PackageTier,
     ScheduleStatus,
+    TripStatus,
 )
 from django_trips.mixins import SlugMixin
-
-User = get_user_model()
 
 
 class HostType(models.Model):
@@ -446,10 +445,18 @@ class Trip(SlugMixin, models.Model):
         default=True, help_text="Whether passenger count must be specified"
     )
     is_active = models.BooleanField(default=True)
+    status = models.CharField(
+        max_length=20,
+        choices=TripStatus.choices,
+        default=TripStatus.PUBLISHED,
+        help_text="Editorial state (draft/published) - independent of is_active",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey(User, related_name="trips", on_delete=models.CASCADE)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="trips", on_delete=models.CASCADE
+    )
 
     host = models.ForeignKey(
         Host,
@@ -1084,7 +1091,7 @@ class TripBooking(TimeStampedModel):
         help_text="Guest agreed to the Terms & Conditions and cancellation policy at booking time",
     )
     created_by = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         related_name="bookings",
@@ -1159,7 +1166,7 @@ class TripWishlist(models.Model):
     """
 
     user = models.ForeignKey(
-        User, related_name="wishlisted_trips", on_delete=models.CASCADE
+        settings.AUTH_USER_MODEL, related_name="wishlisted_trips", on_delete=models.CASCADE
     )
     trip = models.ForeignKey(
         Trip, related_name="wishlisted_by", on_delete=models.CASCADE

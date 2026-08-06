@@ -41,6 +41,24 @@ class TripBookingCancelTests(AuthenticatedUserTestCase):
         )
         self.url = reverse("trips-api:booking-cancel", args=[self.booking.number])
 
+        self.other_users_booking = TripBookingFactory(
+            schedule=self.trip_schedule,
+            number="DPT00126DD",
+            target_date=self.schedule_date,
+        )
+        self.other_users_booking_url = reverse(
+            "trips-api:booking-cancel", args=[self.other_users_booking.number]
+        )
+
+    def test_cancel_other_users_booking_returns_404(self):
+        """A booking must only be cancellable by the user who created it (IDOR regression)."""
+        response = self.client.post(
+            self.other_users_booking_url,
+            headers=self.headers,
+            content_type="application/json",
+        )
+        assert response.status_code == 404
+
     def cancel_trip_booking(self):
         response = self.client.post(
             self.url, headers=self.headers, content_type="application/json"

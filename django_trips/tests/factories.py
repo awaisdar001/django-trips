@@ -8,7 +8,8 @@ import random
 from datetime import timedelta
 
 import factory.fuzzy
-from django.contrib.auth.models import Group, User
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.utils import timezone
 from django.utils.text import slugify
@@ -45,6 +46,8 @@ from django_trips.models import (
 USER_PASSWORD = "pswd"
 
 fake = Faker()
+
+User = get_user_model()
 
 
 class AuthenticatedUserTestCase(TestCase):

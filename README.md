@@ -27,10 +27,23 @@ Add the following to your root `urls.py` or to your desired file location.
 ```
 urlpatterns = [
     ...
+    path('trips/', include('django_trips.urls')),
+]
+```
+This mounts the whole app under your own chosen namespace (`trips/` above - replace with
+whatever prefix you like) with the lib's own `v1/` version underneath it, e.g.
+`trips/v1/trips/`, `trips/v1/schema/redoc/`. The app versions itself independently of
+your project's own API version, so bumping *your* API to `v2` doesn't imply anything
+changed in this lib, and vice versa.
+
+If you'd rather skip the lib's own version segment and wire the endpoints directly into
+your own scheme, include `django_trips.api.urls` instead:
+```
+urlpatterns = [
+    ...
     path('trips/', include(('django_trips.api.urls', 'trips-api'), namespace='trips-api')),
 ]
 ```
-You can replace `trips/` to any namespace you like for the api.
 
 ## Pricing model
 

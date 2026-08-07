@@ -713,7 +713,7 @@ class TripListSerializer(serializers.ModelSerializer):
         return trip.starting_price
 
     @extend_schema_field(
-        {"type": "string", "example": "api/v1/trips/2-days-trip-to-isb"}
+        {"type": "string", "example": "v1/trips/2-days-trip-to-isb"}
     )
     def get_trip_url(self, trip):
         return reverse("trips-api:trip-detail", kwargs={"identifier": trip.slug})
@@ -875,7 +875,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
         return get_trip_review_summary_data(obj)
 
     @extend_schema_field(
-        {"type": "string", "example": "api/v1/trips/2-days-trip-to-isb"}
+        {"type": "string", "example": "v1/trips/2-days-trip-to-isb"}
     )
     def get_trip_url(self, trip):
         return reverse("trips-api:trip-detail", kwargs={"identifier": trip.slug})

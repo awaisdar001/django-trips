@@ -75,9 +75,21 @@ schema_urls = [
     # urlconf pins the generator to this module alone - unset, drf-spectacular walks the
     # *host* project's ROOT_URLCONF by default, so this would describe every DRF view in
     # whatever project installs this app, not just the trips lib's own endpoints.
+    # custom_settings makes the schema self-identifying regardless of the host's own
+    # SPECTACULAR_SETTINGS (which may have any TITLE, or none at all, set for its own APIs).
+    # This module lands at "schema/redoc/" under wherever the host mounts it plus this
+    # app's own "v1/" (django_trips/urls.py) - e.g. destipak mounts at api/v1/trips/, giving
+    # /api/v1/trips/v1/schema/redoc/.
     path(
         "schema/",
-        SpectacularAPIView.as_view(urlconf="django_trips.api.urls"),
+        SpectacularAPIView.as_view(
+            urlconf="django_trips.api.urls",
+            custom_settings={
+                "TITLE": "Django Trips API",
+                "DESCRIPTION": "Django Trips management restful API",
+                "VERSION": "1.0.0",
+            },
+        ),
         name="schema",
     ),
     path(

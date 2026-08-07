@@ -13,7 +13,8 @@ class LocationQuerySet(ActiveQuerySet):
 
 
 class TripQuerySet(ActiveQuerySet):
-    pass
+    def active(self):
+        return super().active().filter(host__verified=True)
 
 
 class TestimonialQuerySet(ActiveQuerySet):

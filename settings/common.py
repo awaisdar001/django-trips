@@ -219,5 +219,5 @@ SPECTACULAR_SETTINGS = {
     },
     "ENUM_SUFFIX": "Enum",
     "COMPONENT_NO_READ_ONLY_REQUIRED": True,
-    "SCHEMA_PATH_PREFIX": "/api/v1",
+    "SCHEMA_PATH_PREFIX": "/v1",
 }

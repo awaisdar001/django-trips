@@ -72,7 +72,14 @@ app_urlpatterns = [
 ]
 
 schema_urls = [
-    path("schema/", SpectacularAPIView.as_view(), name="schema"),
+    # urlconf pins the generator to this module alone - unset, drf-spectacular walks the
+    # *host* project's ROOT_URLCONF by default, so this would describe every DRF view in
+    # whatever project installs this app, not just the trips lib's own endpoints.
+    path(
+        "schema/",
+        SpectacularAPIView.as_view(urlconf="django_trips.api.urls"),
+        name="schema",
+    ),
     path(
         "schema/swagger-ui/",
         SpectacularSwaggerView.as_view(url_name="trips-api:schema"),

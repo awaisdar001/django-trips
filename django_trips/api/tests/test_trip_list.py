@@ -261,7 +261,6 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
             destination=cls.skardu,
             duration=timedelta(days=10),
             categories=[cls.honeymoon],
-            host=HostFactory(verified=False),
         )
 
         cls.set_standard_price(cls.trip_hunza, 15000)
@@ -310,12 +309,20 @@ class TestTripListFiltersAPI(AuthenticatedUserTestCase):
         self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
 
     def test_filter_by_verified_host(self):
+        """Both fixture trips have verified hosts, so ?verified_host=true is a no-op here -
+        the meaningful case is that an unverified host's trip stays excluded (below)."""
+        TripFactory(name="Unverified Trip", host=HostFactory(verified=False))
         data = self.get_results({"verified_host": "true"})
-        self.assertEqual({t["name"] for t in data}, {"Hunza Adventure"})
+        self.assertEqual(
+            {t["name"] for t in data}, {"Hunza Adventure", "Skardu Explorer"}
+        )
 
     def test_filter_by_unverified_host(self):
+        """An unverified host's trips are excluded from the public catalog outright
+        (Trip.objects.active()), so ?verified_host=false can never surface anything here."""
+        TripFactory(name="Unverified Trip", host=HostFactory(verified=False))
         data = self.get_results({"verified_host": "false"})
-        self.assertEqual({t["name"] for t in data}, {"Skardu Explorer"})
+        self.assertEqual({t["name"] for t in data}, set())
 
     def test_filter_by_price_range(self):
         data = self.get_results({"price_from": 20000})

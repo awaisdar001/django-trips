@@ -19,6 +19,7 @@ from django_trips.models import (
     Location,
     RefundPolicy,
     Testimonial,
+    Trip,
     TripAvailability,
     TripBooking,
     TripItinerary,
@@ -386,6 +387,15 @@ class TestTrip(TestCase):
 
     def test_get_absolute_url(self):
         self.assertIn(self.trip.slug, self.trip.get_absolute_url())
+
+    def test_active_excludes_trips_of_unverified_hosts(self):
+        """An unverified host has no public presence, so its trips shouldn't either."""
+        unverified_trip = TripFactory(host=HostFactory(verified=False))
+
+        active_ids = set(Trip.objects.active().values_list("id", flat=True))
+
+        self.assertIn(self.trip.id, active_ids)
+        self.assertNotIn(unverified_trip.id, active_ids)
 
 
 class TripImageStrReprTestCase(TestCase):

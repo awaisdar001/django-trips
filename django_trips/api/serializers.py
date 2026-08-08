@@ -7,7 +7,6 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from django.urls import reverse
 from django_countries.serializer_fields import CountryField
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -716,7 +715,7 @@ class TripListSerializer(serializers.ModelSerializer):
         {"type": "string", "example": "v1/trips/2-days-trip-to-isb"}
     )
     def get_trip_url(self, trip):
-        return reverse("trips-api:trip-detail", kwargs={"identifier": trip.slug})
+        return trip.get_absolute_url()
 
     @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_wished(self, trip):
@@ -878,7 +877,7 @@ class TripDetailSerializer(TaggitSerializer, serializers.ModelSerializer):
         {"type": "string", "example": "v1/trips/2-days-trip-to-isb"}
     )
     def get_trip_url(self, trip):
-        return reverse("trips-api:trip-detail", kwargs={"identifier": trip.slug})
+        return trip.get_absolute_url()
 
     @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_wished(self, trip):
@@ -984,7 +983,9 @@ class DestinationWithSchedulesSerializer(serializers.ModelSerializer):
         schedules = TripSchedule.objects.upcoming().filter(
             id__in=trips.values_list("schedules", flat=True)
         )
-        return UpcomingTripListSerializer(schedules, many=True).data
+        return UpcomingTripListSerializer(
+            schedules, many=True, context=self.context
+        ).data
 
 
 class TestimonialSerializer(serializers.ModelSerializer):

@@ -496,7 +496,13 @@ class Trip(SlugMixin, models.Model):
         return self.packages.order_by("base_price").first().base_price
 
     def get_absolute_url(self):
-        return reverse("trips-api:trip-detail", kwargs={"identifier": self.slug})
+        # This is the trips serializers' trip_url field's canonical source too
+        # (TripListSerializer/TripDetailSerializer.get_trip_url) - a consuming project
+        # that doesn't mount this app's own urls.py under the README's documented
+        # "trips-api" namespace (e.g. destipak re-exposing these views under its own
+        # namespace instead) overrides DJANGO_TRIPS_URL_NAMESPACE to match.
+        namespace = getattr(settings, "DJANGO_TRIPS_URL_NAMESPACE", "trips-api")
+        return reverse(f"{namespace}:trip-detail", kwargs={"identifier": self.slug})
 
     @property
     def cancellation_policy(self):

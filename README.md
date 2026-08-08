@@ -45,6 +45,15 @@ urlpatterns = [
 ]
 ```
 
+`Trip.get_absolute_url()` and `TripListSerializer`/`TripDetailSerializer`'s `trip_url`
+field both need to resolve `trip-detail`'s URL. The serializers do this off the current
+request's own resolved namespace, so they work regardless of where you've mounted these
+views. `get_absolute_url()` has no request to read that from (e.g. Django admin's "View
+on site" calls it bare), so it defaults to the `trips-api` namespace shown above; if you
+mount these views under a different namespace instead - e.g. re-exposing them under your
+own project's URL scheme rather than including this app's urls.py directly - set
+`DJANGO_TRIPS_URL_NAMESPACE` in your settings to match.
+
 ## Pricing model
 
 Price lives in two places, and they compose rather than compete:

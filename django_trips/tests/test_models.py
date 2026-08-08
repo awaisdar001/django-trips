@@ -9,6 +9,7 @@ from django_trips.choices import (
     LocationType,
     PackageTier,
     ScheduleStatus,
+    TripStatus,
 )
 from django_trips.models import (
     CancellationPolicy,
@@ -26,9 +27,11 @@ from django_trips.models import (
     TripPickupLocation,
     TripReview,
     TripSchedule,
+    TripStatusEvent,
     TripWishlist,
     TrustBadge,
 )
+from django_trips.signals import log_trip_status_event, trip_status_changed
 from django_trips.tests.factories import (
     CategoryFactory,
     FacilityFactory,
@@ -396,6 +399,87 @@ class TestTrip(TestCase):
 
         self.assertIn(self.trip.id, active_ids)
         self.assertNotIn(unverified_trip.id, active_ids)
+
+
+class TripStatusEventTestCase(TestCase):
+    """The `trip_status_changed` signal and its default DB-logging receiver."""
+
+    def setUp(self):
+        self.trip = TripFactory()
+
+    def test_status_change_creates_event(self):
+        self.assertEqual(self.trip.status, TripStatus.PUBLISHED)
+
+        self.trip.status = TripStatus.DRAFT
+        self.trip.save()
+
+        event = TripStatusEvent.objects.get(trip=self.trip)
+        self.assertEqual(event.old_status, TripStatus.PUBLISHED)
+        self.assertEqual(event.new_status, TripStatus.DRAFT)
+        self.assertIsNone(event.changed_by)
+        self.assertEqual(event.reason, "")
+
+    def test_set_status_attributes_the_event(self):
+        staff_user = UserFactory()
+
+        self.trip.set_status(
+            TripStatus.DRAFT, changed_by=staff_user, reason="payment confirmed"
+        )
+
+        event = TripStatusEvent.objects.get(trip=self.trip)
+        self.assertEqual(event.changed_by, staff_user)
+        self.assertEqual(event.reason, "payment confirmed")
+
+    def test_attribution_does_not_leak_into_a_later_bare_save(self):
+        """
+        set_status()'s attribution is per-call - a later direct
+        `trip.status = ...; trip.save()` on the same instance shouldn't
+        inherit the previous call's changed_by/reason.
+        """
+        staff_user = UserFactory()
+        self.trip.set_status(
+            TripStatus.DRAFT, changed_by=staff_user, reason="payment confirmed"
+        )
+
+        self.trip.status = TripStatus.PUBLISHED
+        self.trip.save()
+
+        second_event = TripStatusEvent.objects.get(
+            trip=self.trip, new_status=TripStatus.PUBLISHED
+        )
+        self.assertIsNone(second_event.changed_by)
+        self.assertEqual(second_event.reason, "")
+
+    def test_no_event_on_creation(self):
+        self.assertEqual(TripStatusEvent.objects.filter(trip=self.trip).count(), 0)
+
+    def test_no_event_when_status_unchanged(self):
+        self.trip.name = "Updated name"
+        self.trip.save()
+
+        self.assertEqual(TripStatusEvent.objects.filter(trip=self.trip).count(), 0)
+
+    def test_consumer_can_override_default_logging(self):
+        """
+        A consumer can disconnect the library's default receiver and
+        connect its own - the extension point this feature is built on.
+        """
+        trip_status_changed.disconnect(log_trip_status_event, sender=Trip)
+        self.addCleanup(trip_status_changed.connect, log_trip_status_event, sender=Trip)
+
+        received = []
+
+        def custom_receiver(sender, trip, old_status, new_status, **kwargs):  # pylint:disable=unused-argument
+            received.append((old_status, new_status))
+
+        trip_status_changed.connect(custom_receiver, sender=Trip, weak=False)
+        self.addCleanup(trip_status_changed.disconnect, custom_receiver, sender=Trip)
+
+        self.trip.status = TripStatus.DRAFT
+        self.trip.save()
+
+        self.assertEqual(TripStatusEvent.objects.filter(trip=self.trip).count(), 0)
+        self.assertEqual(received, [(TripStatus.PUBLISHED, TripStatus.DRAFT)])
 
 
 class TripImageStrReprTestCase(TestCase):

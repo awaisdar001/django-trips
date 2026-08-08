@@ -468,9 +468,29 @@ class Trip(SlugMixin, models.Model):
     tags = TaggableManager(help_text="Comma-separated tags for search/filtering")
     objects = managers.TripQuerySet.as_manager()
 
+    # Transient attribution for the in-flight status change, read by
+    # signals.py's post_save receiver - not model fields, so declared here
+    # (rather than in a migration) with the same defaults `set_status` uses.
+    _status_change_actor = None
+    _status_change_reason = ""
+
     def save(self, *args, **kwargs):
         self.slug = slugify(f"{self.name}-by-{self.host}-for-{self.destination}")
         super().save(*args, **kwargs)
+
+    def set_status(self, status, changed_by=None, reason=""):
+        """
+        Updates `status` and attributes the resulting TripStatusEvent to
+        whoever/whatever caused it - `changed_by=None` (the default) reads
+        as a system/automatic change rather than a specific staff action.
+        A bare `self.status = ...; self.save()` still logs an event, just
+        without that attribution.
+        """
+        self.status = status
+        self._status_change_actor = changed_by
+        self._status_change_reason = reason
+        self.save()
+        return self
 
     class Meta:
         indexes = [
@@ -622,6 +642,47 @@ class Trip(SlugMixin, models.Model):
                     total_created += 1
 
         return total_created
+
+
+class TripStatusEvent(models.Model):
+    """
+    Immutable log entry recording one Trip status transition.
+
+    Written by the `log_trip_status_event` receiver (signals.py) whenever
+    `trip_status_changed` fires - a consuming project that wants different
+    persistence (or none) can disconnect that receiver and/or connect its
+    own; see the docstring on that signal for the override mechanism.
+    """
+
+    trip = models.ForeignKey(
+        Trip, related_name="status_events", on_delete=models.CASCADE
+    )
+    old_status = models.CharField(max_length=20, choices=TripStatus.choices)
+    new_status = models.CharField(max_length=20, choices=TripStatus.choices)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="trip_status_events",
+        help_text="Staff user who made this change; blank means system/automatic.",
+    )
+    reason = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Optional context for the change, e.g. 'payment confirmed'.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.trip}: {self.old_status} -> {self.new_status}"
+
+    def __repr__(self):
+        return f"<TripStatusEvent {self.trip}, {self.old_status} -> {self.new_status}>"
 
 
 class TripImage(models.Model):

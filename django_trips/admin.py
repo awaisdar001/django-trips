@@ -1,5 +1,3 @@
-"""Django admin config"""
-
 from config_models.admin import ConfigurationModelAdmin
 from django.contrib import admin
 
@@ -24,6 +22,7 @@ from django_trips.models import (
     TripReview,
     TripReviewSummary,
     TripSchedule,
+    TripStatusEvent,
     TripWishlist,
     TrustBadge,
 )
@@ -211,6 +210,31 @@ class TripAdmin(admin.ModelAdmin):
     @admin.display(description="Availability Up to")
     def get_date(self, trip):
         return [availability.end_date for availability in trip.availabilities.all()]
+
+
+@admin.register(TripStatusEvent)
+class TripStatusEventAdmin(admin.ModelAdmin):
+    """Read-only audit trail of Trip status transitions."""
+
+    list_display = (
+        "trip",
+        "old_status",
+        "new_status",
+        "changed_by",
+        "reason",
+        "created_at",
+    )
+    list_select_related = ("trip", "changed_by")
+    list_filter = ("old_status", "new_status")
+    search_fields = ("trip__name", "changed_by__username", "reason")
+    readonly_fields = (
+        "trip",
+        "old_status",
+        "new_status",
+        "changed_by",
+        "reason",
+        "created_at",
+    )
 
 
 admin.site.register(CancellationPolicy, ConfigurationModelAdmin)

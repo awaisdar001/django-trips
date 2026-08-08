@@ -54,6 +54,29 @@ mount these views under a different namespace instead - e.g. re-exposing them un
 own project's URL scheme rather than including this app's urls.py directly - set
 `DJANGO_TRIPS_URL_NAMESPACE` in your settings to match.
 
+## Trip status events
+
+Every time a `Trip`'s `status` actually changes value on save (editing an existing trip,
+not creating one), the lib records a `TripStatusEvent` row and fires a `trip_status_changed`
+signal (`django_trips/signals.py`) carrying `trip`, `old_status`, `new_status`, `changed_by`,
+and `reason`. Use `Trip.set_status(new_status, changed_by=user, reason="payment confirmed")`
+to attribute a change to a specific staff user and/or a reason; a bare
+`trip.status = ...; trip.save()` still logs an event, just with `changed_by=None` (read as
+system/automatic) and an empty `reason`.
+
+`trip_status_changed` is a plain Django signal, so a consuming project can change this
+behaviour without forking the lib:
+```python
+from django_trips.signals import log_trip_status_event, trip_status_changed
+from django_trips.models import Trip
+
+# Replace the default DB logging entirely:
+trip_status_changed.disconnect(log_trip_status_event, sender=Trip)
+
+# Or just react to it in addition to the default logging, e.g. a notification:
+trip_status_changed.connect(notify_status_change, sender=Trip)
+```
+
 ## Pricing model
 
 Price lives in two places, and they compose rather than compete:
